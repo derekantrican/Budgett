@@ -1,0 +1,23 @@
+node_modules/
+database/*.db
+.env
+.env.*
+!.env.template
+client/build/
+server/build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.xlsx
+*.csv

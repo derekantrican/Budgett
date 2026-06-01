@@ -1,0 +1,60 @@
+const API_BASE = '/api';
+
+async function request(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    ...options,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Request failed');
+  }
+
+  return res.json();
+}
+
+// Transactions
+export const getTransactions = (startDate, endDate) =>
+  request(`/transactions?start_date=${startDate}&end_date=${endDate}`);
+export const searchTransactions = (query) =>
+  request(`/transactions/search?query=${encodeURIComponent(query)}`);
+export const createTransaction = (data) =>
+  request('/transactions', { method: 'POST', body: JSON.stringify(data) });
+export const updateTransaction = (id, data) =>
+  request(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const updateSplits = (txnId, splits) =>
+  request(`/transactions/${txnId}/splits`, { method: 'PUT', body: JSON.stringify({ splits }) });
+
+// Categories
+export const getCategories = () => request('/categories');
+export const createCategory = (data) =>
+  request('/categories', { method: 'POST', body: JSON.stringify(data) });
+export const updateCategoryApi = (id, data) =>
+  request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const toggleCategoryHidden = (id, isHidden) =>
+  request(`/categories/${id}/toggle-hidden`, { method: 'PATCH', body: JSON.stringify({ is_hidden: isHidden }) });
+
+// Items / Accounts
+export const getItems = () => request('/items');
+export const exchangeToken = (publicToken, institution) =>
+  request('/items', { method: 'POST', body: JSON.stringify({ public_token: publicToken, institution }) });
+export const getAccounts = () => request('/accounts');
+
+// Link
+export const getLinkToken = () => request('/link/token');
+
+// Rules
+export const getRules = () => request('/rules');
+export const createRule = (data) =>
+  request('/rules', { method: 'POST', body: JSON.stringify(data) });
+
+// Admin
+export const getLogs = (limit = 100) => request(`/admin/logs?limit=${limit}`);
+export const getWebhooks = (limit = 50) => request(`/admin/webhooks?limit=${limit}`);
+export const getIncompleteTransactions = () => request('/admin/incomplete-transactions');
+
+// Settings
+export const getSettings = () => request('/settings');
+export const updateSettings = (data) =>
+  request('/settings', { method: 'PUT', body: JSON.stringify(data) });
