@@ -49,6 +49,17 @@ function getDbSync() {
 
 async function initQueries() {
   _db = await getDb();
+  // Migrations
+  const migrations = [
+    'ALTER TABLE accounts ADD COLUMN hide_from_transactions INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE accounts ADD COLUMN display_name TEXT',
+    'ALTER TABLE items ADD COLUMN display_name TEXT',
+    'ALTER TABLE items ADD COLUMN display_icon_url TEXT',
+  ];
+  for (const sql of migrations) {
+    try { _db.run(sql); }
+    catch (e) { /* column already exists */ }
+  }
 }
 
 // --- Query functions ---
@@ -91,11 +102,13 @@ const getTransactionByPlaidId = (plaidTxnId) =>
 const getTransactionByPendingId = (pendingId) =>
   get('SELECT * FROM transactions WHERE pending_transaction_id = ?', [pendingId]);
 const getTransactionsByDateRange = (startDate, endDate) =>
-  all(`SELECT t.*, a.name as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
+  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
        FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
        LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
        LEFT JOIN categories c ON ts.category_id = c.id
-       WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0 ORDER BY t.date ASC`, [startDate, endDate]);
+       WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0
+       AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
+       ORDER BY t.date ASC`, [startDate, endDate]);
 const softRemoveTransaction = (plaidTxnId) => {
   run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
 };
@@ -103,7 +116,7 @@ const restoreTransaction = (plaidTxnId) => {
   run("UPDATE transactions SET is_removed = 0, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
 };
 const getIncompleteTransactions = () =>
-  all(`SELECT t.*, a.name as account_name,
+  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name,
        (SELECT ts2.category_id FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id LIMIT 1) as split_category_id,
        (SELECT c.name FROM transaction_splits ts2 JOIN categories c ON ts2.category_id = c.id WHERE ts2.transaction_id = t.id LIMIT 1) as category_name,
        CASE WHEN t.plaid_transaction_id IS NULL THEN 1 ELSE 0 END as missing_plaid_id,

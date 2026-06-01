@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Badge, Form, Row, Col } from 'react-bootstrap';
+import { Card, Button, Form, Modal } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
-import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings } from '../services/api';
+import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount } from '../services/api';
 
 function Settings() {
   const [items, setItems] = useState([]);
@@ -11,6 +11,10 @@ function Settings() {
   const [baseUrl, setBaseUrl] = useState('');
   const [plaidEnv, setPlaidEnv] = useState('sandbox');
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
+
+  // Edit institution modal
+  const [editItem, setEditItem] = useState(null);
+  const [editForm, setEditForm] = useState({});
 
   useEffect(() => {
     loadItems();
@@ -53,6 +57,40 @@ function Settings() {
     return '$' + Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const openEditItem = (item) => {
+    setEditItem(item);
+    setEditForm({
+      display_name: item.display_name || '',
+      display_icon_url: item.display_icon_url || '',
+      accounts: (item.accounts || []).map(a => ({
+        id: a.id,
+        name: a.name,
+        mask: a.mask,
+        display_name: a.display_name || '',
+        hide_from_transactions: !!a.hide_from_transactions,
+      })),
+    });
+  };
+
+  const handleEditSave = async () => {
+    await updateItem(editItem.id, {
+      display_name: editForm.display_name,
+      display_icon_url: editForm.display_icon_url,
+    });
+    for (const acct of editForm.accounts) {
+      await updateAccount(acct.id, {
+        display_name: acct.display_name,
+        hide_from_transactions: acct.hide_from_transactions,
+      });
+    }
+    setEditItem(null);
+    loadItems();
+  };
+
+  const getItemDisplayName = (item) => item.display_name || item.institution_name || 'Institution';
+
+  const getAccountDisplayName = (acct) => acct.display_name || acct.name;
+
   return (
     <div>
       <h4 className="mb-4">Accounts</h4>
@@ -60,27 +98,41 @@ function Settings() {
       {/* Linked Accounts */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 30 }}>
         {items.map((item) => (
-          <Card key={item.id} style={{ width: 320, background: '#212529', border: 'none', borderRadius: 10 }}>
+          <Card key={item.id} className="institution-card" style={{ width: 320, background: '#212529', border: 'none', borderRadius: 10 }}>
             <Card.Header
               style={{
                 background: item.institution_color || '#1a73e8',
                 borderRadius: '10px 10px 0 0',
                 display: 'flex',
                 alignItems: 'center',
-                cursor: item.online_banking_url ? 'pointer' : 'default',
                 minHeight: 60,
                 padding: '8px 12px',
+                position: 'relative',
               }}
-              onClick={() => item.online_banking_url && window.open(item.online_banking_url)}
             >
-              {item.institution_logo && (
+              {item.display_icon_url ? (
+                <img
+                  src={item.display_icon_url}
+                  alt=""
+                  style={{ width: 40, height: 40, marginRight: 10, borderRadius: 4, objectFit: 'contain' }}
+                />
+              ) : item.institution_logo ? (
                 <img
                   src={`data:image/png;base64,${item.institution_logo}`}
                   alt=""
                   style={{ width: 40, height: 40, marginRight: 10, borderRadius: 4 }}
                 />
-              )}
-              <h6 style={{ margin: 0, color: '#fff', fontWeight: 'bold' }}>{item.institution_name || 'Institution'}</h6>
+              ) : null}
+              <h6 style={{ margin: 0, color: '#fff', fontWeight: 'bold', flex: 1 }}>{getItemDisplayName(item)}</h6>
+              <button
+                className="institution-edit-btn"
+                onClick={() => openEditItem(item)}
+                title="Edit institution"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z"/>
+                </svg>
+              </button>
             </Card.Header>
             <Card.Body style={{ padding: 0 }}>
               {item.status !== 'ok' ? (
@@ -97,8 +149,11 @@ function Settings() {
                 <table style={{ width: '100%', fontSize: '0.9em' }}>
                   <tbody>
                     {(item.accounts || []).map((acct, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #3a3a4f' }}>
-                        <td style={{ padding: '10px 12px' }}>{acct.name}{acct.mask ? ` (*${acct.mask})` : ''}</td>
+                      <tr key={i} style={{ borderBottom: '1px solid #3a3a4f', opacity: acct.hide_from_transactions ? 0.5 : 1 }}>
+                        <td style={{ padding: '10px 12px' }}>
+                          {getAccountDisplayName(acct)}
+                          {acct.mask ? <span style={{ color: 'var(--text-secondary)' }}> (*{acct.mask})</span> : ''}
+                        </td>
                         <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                           {formatBalance(acct.current_balance)}
                         </td>
@@ -122,6 +177,77 @@ function Settings() {
           </Card.Body>
         </Card>
       </div>
+
+      {/* Edit Institution Modal */}
+      <Modal show={!!editItem} onHide={() => setEditItem(null)} data-bs-theme="dark">
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Institution</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {editItem && (
+            <>
+              <Form.Group className="mb-3">
+                <Form.Label>Display Name</Form.Label>
+                <Form.Control
+                  value={editForm.display_name}
+                  onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+                  placeholder={editItem.institution_name || 'Institution name'}
+                />
+                <Form.Text style={{ color: 'var(--text-secondary)' }}>
+                  Leave blank to use "{editItem.institution_name}"
+                </Form.Text>
+              </Form.Group>
+              <Form.Group className="mb-4">
+                <Form.Label>Icon URL</Form.Label>
+                <Form.Control
+                  value={editForm.display_icon_url}
+                  onChange={(e) => setEditForm({ ...editForm, display_icon_url: e.target.value })}
+                  placeholder="https://example.com/icon.png"
+                />
+                <Form.Text style={{ color: 'var(--text-secondary)' }}>
+                  Leave blank to use Plaid's logo
+                </Form.Text>
+              </Form.Group>
+              <hr style={{ borderColor: '#3a3a4f' }} />
+              <h6 className="mb-3">Accounts</h6>
+              {editForm.accounts.map((acct, idx) => (
+                <div key={acct.id} style={{ background: 'var(--bg-tertiary)', padding: 12, borderRadius: 8, marginBottom: 10 }}>
+                  <div style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    {acct.name}{acct.mask ? ` (*${acct.mask})` : ''}
+                  </div>
+                  <Form.Group className="mb-2">
+                    <Form.Control
+                      size="sm"
+                      value={acct.display_name}
+                      onChange={(e) => {
+                        const accts = [...editForm.accounts];
+                        accts[idx] = { ...accts[idx], display_name: e.target.value };
+                        setEditForm({ ...editForm, accounts: accts });
+                      }}
+                      placeholder="Override display name"
+                    />
+                  </Form.Group>
+                  <Form.Check
+                    type="switch"
+                    id={`hide-${acct.id}`}
+                    label="Hide transactions"
+                    checked={acct.hide_from_transactions}
+                    onChange={(e) => {
+                      const accts = [...editForm.accounts];
+                      accts[idx] = { ...accts[idx], hide_from_transactions: e.target.checked };
+                      setEditForm({ ...editForm, accounts: accts });
+                    }}
+                  />
+                </div>
+              ))}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setEditItem(null)}>Cancel</Button>
+          <Button variant="primary" onClick={handleEditSave}>Save</Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* App Settings */}
       <h4 className="mb-3">Settings</h4>

@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { createItem, createAccount, getItemsByUser, getAccountsByItem } = require('../db/queries');
+const { createItem, createAccount, getAccountsByItem, run } = require('../db/queries');
 const { plaidClient } = require('./link');
 const { syncTransactions } = require('../webhookHandlers/transactionSync');
 
@@ -11,6 +11,26 @@ router.get('/', (req, res) => {
     item.accounts = getAccountsByItem(item.id);
   }
   res.json(items);
+});
+
+// PATCH /api/items/:id
+router.patch('/:id', (req, res) => {
+  const { id } = req.params;
+  const { display_name, display_icon_url } = req.body;
+  const updates = [];
+  const params = [];
+  if (display_name !== undefined) {
+    updates.push('display_name = ?'); params.push(display_name || null); 
+  }
+  if (display_icon_url !== undefined) {
+    updates.push('display_icon_url = ?'); params.push(display_icon_url || null); 
+  }
+  if (updates.length > 0) {
+    updates.push("updated_at = datetime('now')");
+    params.push(id);
+    run(`UPDATE items SET ${updates.join(', ')} WHERE id = ?`, params);
+  }
+  res.json({ success: true });
 });
 
 // POST /api/items (exchange public token after Link flow)

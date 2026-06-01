@@ -44,11 +44,12 @@ router.get('/search', (req, res) => {
 
   const { all } = require('../db/queries');
   const rows = all(
-    `SELECT t.*, a.name as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
+    `SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
      FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
      LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
      LEFT JOIN categories c ON ts.category_id = c.id
      WHERE t.is_removed = 0
+     AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
      AND (t.merchant LIKE ? OR EXISTS (
        SELECT 1 FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id AND ts2.notes LIKE ?
      ))

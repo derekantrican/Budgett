@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS items (
   institution_id TEXT,
   institution_color TEXT,
   institution_logo TEXT,
+  display_name TEXT,
+  display_icon_url TEXT,
   online_banking_url TEXT,
   transaction_cursor TEXT,
   status TEXT NOT NULL DEFAULT 'ok', -- ok, login_required, error
@@ -25,12 +27,14 @@ CREATE TABLE IF NOT EXISTS accounts (
   plaid_account_id TEXT NOT NULL,
   name TEXT NOT NULL,
   official_name TEXT,
+  display_name TEXT,
   type TEXT, -- checking, savings, credit, etc.
   subtype TEXT,
   mask TEXT, -- last 4 digits
   current_balance REAL,
   available_balance REAL,
   online_banking_url TEXT,
+  hide_from_transactions INTEGER NOT NULL DEFAULT 0,
   is_deleted INTEGER NOT NULL DEFAULT 0, -- soft delete for historical display
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
