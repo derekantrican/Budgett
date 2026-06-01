@@ -104,6 +104,61 @@ router.post('/', (req, res) => {
   res.status(201).json({ id: txnId });
 });
 
+// PUT /api/transactions/merge-and-link-plaid
+// Merges multiple sibling transactions into one, preserving splits, and links a Plaid ID
+router.put('/merge-and-link-plaid', (req, res) => {
+  const { transaction_ids, plaid_transaction_id } = req.body;
+  if (!transaction_ids || transaction_ids.length < 2 || !plaid_transaction_id) {
+    return res.status(400).json({ error: 'transaction_ids (array, >=2) and plaid_transaction_id required' });
+  }
+
+  const { run, get: getOne, all: allFn } = require('../db/queries');
+
+  // Use the first transaction as the primary
+  const primaryId = transaction_ids[0];
+  const otherIds = transaction_ids.slice(1);
+
+  // Calculate total amount
+  const txns = transaction_ids.map(tid => getOne('SELECT * FROM transactions WHERE id = ?', [tid])).filter(Boolean);
+  const totalAmount = txns.reduce((sum, t) => sum + t.amount, 0);
+
+  // Move splits from other transactions to the primary
+  for (const otherId of otherIds) {
+    const splits = allFn('SELECT * FROM transaction_splits WHERE transaction_id = ?', [otherId]);
+    if (splits.length > 0) {
+      for (const s of splits) {
+        run('UPDATE transaction_splits SET transaction_id = ? WHERE id = ?', [primaryId, s.id]);
+      }
+    }
+    else {
+      // If the other transaction has no split row, create one from its amount/notes
+      const otherTxn = getOne('SELECT * FROM transactions WHERE id = ?', [otherId]);
+      if (otherTxn) {
+        createSplit(primaryId, null, otherTxn.amount, otherTxn.notes);
+      }
+    }
+    // Soft-delete the merged transaction
+    run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE id = ?", [otherId]);
+  }
+
+  // If the primary also has no splits, create one from its original amount/notes
+  const primarySplits = allFn('SELECT * FROM transaction_splits WHERE transaction_id = ?', [primaryId]);
+  if (primarySplits.length === 0) {
+    const primary = getOne('SELECT * FROM transactions WHERE id = ?', [primaryId]);
+    if (primary) {
+      createSplit(primaryId, null, primary.amount, primary.notes);
+    }
+  }
+
+  // Update primary with total amount and plaid ID
+  run(
+    "UPDATE transactions SET amount = ?, plaid_transaction_id = ?, updated_at = datetime('now') WHERE id = ?",
+    [totalAmount, plaid_transaction_id, primaryId]
+  );
+
+  res.json({ success: true, primary_id: primaryId });
+});
+
 // PUT /api/transactions/:id/splits
 router.put('/:id/splits', (req, res) => {
   const { id } = req.params;
@@ -162,6 +217,137 @@ router.put('/:id', (req, res) => {
     }
   }
 
+  res.json({ success: true });
+});
+
+// GET /api/transactions/:id/plaid-candidates
+// Query Plaid API for transactions near the date of an incomplete transaction
+router.get('/:id/plaid-candidates', async (req, res) => {
+  const { id } = req.params;
+  const { amount_override, start_date, end_date } = req.query;
+  const { get: getOne, all: allFn } = require('../db/queries');
+
+  const txn = getOne('SELECT t.*, a.plaid_account_id, a.item_id FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id WHERE t.id = ?', [id]);
+  if (!txn) {
+    return res.status(404).json({ error: 'Transaction not found' });
+  }
+  if (!txn.plaid_account_id) {
+    return res.status(400).json({ error: 'Transaction has no linked account with a Plaid account ID' });
+  }
+
+  // Get the item's access token
+  const item = getOne('SELECT plaid_access_token FROM items WHERE id = ?', [txn.item_id]);
+  if (!item) {
+    return res.status(400).json({ error: 'No Plaid item found for this account' });
+  }
+
+  // Use provided date range or default +-7 day window
+  const fmtDate = (d) => d.toISOString().split('T')[0];
+  let startDateStr, endDateStr;
+  if (start_date && end_date) {
+    startDateStr = start_date;
+    endDateStr = end_date;
+  }
+  else {
+    const date = new Date(txn.date + 'T12:00:00');
+    const sd = new Date(date); sd.setDate(date.getDate() - 7);
+    const ed = new Date(date); ed.setDate(date.getDate() + 7);
+    startDateStr = fmtDate(sd);
+    endDateStr = fmtDate(ed);
+  }
+
+  try {
+    const { plaidClient } = require('./link');
+    const response = await plaidClient.transactionsGet({
+      access_token: item.plaid_access_token,
+      start_date: startDateStr,
+      end_date: endDateStr,
+      options: {
+        account_ids: [txn.plaid_account_id],
+        count: 100,
+      },
+    });
+
+    const plaidTxns = response.data.transactions;
+
+    // Check which plaid IDs are already claimed in our DB
+    const claimedIds = new Set(
+      allFn('SELECT plaid_transaction_id FROM transactions WHERE plaid_transaction_id IS NOT NULL')
+        .map(r => r.plaid_transaction_id)
+    );
+
+    // Score candidates
+    const matchAmount = amount_override !== undefined ? parseFloat(amount_override) : txn.amount;
+    const txnDate = new Date(txn.date + 'T12:00:00');
+    const candidates = plaidTxns.map(pt => {
+      let score = 0;
+      // Amount match (Plaid uses positive for debits, we use negative)
+      if (Math.abs((-pt.amount) - matchAmount) < 0.01) 
+        score += 100;
+      else if (Math.abs((-pt.amount) - matchAmount) < 1.00) 
+        score += 50;
+      // Date match
+      if (pt.date === txn.date) 
+        score += 30;
+      else {
+        const dayDiff = Math.abs((new Date(pt.date) - txnDate) / 86400000);
+        if (dayDiff <= 1) 
+          score += 20;
+        else if (dayDiff <= 3) 
+          score += 10;
+      }
+      // Fuzzy merchant match
+      if (txn.merchant && pt.name) {
+        const a = txn.merchant.toLowerCase();
+        const b = pt.name.toLowerCase();
+        if (a === b) 
+          score += 40;
+        else if (b.includes(a) || a.includes(b)) 
+          score += 25;
+        else {
+          const words = a.split(/\s+/);
+          const matchedWords = words.filter(w => b.includes(w));
+          if (matchedWords.length > 0) 
+            score += Math.min(15, matchedWords.length * 5);
+        }
+      }
+
+      return {
+        plaid_transaction_id: pt.transaction_id,
+        name: pt.name,
+        merchant_name: pt.merchant_name,
+        amount: -pt.amount,
+        date: pt.date,
+        category: pt.personal_finance_category?.primary || null,
+        is_claimed: claimedIds.has(pt.transaction_id),
+        score,
+      };
+    });
+
+    // Sort by score descending, unclaimed first
+    candidates.sort((a, b) => {
+      if (a.is_claimed !== b.is_claimed) 
+        return a.is_claimed ? 1 : -1;
+      return b.score - a.score;
+    });
+
+    res.json({ transaction: { id: txn.id, date: txn.date, merchant: txn.merchant, amount: matchAmount }, candidates });
+  }
+  catch (err) {
+    console.error('Plaid candidates error:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Failed to fetch Plaid transactions' });
+  }
+});
+
+// PUT /api/transactions/:id/link-plaid
+router.put('/:id/link-plaid', (req, res) => {
+  const { id } = req.params;
+  const { plaid_transaction_id } = req.body;
+  if (!plaid_transaction_id) {
+    return res.status(400).json({ error: 'plaid_transaction_id required' });
+  }
+  const { run } = require('../db/queries');
+  run("UPDATE transactions SET plaid_transaction_id = ?, updated_at = datetime('now') WHERE id = ?", [plaid_transaction_id, id]);
   res.json({ success: true });
 });
 

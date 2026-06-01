@@ -103,12 +103,14 @@ const restoreTransaction = (plaidTxnId) => {
   run("UPDATE transactions SET is_removed = 0, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
 };
 const getIncompleteTransactions = () =>
-  all(`SELECT t.*, 
+  all(`SELECT t.*, a.name as account_name,
+       (SELECT ts2.category_id FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id LIMIT 1) as split_category_id,
+       (SELECT c.name FROM transaction_splits ts2 JOIN categories c ON ts2.category_id = c.id WHERE ts2.transaction_id = t.id LIMIT 1) as category_name,
        CASE WHEN t.plaid_transaction_id IS NULL THEN 1 ELSE 0 END as missing_plaid_id,
        CASE WHEN t.merchant IS NULL OR t.merchant = '' THEN 1 ELSE 0 END as missing_merchant,
        CASE WHEN t.account_id IS NULL THEN 1 ELSE 0 END as missing_account,
        CASE WHEN NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id) THEN 1 ELSE 0 END as missing_category
-     FROM transactions t
+     FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
      WHERE t.is_removed = 0 AND (
        t.plaid_transaction_id IS NULL
        OR t.merchant IS NULL OR t.merchant = ''
