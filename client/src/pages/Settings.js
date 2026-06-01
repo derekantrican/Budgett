@@ -32,8 +32,12 @@ function Settings() {
   };
 
   const handleGetLinkToken = async () => {
-    const { link_token } = await getLinkToken();
-    setLinkToken(link_token);
+    try {
+      const { link_token } = await getLinkToken();
+      setLinkToken(link_token);
+    } catch (err) {
+      alert('Failed to create link token. Make sure PLAID credentials and WEBHOOK_URL are configured in .env.');
+    }
   };
 
   const onSuccess = useCallback(async (publicToken, metadata) => {
