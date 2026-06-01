@@ -317,3 +317,28 @@ th {
   text-align: center;
 }
 
+/* Categories page responsive */
+@media (max-width: 600px) {
+  th.fit-width, td.fit-width {
+    font-size: 0.8em;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  th, td {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  .categories-layout {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .categories-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto;
+  }
+  .categories-table table {
+    font-size: 0.85em;
+  }
+}
+

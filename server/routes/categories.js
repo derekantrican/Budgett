@@ -15,9 +15,12 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'name required' });
   }
 
+  // Assign a random vibrant color if none provided
+  const finalColor = color || randomVibrantColor();
+
   const result = createCategory(
     name,
-    color || null,
+    finalColor,
     budgeted_amount_expression || null,
     reset_on_new_month !== undefined ? (reset_on_new_month ? 1 : 0) : 1,
     sort_order || 0
@@ -25,6 +28,16 @@ router.post('/', (req, res) => {
 
   res.status(201).json({ id: result.lastInsertRowid });
 });
+
+function randomVibrantColor() {
+  const palette = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+    '#F1948A', '#82E0AA', '#F8C471', '#AED6F1', '#D2B4DE',
+    '#A3E4D7', '#FAD7A0', '#D5DBDB', '#F9E79F', '#A9CCE3',
+  ];
+  return palette[Math.floor(Math.random() * palette.length)];
+}
 
 // PUT /api/categories/:id
 router.put('/:id', (req, res) => {

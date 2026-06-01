@@ -2,35 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal, Spinner, Badge } from 'react-bootstrap';
 import { PieChart, Pie, Cell } from 'recharts';
 import { getCategories, getTransactions, createCategory, updateCategoryApi, toggleCategoryHidden } from '../services/api';
+import { evaluateBudgetExpression, randomVibrantColor } from '../helpers/budgetFormula';
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function Categories() {
   const [categories, setCategories] = useState(null);
   const [transactions, setTransactions] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
-  const [form, setForm] = useState({ name: '', color: '#4e89ff', budgeted_amount_expression: '' });
+  const [form, setForm] = useState({ name: '', color: '', budgeted_amount_expression: '' });
 
   // Edit modal state
   const [editCat, setEditCat] = useState(null);
   const [editForm, setEditForm] = useState({ color: '', budgeted_amount_expression: '', is_hidden: false });
 
+  // Period selector
+  const now = new Date();
+  const [viewYear, setViewYear] = useState(now.getFullYear());
+  const [viewMonth, setViewMonth] = useState(now.getMonth()); // 0-indexed
+  const [viewMode, setViewMode] = useState('month'); // 'month' or 'year'
+  const [hoveredSlice, setHoveredSlice] = useState(null);
+
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewYear, viewMonth, viewMode]);
 
   const loadData = async () => {
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    let startDate, endDate;
+    if (viewMode === 'month') {
+      startDate = new Date(viewYear, viewMonth, 1).toISOString().split('T')[0];
+      endDate = new Date(viewYear, viewMonth + 1, 0).toISOString().split('T')[0];
+    }
+    else {
+      startDate = `${viewYear}-01-01`;
+      endDate = `${viewYear}-12-31`;
+    }
     const [cats, txns] = await Promise.all([getCategories(), getTransactions(startDate, endDate)]);
     setCategories(cats);
     setTransactions(txns);
   };
 
   const handleSave = async () => {
-    await createCategory(form);
+    const color = form.color || randomVibrantColor();
+    await createCategory({ ...form, color });
     setShowModal(false);
-    setForm({ name: '', color: '#4e89ff', budgeted_amount_expression: '' });
+    setForm({ name: '', color: '', budgeted_amount_expression: '' });
     loadData();
   };
 
@@ -57,6 +75,30 @@ function Categories() {
     loadData();
   };
 
+  const prevPeriod = () => {
+    if (viewMode === 'month') {
+      if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
+      else setViewMonth(viewMonth - 1);
+    }
+    else {
+      setViewYear(viewYear - 1);
+    }
+  };
+
+  const nextPeriod = () => {
+    if (viewMode === 'month') {
+      if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
+      else setViewMonth(viewMonth + 1);
+    }
+    else {
+      setViewYear(viewYear + 1);
+    }
+  };
+
+  const periodLabel = viewMode === 'month'
+    ? `${MONTHS[viewMonth]} ${viewYear}`
+    : `${viewYear}`;
+
   if (!categories || !transactions) {
     return (
       <div className="loading-container">
@@ -64,6 +106,20 @@ function Categories() {
       </div>
     );
   }
+
+  // Evaluate budgets for the current period
+  const evaluateBudget = (cat) => {
+    if (!cat.budgeted_amount_expression) return 0;
+    if (viewMode === 'year') {
+      // Sum across all 12 months
+      let total = 0;
+      for (let m = 0; m < 12; m++) {
+        total += evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, m);
+      }
+      return total;
+    }
+    return evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, viewMonth);
+  };
 
   // Calculate spending per category (only visible ones for chart)
   const visibleCategories = categories.filter(c => !c.is_hidden);
@@ -76,7 +132,7 @@ function Categories() {
         const catSplits = t.splits.filter(s => s.category_id === cat.id);
         return sum + catSplits.reduce((s, split) => s + Math.abs(split.amount), 0);
       }, 0);
-    return { ...cat, spent };
+    return { ...cat, spent, budgeted: evaluateBudget(cat) };
   });
 
   const uncategorizedSpent = transactions
@@ -95,43 +151,119 @@ function Categories() {
         <Button variant="primary" onClick={() => setShowModal(true)}>+ Add Category</Button>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {/* Period Selector */}
+      <div className="d-flex align-items-center gap-2 mb-3" style={{ flexWrap: 'wrap' }}>
+        <Button size="sm" variant="outline-light" onClick={prevPeriod}>◀</Button>
+        <span style={{ fontWeight: 'bold', fontSize: '1.1em', minWidth: 140, textAlign: 'center' }}>{periodLabel}</span>
+        <Button size="sm" variant="outline-light" onClick={nextPeriod}>▶</Button>
+        <Button
+          size="sm"
+          variant={viewMode === 'month' ? 'primary' : 'outline-secondary'}
+          onClick={() => setViewMode('month')}
+        >
+          Month
+        </Button>
+        <Button
+          size="sm"
+          variant={viewMode === 'year' ? 'primary' : 'outline-secondary'}
+          onClick={() => setViewMode('year')}
+        >
+          Year
+        </Button>
+      </div>
+
+      <div className="categories-layout" style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         {/* Pie Chart */}
         {pieData.length > 0 && (
-          <div>
-            <PieChart width={320} height={320}>
-              <Pie data={pieData} cx="50%" cy="50%" outerRadius={130} innerRadius={65} dataKey="value" isAnimationActive={false}>
-                {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+          <div style={{ position: 'relative' }}>
+            <PieChart width={window.innerWidth > 600 ? 700 : 320} height={window.innerWidth > 600 ? 700 : 320}>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                outerRadius={window.innerWidth > 600 ? 190 : 130}
+                innerRadius={window.innerWidth > 600 ? 95 : 65}
+                dataKey="value"
+                isAnimationActive={false}
+                onMouseLeave={() => setHoveredSlice(null)}
+                label={window.innerWidth > 600 ? ({ cx, cy, midAngle, outerRadius: or, name, percent }) => {
+                  const RADIAN = Math.PI / 180;
+                  const sin = Math.sin(-midAngle * RADIAN);
+                  const cos = Math.cos(-midAngle * RADIAN);
+                  const mx = cx + (or + 14) * cos;
+                  const my = cy + (or + 14) * sin;
+                  const ex = cx + (or + 55) * cos;
+                  const ey = cy + (or + 55) * sin;
+                  const tx = cx + (or + 60) * cos;
+                  const textAnchor = cos >= 0 ? 'start' : 'end';
+                  if (percent < 0.015) return null;
+                  return (
+                    <g>
+                      <line x1={mx} y1={my} x2={ex} y2={ey} stroke="#aaa" strokeWidth={1} />
+                      <text x={tx + (cos >= 0 ? 4 : -4)} y={ey} textAnchor={textAnchor} fill="#ccc" fontSize={12} dominantBaseline="central">
+                        {name}
+                      </text>
+                      <text x={tx + (cos >= 0 ? 4 : -4)} y={ey + 14} textAnchor={textAnchor} fill="#999" fontSize={11} dominantBaseline="central">
+                        {(percent * 100).toFixed(1)}%
+                      </text>
+                    </g>
+                  );
+                } : false}
+                labelLine={false}
+              >
+                {pieData.map((entry, i) => (
+                  <Cell
+                    key={i}
+                    fill={entry.color}
+                    onMouseEnter={() => setHoveredSlice(entry)}
+                  />
+                ))}
               </Pie>
             </PieChart>
+            {/* Center label */}
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              textAlign: 'center',
+              pointerEvents: 'none',
+              width: 160
+            }}>
+              {hoveredSlice ? (
+                <>
+                  <div style={{ fontWeight: 'bold', fontSize: '1em', color: hoveredSlice.color }}>{hoveredSlice.name}</div>
+                  <div style={{ fontSize: '1.2em', color: '#fff' }}>${hoveredSlice.value.toFixed(2)}</div>
+                </>
+              ) : null}
+            </div>
           </div>
         )}
 
         {/* Table */}
-        <div style={{ maxWidth: 900 }}>
+        <div className="categories-table" style={{ maxWidth: 900 }}>
           <Table striped hover responsive variant="dark">
             <thead>
               <tr>
                 <th style={{ textAlign: 'left' }}>Name</th>
-                <th className="fit-width">Budgeted&nbsp;Amount</th>
-                <th className="fit-width">Spent&nbsp;Amount</th>
+                <th className="fit-width">Budgeted</th>
+                <th className="fit-width">Spent</th>
                 <th className="fit-width">Surplus/Deficit</th>
               </tr>
             </thead>
             <tbody>
               {catData.filter(c => c.include_in_summary !== 0).map(cat => {
-                const budgeted = parseFloat(cat.budgeted_amount_expression) || 0;
-                const diff = Math.abs(budgeted) - cat.spent;
+                const diff = Math.abs(cat.budgeted) - cat.spent;
                 return (
                   <tr key={cat.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(cat)}>
                     <td style={{ textAlign: 'left' }}>
                       <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, backgroundColor: cat.color || '#4e89ff', marginRight: 8 }}></span>
                       {cat.name}
                     </td>
-                    <td className="fit-width">{budgeted ? `${budgeted < 0 ? '-' : ''}$${Math.abs(budgeted).toFixed(2)}` : '—'}</td>
+                    <td className="fit-width">{cat.budgeted ? `${cat.budgeted < 0 ? '-' : ''}$${Math.abs(cat.budgeted).toFixed(2)}` : '—'}</td>
                     <td className="fit-width">${cat.spent.toFixed(2)}</td>
                     <td className="fit-width" style={{ color: diff >= 0 ? '#4fa94d' : '#dc3545' }}>
-                      {budgeted !== 0 ? `${diff < 0 ? '-' : ''}$${Math.abs(diff).toFixed(2)}` : '—'}
+                      {cat.budgeted !== 0 ? `${diff < 0 ? '-' : ''}$${Math.abs(diff).toFixed(2)}` : '—'}
                     </td>
                   </tr>
                 );
@@ -189,11 +321,15 @@ function Categories() {
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Color</Form.Label>
-            <Form.Control type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            <Form.Control type="color" value={form.color || '#4e89ff'} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            <Form.Text style={{ color: 'var(--text-secondary)' }}>Leave default for a random color</Form.Text>
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Budget Expression</Form.Label>
-            <Form.Control value={form.budgeted_amount_expression} onChange={(e) => setForm({ ...form, budgeted_amount_expression: e.target.value })} placeholder="e.g. 500 or 125 * sundays" />
+            <Form.Control value={form.budgeted_amount_expression} onChange={(e) => setForm({ ...form, budgeted_amount_expression: e.target.value })} placeholder="e.g. 500 or 150 * sundays" />
+            <Form.Text style={{ color: 'var(--text-secondary)' }}>
+              Variables: sundays, mondays, ..., saturdays, days, weeks
+            </Form.Text>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
@@ -208,24 +344,34 @@ function Categories() {
           <Modal.Title>Edit: {editCat?.name}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>Color</Form.Label>
-            <Form.Control type="color" value={editForm.color} onChange={(e) => setEditForm({ ...editForm, color: e.target.value })} />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Budgeted Amount</Form.Label>
-            <Form.Control
-              value={editForm.budgeted_amount_expression}
-              onChange={(e) => setEditForm({ ...editForm, budgeted_amount_expression: e.target.value })}
-              placeholder="e.g. 500 or 125 * sundays"
-            />
-          </Form.Group>
-          <Form.Check
-            type="checkbox"
-            label="Hidden"
-            checked={editForm.is_hidden}
-            onChange={(e) => setEditForm({ ...editForm, is_hidden: e.target.checked })}
-          />
+          {editCat && (
+            <>
+              <Form.Group className="mb-3">
+                <Form.Label>Color</Form.Label>
+                <Form.Control type="color" value={editForm.color} onChange={(e) => setEditForm({ ...editForm, color: e.target.value })} />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Budget Expression</Form.Label>
+                <Form.Control
+                  value={editForm.budgeted_amount_expression}
+                  onChange={(e) => setEditForm({ ...editForm, budgeted_amount_expression: e.target.value })}
+                  placeholder="e.g. 500 or 150 * sundays"
+                />
+                <Form.Text style={{ color: 'var(--text-secondary)' }}>
+                  Variables: sundays, mondays, ..., saturdays, days, weeks
+                  {editForm.budgeted_amount_expression && (
+                    <span> — evaluates to <strong>${evaluateBudgetExpression(editForm.budgeted_amount_expression, viewYear, viewMonth).toFixed(2)}</strong> for {MONTHS[viewMonth]}</span>
+                  )}
+                </Form.Text>
+              </Form.Group>
+              <Form.Check
+                type="checkbox"
+                label="Hidden"
+                checked={editForm.is_hidden}
+                onChange={(e) => setEditForm({ ...editForm, is_hidden: e.target.checked })}
+              />
+            </>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setEditCat(null)}>Cancel</Button>

@@ -60,6 +60,21 @@ async function initQueries() {
     try { _db.run(sql); }
     catch (e) { /* column already exists */ }
   }
+
+  // Assign random colors to categories that don't have one
+  const palette = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+    '#F1948A', '#82E0AA', '#F8C471', '#AED6F1', '#D2B4DE',
+    '#A3E4D7', '#FAD7A0', '#D5DBDB', '#F9E79F', '#A9CCE3',
+  ];
+  const noColor = _db.exec("SELECT id FROM categories WHERE color IS NULL OR color = ''");
+  if (noColor.length > 0) {
+    for (const row of noColor[0].values) {
+      const color = palette[Math.floor(Math.random() * palette.length)];
+      _db.run('UPDATE categories SET color = ? WHERE id = ?', [color, row[0]]);
+    }
+  }
 }
 
 // --- Query functions ---
