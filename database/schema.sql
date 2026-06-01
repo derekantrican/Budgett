@@ -132,11 +132,13 @@ CREATE TABLE IF NOT EXISTS logs (
   detail TEXT
 );
 
--- Webhook Payloads (raw Plaid webhook storage)
+-- Webhook Payloads (incoming from Plaid + outgoing notifications)
 CREATE TABLE IF NOT EXISTS webhook_payloads (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  direction TEXT NOT NULL DEFAULT 'incoming', -- 'incoming' or 'outgoing'
   type TEXT NOT NULL,
+  destination TEXT, -- URL for outgoing, null for incoming
   raw_json TEXT NOT NULL
 );
 

@@ -76,6 +76,8 @@ const getAccountsByItem = (itemId) =>
   all('SELECT * FROM accounts WHERE item_id = ? AND is_deleted = 0', [itemId]);
 const getAllAccounts = () =>
   all('SELECT * FROM accounts WHERE is_deleted = 0');
+const getAccountByPlaidId = (plaidAccountId) =>
+  get('SELECT * FROM accounts WHERE plaid_account_id = ?', [plaidAccountId]);
 const updateAccountBalance = (currentBal, availBal, id) => {
   run("UPDATE accounts SET current_balance = ?, available_balance = ?, updated_at = datetime('now') WHERE id = ?", [currentBal, availBal, id]);
 };
@@ -164,10 +166,12 @@ const getRecentLogs = (limit) =>
   all('SELECT * FROM logs ORDER BY timestamp DESC LIMIT ?', [limit]);
 
 // Webhook Payloads
-const createWebhookPayload = (type, rawJson) =>
-  run('INSERT INTO webhook_payloads (type, raw_json) VALUES (?, ?)', [type, rawJson]);
-const getWebhookPayloads = (limit) =>
-  all('SELECT * FROM webhook_payloads ORDER BY timestamp DESC LIMIT ?', [limit]);
+const createWebhookPayload = (type, rawJson, direction = 'incoming', destination = null) =>
+  run('INSERT INTO webhook_payloads (type, raw_json, direction, destination) VALUES (?, ?, ?, ?)', [type, rawJson, direction, destination]);
+const getWebhookPayloads = (limit, direction = null) =>
+  direction
+    ? all('SELECT * FROM webhook_payloads WHERE direction = ? ORDER BY timestamp DESC LIMIT ?', [direction, limit])
+    : all('SELECT * FROM webhook_payloads ORDER BY timestamp DESC LIMIT ?', [limit]);
 
 // Notification Endpoints
 const getAllEndpoints = () =>
@@ -197,7 +201,7 @@ module.exports = {
   // Items
   createItem, getAllItems, getItemByPlaidId, updateItemCursor, updateItemStatus,
   // Accounts
-  createAccount, getAccountsByItem, getAllAccounts, updateAccountBalance,
+  createAccount, getAccountsByItem, getAllAccounts, getAccountByPlaidId, updateAccountBalance,
   // Transactions
   createTransaction, getTransactionByPlaidId, getTransactionByPendingId,
   getTransactionsByDateRange, softRemoveTransaction, restoreTransaction,

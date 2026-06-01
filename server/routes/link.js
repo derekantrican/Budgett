@@ -19,13 +19,17 @@ const plaidClient = new PlaidApi(plaidConfig);
 // GET /api/link/token
 router.get('/token', async (req, res) => {
   try {
+    const { getSetting } = require('../db/queries');
+    const baseUrl = getSetting('base_url') || process.env.WEBHOOK_URL;
+    const webhookUrl = baseUrl ? `${baseUrl}/api/webhook` : undefined;
+
     const response = await plaidClient.linkTokenCreate({
       user: { client_user_id: String(req.session.userId) },
       client_name: 'Budgett',
       products: ['transactions'],
       country_codes: ['US'],
       language: 'en',
-      webhook: process.env.WEBHOOK_URL ? `${process.env.WEBHOOK_URL}/api/webhook` : undefined,
+      webhook: webhookUrl,
     });
 
     res.json({ link_token: response.data.link_token });

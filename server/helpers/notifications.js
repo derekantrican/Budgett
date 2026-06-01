@@ -1,4 +1,4 @@
-const { getAllEndpoints } = require('../db/queries');
+const { getAllEndpoints, createWebhookPayload } = require('../db/queries');
 
 async function sendNotifications(eventType, variables) {
   const allEndpoints = getAllEndpoints();
@@ -17,9 +17,12 @@ async function sendNotifications(eventType, variables) {
         headers: { 'Content-Type': 'application/json' },
         body,
       });
+
+      createWebhookPayload(eventType, body, 'outgoing', endpoint.url);
     }
     catch (err) {
       console.error(`Notification failed for endpoint ${endpoint.name}:`, err.message);
+      createWebhookPayload(`${eventType}.FAILED`, JSON.stringify({ error: err.message, endpoint: endpoint.name }), 'outgoing', endpoint.url);
     }
   }
 }

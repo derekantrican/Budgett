@@ -8,6 +8,7 @@ function Settings() {
   const [items, setItems] = useState([]);
   const [linkToken, setLinkToken] = useState(null);
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
   const [plaidEnv, setPlaidEnv] = useState('sandbox');
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
 
@@ -16,6 +17,7 @@ function Settings() {
     getSettings().then(s => {
       if (s.date_format) setDateFormat(s.date_format);
       if (s.webhook_url) setWebhookUrl(s.webhook_url);
+      if (s.base_url) setBaseUrl(s.base_url);
       if (s.plaid_env) setPlaidEnv(s.plaid_env);
     });
   }, []);
@@ -140,7 +142,17 @@ function Settings() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'max-content auto', alignItems: 'center', gap: 10 }}>
-          <div className="settings-label">Webhook URL:</div>
+          <div className="settings-label">Base URL:</div>
+          <input
+            className="settings-input"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://your-domain.com"
+          />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'max-content auto', alignItems: 'center', gap: 10 }}>
+          <div className="settings-label">Notification Webhook URL:</div>
           <input
             className="settings-input"
             value={webhookUrl}
@@ -165,7 +177,7 @@ function Settings() {
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="settings-button" onClick={() => updateSettings({ date_format: dateFormat, webhook_url: webhookUrl, plaid_env: plaidEnv })}>Save</button>
+          <button className="settings-button" onClick={() => updateSettings({ date_format: dateFormat, webhook_url: webhookUrl, base_url: baseUrl, plaid_env: plaidEnv })}>Save</button>
           <button className="settings-button" style={{ background: 'var(--bg-tertiary)' }}>Revert</button>
         </div>
       </div>

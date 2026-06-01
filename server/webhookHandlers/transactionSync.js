@@ -2,7 +2,7 @@ const { plaidClient } = require('../routes/link');
 const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByPlaidId,
   getTransactionByPendingId, softRemoveTransaction, restoreTransaction,
   createLog, createSplit, getAllRules, updateTransactionFromPending,
-  updateTransactionPlaidData } = require('../db/queries');
+  updateTransactionPlaidData, getAccountByPlaidId } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications } = require('../helpers/notifications');
 
@@ -78,11 +78,15 @@ async function processAddedTransaction(txn, io) {
     return;
   }
 
+  // Resolve account
+  const account = getAccountByPlaidId(txn.account_id);
+  const accountId = account ? account.id : null;
+
   // Insert new transaction
   const result = createTransaction(
     txn.transaction_id,
     txn.pending_transaction_id || null,
-    null, // account_id resolved later
+    accountId,
     txn.date,
     txn.name || txn.merchant_name,
     -txn.amount, // Invert: Plaid positive = expense, we use negative = expense
