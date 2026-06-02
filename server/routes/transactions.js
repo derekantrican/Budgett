@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getTransactionsByDateRange, createTransaction,
+const { getTransactionsByDateRange, createTransaction, getTransactionByPlaidId,
   createSplit, getSplitsByTransaction, deleteSplitsByTransaction,
   getIncompleteTransactions } = require('../db/queries');
 
@@ -82,16 +82,24 @@ router.get('/incomplete', (req, res) => {
   res.json(rows);
 });
 
+// GET /api/transactions/by-plaid-id/:plaidId
+router.get('/by-plaid-id/:plaidId', (req, res) => {
+  const txn = getTransactionByPlaidId(req.params.plaidId);
+  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+  const splits = getSplitsByTransaction(txn.id);
+  res.json({ ...txn, splits });
+});
+
 // POST /api/transactions (manual transaction entry)
 router.post('/', (req, res) => {
-  const { date, merchant, amount, account_id, splits } = req.body;
+  const { date, merchant, amount, account_id, plaid_transaction_id, splits } = req.body;
 
   if (!date || amount === undefined) {
     return res.status(400).json({ error: 'date and amount required' });
   }
 
   const result = createTransaction(
-    null, null, account_id || null, date, merchant || null, amount, 0, null, null
+    plaid_transaction_id || null, null, account_id || null, date, merchant || null, amount, 0, null, null
   );
 
   const txnId = result.lastInsertRowid;

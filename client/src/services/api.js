@@ -25,6 +25,8 @@ export const updateTransaction = (id, data) =>
   request(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const updateSplits = (txnId, splits) =>
   request(`/transactions/${txnId}/splits`, { method: 'PUT', body: JSON.stringify({ splits }) });
+export const getTransactionByPlaidId = (plaidId) =>
+  request(`/transactions/by-plaid-id/${encodeURIComponent(plaidId)}`);
 export const getPlaidCandidates = (txnId, amountOverride, startDate, endDate) => {
   const params = new URLSearchParams();
   if (amountOverride !== undefined) params.set('amount_override', amountOverride);
@@ -74,3 +76,10 @@ export const getIncompleteTransactions = () => request('/admin/incomplete-transa
 export const getSettings = () => request('/settings');
 export const updateSettings = (data) =>
   request('/settings', { method: 'PUT', body: JSON.stringify(data) });
+
+// Record Templates
+export const getTemplates = () => request('/templates');
+export const createTemplateApi = (data) =>
+  request('/templates', { method: 'POST', body: JSON.stringify(data) });
+export const deleteTemplateApi = (id) =>
+  request(`/templates/${id}`, { method: 'DELETE' });

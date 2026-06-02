@@ -2,13 +2,14 @@ const { plaidClient } = require('../routes/link');
 const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByPlaidId,
   getTransactionByPendingId, softRemoveTransaction, restoreTransaction,
   createLog, createSplit, getAllRules, updateTransactionFromPending,
-  updateTransactionPlaidData, getAccountByPlaidId } = require('../db/queries');
+  updateTransactionPlaidData, getAccountByPlaidId, getSetting } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications } = require('../helpers/notifications');
 
 async function syncTransactions(plaidItemId, accessToken, cursor, io) {
   let hasMore = true;
   let currentCursor = cursor;
+  let addedCount = 0, modifiedCount = 0, removedCount = 0;
 
   createLog('info', 'sync_started', `Starting sync for item ${plaidItemId}`);
 
@@ -23,14 +24,17 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     for (const txn of added) {
       await processAddedTransaction(txn, io);
     }
+    addedCount += added.length;
 
     for (const txn of modified) {
       await processModifiedTransaction(txn, io);
     }
+    modifiedCount += modified.length;
 
     for (const txn of removed) {
       await processRemovedTransaction(txn, io);
     }
+    removedCount += removed.length;
 
     hasMore = has_more;
     currentCursor = next_cursor;
@@ -39,6 +43,17 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
   const item = getItemByPlaidId(plaidItemId);
   if (item) {
     updateItemCursor(currentCursor, item.id);
+  }
+
+  // Send sync summary notification
+  if (addedCount > 0 || modifiedCount > 0 || removedCount > 0) {
+    const instName = item ? (item.display_name || item.institution_name) : plaidItemId;
+    await sendNotifications('sync_complete', {
+      institution: instName,
+      added_count: String(addedCount),
+      modified_count: String(modifiedCount),
+      removed_count: String(removedCount),
+    });
   }
 
   createLog('info', 'sync_completed', `Sync completed for item ${plaidItemId}`);
@@ -105,12 +120,26 @@ async function processAddedTransaction(txn, io) {
     createLog('info', 'rule_matched', `Rule "${matchedRule.pattern}" matched for ${txn.name}`);
   }
 
+  // Build record link
+  const baseUrl = getSetting('base_url') || 'http://localhost:3000';
+  const recordParams = new URLSearchParams({
+    plaidid: txn.transaction_id,
+    date: txn.date,
+    where: txn.name || txn.merchant_name || '',
+    amount: String(-txn.amount),
+    ...(account ? { paymentmethod: account.display_name || account.name } : {}),
+    ...(matchedRule ? { category: matchedRule.category_name } : {}),
+  });
+  const recordLink = `${baseUrl}/record?${recordParams.toString()}`;
+
   // Send notifications
   await sendNotifications('transaction_found', {
     merchant: txn.name || txn.merchant_name,
     amount: txn.amount,
     date: txn.date,
     category: matchedRule ? matchedRule.category_name : 'Uncategorized',
+    account_name: account ? (account.display_name || account.name) : 'Unknown',
+    record_link: recordLink,
   });
 
   createLog('info', 'transaction_added', `Added: ${txn.name} (${txn.amount})`);

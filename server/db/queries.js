@@ -55,10 +55,20 @@ async function initQueries() {
     'ALTER TABLE accounts ADD COLUMN display_name TEXT',
     'ALTER TABLE items ADD COLUMN display_name TEXT',
     'ALTER TABLE items ADD COLUMN display_icon_url TEXT',
+    `CREATE TABLE IF NOT EXISTS record_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      merchant TEXT,
+      notes TEXT,
+      category_id INTEGER REFERENCES categories(id),
+      account_id INTEGER REFERENCES accounts(id),
+      amount REAL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
   ];
   for (const sql of migrations) {
     try { _db.run(sql); }
-    catch (e) { /* column already exists */ }
+    catch (e) { /* column/table already exists */ }
   }
 
   // Assign random colors to categories that don't have one
@@ -217,6 +227,16 @@ const createIncome = (name, type, amount, payPeriod, adjustmentsJson) =>
   run('INSERT INTO income_sources (name, type, amount, pay_period, adjustments_json) VALUES (?, ?, ?, ?, ?)',
     [name, type, amount, payPeriod, adjustmentsJson]);
 
+// Record Templates
+const getAllTemplates = () =>
+  all(`SELECT rt.*, c.name as category_name FROM record_templates rt
+       LEFT JOIN categories c ON rt.category_id = c.id ORDER BY rt.name`);
+const createTemplate = (name, merchant, notes, categoryId, accountId, amount) =>
+  run('INSERT INTO record_templates (name, merchant, notes, category_id, account_id, amount) VALUES (?, ?, ?, ?, ?, ?)',
+    [name, merchant, notes, categoryId, accountId, amount]);
+const deleteTemplate = (id) =>
+  run('DELETE FROM record_templates WHERE id = ?', [id]);
+
 // App Settings
 const getSettings = () => all('SELECT key, value FROM app_settings');
 const getSetting = (key) => {
@@ -250,6 +270,8 @@ module.exports = {
   getAllEndpoints, createEndpoint,
   // Income
   getAllIncome, createIncome,
+  // Record Templates
+  getAllTemplates, createTemplate, deleteTemplate,
   // Settings
   getSettings, getSetting, setSetting,
 };

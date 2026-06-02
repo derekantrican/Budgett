@@ -342,3 +342,20 @@ th {
   }
 }
 
+/* Record Transaction page */
+.record-txn-container {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 12px 16px;
+}
+@media (max-width: 400px) {
+  .record-txn-container {
+    padding: 8px 10px;
+  }
+  .record-txn-container h5 {
+    font-size: 1.1em;
+    margin-bottom: 6px !important;
+  }
+}
+
+
