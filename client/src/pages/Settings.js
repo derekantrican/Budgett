@@ -328,6 +328,17 @@ function Settings() {
         </div>
       </div>
 
+      {/* Data Management */}
+      <h5 className="mt-4 mb-3" style={{ color: 'var(--text-secondary)' }}>Data Management</h5>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <NavLink to="/settings/rules" style={{ textDecoration: 'none' }}>
+          <Button variant="outline-light">Rules</Button>
+        </NavLink>
+        <NavLink to="/settings/templates" style={{ textDecoration: 'none' }}>
+          <Button variant="outline-light">Templates</Button>
+        </NavLink>
+      </div>
+
       {/* Admin Tools */}
       <h5 className="mt-4 mb-3" style={{ color: 'var(--text-secondary)' }}>Admin Tools</h5>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

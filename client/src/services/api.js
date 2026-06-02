@@ -66,6 +66,10 @@ export const getLinkToken = () => request('/link/token');
 export const getRules = () => request('/rules');
 export const createRule = (data) =>
   request('/rules', { method: 'POST', body: JSON.stringify(data) });
+export const updateRule = (id, data) =>
+  request(`/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteRule = (id) =>
+  request(`/rules/${id}`, { method: 'DELETE' });
 
 // Admin
 export const getLogs = (limit = 100) => request(`/admin/logs?limit=${limit}`);
@@ -81,5 +85,7 @@ export const updateSettings = (data) =>
 export const getTemplates = () => request('/templates');
 export const createTemplateApi = (data) =>
   request('/templates', { method: 'POST', body: JSON.stringify(data) });
+export const updateTemplateApi = (id, data) =>
+  request(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteTemplateApi = (id) =>
   request(`/templates/${id}`, { method: 'DELETE' });

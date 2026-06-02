@@ -10,6 +10,8 @@ import Settings from './pages/Settings';
 import AdminLogs from './pages/admin/Logs';
 import AdminWebhooks from './pages/admin/Webhooks';
 import AdminIncomplete from './pages/admin/IncompleteTransactions';
+import AdminRules from './pages/admin/Rules';
+import AdminTemplates from './pages/admin/Templates';
 import { getSettings } from './services/api';
 import { setCurrencySettings } from './utils/currency';
 
@@ -32,6 +34,8 @@ function App() {
           <Route path="/settings/logs" element={<AdminLogs />} />
           <Route path="/settings/webhooks" element={<AdminWebhooks />} />
           <Route path="/settings/incomplete" element={<AdminIncomplete />} />
+          <Route path="/settings/rules" element={<AdminRules />} />
+          <Route path="/settings/templates" element={<AdminTemplates />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

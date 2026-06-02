@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getAllRules, createRule } = require('../db/queries');
+const { getAllRules, createRule, updateRule, deleteRule } = require('../db/queries');
 
 // GET /api/rules
 router.get('/', (req, res) => {
@@ -25,6 +25,21 @@ router.post('/', (req, res) => {
   const result = createRule(pattern, category_id || null, notes_template || null, expires_at || null);
 
   res.status(201).json({ id: result.lastInsertRowid });
+});
+
+// PUT /api/rules/:id
+router.put('/:id', (req, res) => {
+  const { pattern, category_id, notes_template, expires_at } = req.body;
+  if (!pattern) return res.status(400).json({ error: 'pattern required' });
+  try { new RegExp(pattern); } catch (e) { return res.status(400).json({ error: 'Invalid regex pattern' }); }
+  updateRule(req.params.id, pattern, category_id || null, notes_template || null, expires_at || null);
+  res.json({ success: true });
+});
+
+// DELETE /api/rules/:id
+router.delete('/:id', (req, res) => {
+  deleteRule(req.params.id);
+  res.json({ success: true });
 });
 
 module.exports = router;

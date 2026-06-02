@@ -198,6 +198,10 @@ const getAllRules = () =>
 const createRule = (pattern, categoryId, notesTemplate, expiresAt) =>
   run('INSERT INTO rules (pattern, category_id, notes_template, expires_at) VALUES (?, ?, ?, ?)',
     [pattern, categoryId, notesTemplate, expiresAt]);
+const updateRule = (id, pattern, categoryId, notesTemplate, expiresAt) =>
+  run('UPDATE rules SET pattern = ?, category_id = ?, notes_template = ?, expires_at = ? WHERE id = ?',
+    [pattern, categoryId, notesTemplate, expiresAt, id]);
+const deleteRule = (id) => run('DELETE FROM rules WHERE id = ?', [id]);
 
 // Logs
 const createLog = (level, action, detail) =>
@@ -236,6 +240,9 @@ const createTemplate = (name, merchant, notes, categoryId, accountId, amount) =>
     [name, merchant, notes, categoryId, accountId, amount]);
 const deleteTemplate = (id) =>
   run('DELETE FROM record_templates WHERE id = ?', [id]);
+const updateTemplate = (id, name, merchant, notes, categoryId, accountId, amount) =>
+  run('UPDATE record_templates SET name = ?, merchant = ?, notes = ?, category_id = ?, account_id = ?, amount = ? WHERE id = ?',
+    [name, merchant, notes, categoryId, accountId, amount, id]);
 
 // App Settings
 const getSettings = () => all('SELECT key, value FROM app_settings');
@@ -261,7 +268,7 @@ module.exports = {
   // Categories
   getAllCategories, createCategory, updateCategory, toggleCategoryHidden,
   // Rules
-  getAllRules, createRule,
+  getAllRules, createRule, updateRule, deleteRule,
   // Logs
   createLog, getRecentLogs,
   // Webhooks
@@ -271,7 +278,7 @@ module.exports = {
   // Income
   getAllIncome, createIncome,
   // Record Templates
-  getAllTemplates, createTemplate, deleteTemplate,
+  getAllTemplates, createTemplate, deleteTemplate, updateTemplate,
   // Settings
   getSettings, getSetting, setSetting,
 };
