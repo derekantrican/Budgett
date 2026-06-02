@@ -1,13 +1,120 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Form, Button } from 'react-bootstrap';
 import { getCategories, getAccounts, createTransaction, updateSplits, getTemplates, createTemplateApi, getTransactionByPlaidId } from '../services/api';
+
+const styles = {
+  container: {
+    maxWidth: '600px',
+    margin: 'auto',
+    padding: '20px',
+    backgroundColor: '#212529',
+    borderRadius: '10px',
+    boxShadow: '0 0 15px rgba(0, 0, 0, 0.3)',
+    color: '#f5f5fa',
+    fontFamily: 'Arial, sans-serif',
+    overflow: 'hidden',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  label: {
+    fontWeight: 'bold',
+    color: '#a0a0b3',
+    minWidth: '70px',
+    fontSize: '14px',
+  },
+  input: {
+    padding: '10px',
+    borderRadius: '5px',
+    flex: 1,
+    border: '1px solid #3a3a4f',
+    backgroundColor: 'black',
+    color: '#f5f5fa',
+    fontSize: '14px',
+  },
+  select: {
+    padding: '10px',
+    borderRadius: '5px',
+    flex: 1,
+    border: '1px solid #3a3a4f',
+    backgroundColor: 'black',
+    color: '#f5f5fa',
+    fontSize: '14px',
+  },
+  textarea: {
+    padding: '10px',
+    borderRadius: '5px',
+    border: '1px solid #3a3a4f',
+    backgroundColor: 'black',
+    color: '#f5f5fa',
+    fontSize: '14px',
+    resize: 'vertical',
+    minHeight: '50px',
+    flex: 1,
+  },
+  button: {
+    padding: '12px',
+    borderRadius: '5px',
+    backgroundColor: '#4e89ff',
+    color: '#f5f5fa',
+    fontWeight: 'bold',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '16px',
+    width: '100%',
+    transition: 'background-color 0.3s',
+  },
+  applyButton: {
+    padding: '10px 12px',
+    borderRadius: '5px',
+    backgroundColor: '#4e89ff',
+    color: '#f5f5fa',
+    fontWeight: 'bold',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '14px',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  hr: {
+    border: 'none',
+    height: '1px',
+    backgroundColor: '#3a3a4f',
+    margin: '14px 0',
+  },
+  checkboxRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  checkbox: {
+    width: '18px',
+    height: '18px',
+    cursor: 'pointer',
+  },
+  recorded: {
+    padding: '12px',
+    borderRadius: '5px',
+    backgroundColor: 'rgba(40, 167, 69, 0.7)',
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    fontSize: '16px',
+  },
+};
 
 function RecordTransaction() {
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [form, setForm] = useState({ date: today(), merchant: '', notes: '', category_id: '', account_id: '', amount: '', plaidid: '' });
-  const [existingTxnId, setExistingTxnId] = useState(null); // set when plaidid matches existing txn
+  const [existingTxnId, setExistingTxnId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [recorded, setRecorded] = useState('');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
@@ -23,7 +130,6 @@ function RecordTransaction() {
     setAccounts(accts);
     setTemplates(tmpls);
 
-    // Check URL params for pre-population
     const params = new URLSearchParams(window.location.search);
     const prefill = {};
     if (params.get('date')) prefill.date = params.get('date');
@@ -47,25 +153,23 @@ function RecordTransaction() {
       setForm(f => ({ ...f, ...prefill }));
     }
 
-    // If plaidid is provided, look up existing transaction
     if (params.get('plaidid')) {
       try {
         const txn = await getTransactionByPlaidId(params.get('plaidid'));
         setExistingTxnId(txn.id);
-        // Pre-fill category from existing splits if not already set via URL
         if (!params.get('category') && txn.splits && txn.splits.length > 0) {
           setForm(f => ({ ...f, category_id: txn.splits[0].category_id || '' }));
         }
       } catch (e) {
-        // Transaction not found by plaid ID — will create new
+        // Transaction not found — will create new
       }
     }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const applyTemplate = (id) => {
-    const t = templates.find(tpl => tpl.id === Number(id));
+  const applyTemplate = (e) => {
+    const t = templates.find(tpl => tpl.id === Number(e.target.value));
     if (t) {
       setForm(f => ({
         ...f,
@@ -88,10 +192,8 @@ function RecordTransaction() {
         : [];
 
       if (existingTxnId) {
-        // Update existing transaction's splits
         await updateSplits(existingTxnId, splits);
       } else {
-        // Create new manual transaction
         await createTransaction({
           date: form.date || today(),
           merchant: form.merchant || null,
@@ -119,72 +221,108 @@ function RecordTransaction() {
       setRecorded(existingTxnId ? 'Updated!' : 'Recorded!');
       setForm({ date: today(), merchant: '', notes: '', category_id: '', account_id: '', amount: '', plaidid: '' });
       setExistingTxnId(null);
-      setTimeout(() => setRecorded(''), 2000);
+      setTimeout(() => setRecorded(''), 2500);
     } catch (e) {
       alert('Error: ' + e.message);
     }
     setSaving(false);
   };
 
-  return (
-    <div className="record-txn-container">
-      <h5 className="mb-2">Record Transaction</h5>
+  const handleInputChange = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
-      {/* Template selector */}
+  return (
+    <div style={styles.container}>
+      <h2 style={{ margin: '0 0 4px', fontSize: '1.4em' }}>Record Transaction</h2>
+      <hr style={styles.hr} />
+
+      {/* Template */}
       {templates.length > 0 && (
-        <div className="d-flex gap-2 mb-2">
-          <Form.Select size="sm" onChange={e => applyTemplate(e.target.value)} defaultValue="">
-            <option value="" disabled>Template…</option>
-            {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </Form.Select>
-        </div>
+        <>
+          <div style={styles.row}>
+            <label style={styles.label}>Template:</label>
+            <select id="templateSelect" style={styles.select} defaultValue="">
+              <option value="" disabled>— select —</option>
+              {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <button style={styles.applyButton}
+              onMouseOver={e => { e.target.style.backgroundColor = '#3a6de5'; }}
+              onMouseOut={e => { e.target.style.backgroundColor = '#4e89ff'; }}
+              onClick={() => {
+                const sel = document.getElementById('templateSelect');
+                if (sel.value) applyTemplate({ target: { value: sel.value } });
+              }}
+            >Apply</button>
+          </div>
+          <hr style={styles.hr} />
+        </>
       )}
 
-      {/* Form */}
-      <div className="d-flex gap-2 mb-2">
-        <Form.Control size="sm" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} style={{ flex: 1 }} />
-        <Form.Control size="sm" type="number" step="0.01" placeholder="Amount" value={form.amount}
-          onChange={e => setForm({ ...form, amount: e.target.value })} style={{ flex: 1 }} />
-      </div>
+      {/* Form fields */}
+      <div style={styles.formGroup}>
+        <div style={styles.row}>
+          <label style={styles.label}>Date:</label>
+          <input type="date" value={form.date} onChange={handleInputChange('date')} style={styles.input} />
+        </div>
 
-      <Form.Control size="sm" className="mb-2" placeholder="Where / Merchant" value={form.merchant}
-        onChange={e => setForm({ ...form, merchant: e.target.value })} />
+        <div style={styles.row}>
+          <label style={styles.label}>Where:</label>
+          <input type="text" value={form.merchant} onChange={handleInputChange('merchant')} style={styles.input} />
+        </div>
 
-      <Form.Control size="sm" className="mb-2" placeholder="Notes" value={form.notes}
-        onChange={e => setForm({ ...form, notes: e.target.value })} />
+        <div style={styles.row}>
+          <label style={styles.label}>Notes:</label>
+          <textarea value={form.notes} onChange={handleInputChange('notes')} style={styles.textarea} />
+        </div>
 
-      <div className="d-flex gap-2 mb-2">
-        <Form.Select size="sm" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} style={{ flex: 1 }}>
-          <option value="">Category</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </Form.Select>
-        <Form.Select size="sm" value={form.account_id} onChange={e => setForm({ ...form, account_id: e.target.value })} style={{ flex: 1 }}>
-          <option value="">Account</option>
-          {accounts.map(a => <option key={a.id} value={a.id}>{a.display_name || a.name}</option>)}
-        </Form.Select>
-      </div>
+        <div style={styles.row}>
+          <label style={styles.label}>Category:</label>
+          <select value={form.category_id} onChange={handleInputChange('category_id')} style={styles.select}>
+            <option value=""></option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
 
-      {/* Save as template */}
-      <div className="d-flex align-items-center gap-2 mb-2">
-        <Form.Check type="checkbox" label="Save template" checked={saveAsTemplate}
-          onChange={e => setSaveAsTemplate(e.target.checked)} style={{ fontSize: '0.85em' }} />
+        <div style={styles.row}>
+          <label style={styles.label}>Amount:</label>
+          <input type="number" step="0.01" value={form.amount} onChange={handleInputChange('amount')} style={styles.input} />
+        </div>
+
+        <div style={styles.row}>
+          <label style={styles.label}>Account:</label>
+          <select value={form.account_id} onChange={handleInputChange('account_id')} style={styles.select}>
+            <option value=""></option>
+            {accounts.map(a => <option key={a.id} value={a.id}>{a.display_name || a.name}</option>)}
+          </select>
+        </div>
+
+        <hr style={styles.hr} />
+
+        {/* Save as template */}
+        <div style={styles.checkboxRow}>
+          <input type="checkbox" style={styles.checkbox} checked={saveAsTemplate}
+            onChange={() => setSaveAsTemplate(!saveAsTemplate)} id="saveTemplate" />
+          <label htmlFor="saveTemplate" style={{ ...styles.label, minWidth: 0 }}>Save as Template</label>
+        </div>
         {saveAsTemplate && (
-          <Form.Control size="sm" placeholder="Template name" value={templateName}
-            onChange={e => setTemplateName(e.target.value)} style={{ flex: 1 }} />
+          <input type="text" placeholder="Template name" value={templateName}
+            onChange={e => setTemplateName(e.target.value)} style={styles.input} />
+        )}
+
+        {/* Record/Update button */}
+        {!recorded ? (
+          <button
+            style={{ ...styles.button, opacity: saving || !form.amount ? 0.6 : 1 }}
+            disabled={saving || !form.amount}
+            onClick={handleRecord}
+            onMouseOver={e => { if (!saving) e.target.style.backgroundColor = '#3a6de5'; }}
+            onMouseOut={e => { e.target.style.backgroundColor = '#4e89ff'; }}
+          >
+            {saving ? 'Saving…' : existingTxnId ? 'Update' : 'Record'}
+          </button>
+        ) : (
+          <div style={styles.recorded}>{recorded}</div>
         )}
       </div>
-
-      {/* Record button */}
-      <Button
-        variant="primary"
-        className="w-100"
-        disabled={saving || !form.amount}
-        onClick={handleRecord}
-      >
-        {saving ? 'Saving…' : existingTxnId ? 'Update' : 'Record'}
-      </Button>
-
-      {recorded && <div className="mt-2 text-center text-success fw-bold">{recorded}</div>}
     </div>
   );
 }
