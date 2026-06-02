@@ -130,7 +130,7 @@ async function processAddedTransaction(txn, io) {
     ...(account ? { paymentmethod: account.display_name || account.name } : {}),
     ...(matchedRule ? { category: matchedRule.category_name } : {}),
   });
-  const recordLink = `${baseUrl}/record?${recordParams.toString()}`;
+  const recordLink = `${baseUrl}/recordTransaction?${recordParams.toString()}`;
 
   // Send notifications
   await sendNotifications('transaction_found', {

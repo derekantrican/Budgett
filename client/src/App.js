@@ -21,7 +21,7 @@ function App() {
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/income" element={<Income />} />
-          <Route path="/record" element={<RecordTransaction />} />
+          <Route path="/recordTransaction" element={<RecordTransaction />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/logs" element={<AdminLogs />} />
           <Route path="/settings/webhooks" element={<AdminWebhooks />} />
