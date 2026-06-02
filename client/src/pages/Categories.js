@@ -3,6 +3,7 @@ import { Table, Button, Form, Modal, Spinner, Badge } from 'react-bootstrap';
 import { PieChart, Pie, Cell } from 'recharts';
 import { getCategories, getTransactions, createCategory, updateCategoryApi, toggleCategoryHidden } from '../services/api';
 import { evaluateBudgetExpression, randomVibrantColor } from '../helpers/budgetFormula';
+import { formatCurrency } from '../utils/currency';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -233,7 +234,7 @@ function Categories() {
               {hoveredSlice ? (
                 <>
                   <div style={{ fontWeight: 'bold', fontSize: '1em', color: hoveredSlice.color }}>{hoveredSlice.name}</div>
-                  <div style={{ fontSize: '1.2em', color: '#fff' }}>${hoveredSlice.value.toFixed(2)}</div>
+                  <div style={{ fontSize: '1.2em', color: '#fff' }}>{formatCurrency(hoveredSlice.value)}</div>
                 </>
               ) : null}
             </div>
@@ -260,10 +261,10 @@ function Categories() {
                       <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, backgroundColor: cat.color || '#4e89ff', marginRight: 8 }}></span>
                       {cat.name}
                     </td>
-                    <td className="fit-width">{cat.budgeted ? `${cat.budgeted < 0 ? '-' : ''}$${Math.abs(cat.budgeted).toFixed(2)}` : '—'}</td>
-                    <td className="fit-width">${cat.spent.toFixed(2)}</td>
+                    <td className="fit-width">{cat.budgeted ? formatCurrency(cat.budgeted) : '—'}</td>
+                    <td className="fit-width">{formatCurrency(cat.spent)}</td>
                     <td className="fit-width" style={{ color: diff >= 0 ? '#4fa94d' : '#dc3545' }}>
-                      {cat.budgeted !== 0 ? `${diff < 0 ? '-' : ''}$${Math.abs(diff).toFixed(2)}` : '—'}
+                      {cat.budgeted !== 0 ? formatCurrency(diff) : '—'}
                     </td>
                   </tr>
                 );
@@ -272,7 +273,7 @@ function Categories() {
                 <tr style={{ fontStyle: 'italic' }}>
                   <td style={{ textAlign: 'left' }}>Uncategorized</td>
                   <td className="fit-width">—</td>
-                  <td className="fit-width">${uncategorizedSpent.toFixed(2)}</td>
+                  <td className="fit-width">{formatCurrency(uncategorizedSpent)}</td>
                   <td className="fit-width">—</td>
                 </tr>
               )}
@@ -360,7 +361,7 @@ function Categories() {
                 <Form.Text style={{ color: 'var(--text-secondary)' }}>
                   Variables: sundays, mondays, ..., saturdays, days, weeks
                   {editForm.budgeted_amount_expression && (
-                    <span> — evaluates to <strong>${evaluateBudgetExpression(editForm.budgeted_amount_expression, viewYear, viewMonth).toFixed(2)}</strong> for {MONTHS[viewMonth]}</span>
+                    <span> — evaluates to <strong>{formatCurrency(evaluateBudgetExpression(editForm.budgeted_amount_expression, viewYear, viewMonth))}</strong> for {MONTHS[viewMonth]}</span>
                   )}
                 </Form.Text>
               </Form.Group>

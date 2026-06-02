@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import Summary from './pages/Summary';
@@ -10,8 +10,14 @@ import Settings from './pages/Settings';
 import AdminLogs from './pages/admin/Logs';
 import AdminWebhooks from './pages/admin/Webhooks';
 import AdminIncomplete from './pages/admin/IncompleteTransactions';
+import { getSettings } from './services/api';
+import { setCurrencySettings } from './utils/currency';
 
 function App() {
+  useEffect(() => {
+    getSettings().then(setCurrencySettings);
+  }, []);
+
   return (
     <div>
       <Navigation />

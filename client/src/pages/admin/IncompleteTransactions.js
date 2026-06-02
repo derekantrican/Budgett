@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Badge, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { getIncompleteTransactions, getCategories, updateTransaction, getPlaidCandidates, linkPlaidId, mergeAndLinkPlaid } from '../../services/api';
+import { formatCurrency } from '../../utils/currency';
 
-const fmt = (amount) => (amount < 0 ? '-' : '') + '$' + Math.abs(amount).toFixed(2);
+const fmt = formatCurrency;
 
 function IncompleteTransactions() {
   const [transactions, setTransactions] = useState([]);

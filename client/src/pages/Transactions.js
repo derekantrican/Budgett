@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Form, Button, Badge, Modal, Spinner } from 'react-bootstrap';
 import { getTransactions, searchTransactions, getCategories, getSettings, updateTransaction, updateSplits } from '../services/api';
+import { formatCurrency, setCurrencySettings } from '../utils/currency';
 
-const fmt = (amount) => (amount < 0 ? '-' : '') + '$' + Math.abs(amount).toFixed(2);
+const fmt = formatCurrency;
 
 // Format a YYYY-MM-DD date string according to a format pattern
 function formatDate(dateStr, pattern) {
@@ -41,7 +42,7 @@ function Transactions() {
   useEffect(() => {
     loadTransactions();
     getCategories().then(setCategories);
-    getSettings().then(s => { if (s.date_format) setDateFormat(s.date_format); });
+    getSettings().then(s => { if (s.date_format) setDateFormat(s.date_format); setCurrencySettings(s); });
   }, [startDate, endDate]);
 
   const loadTransactions = async () => {
@@ -122,6 +123,42 @@ function Transactions() {
     return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
+  const [showSummary, setShowSummary] = useState(false);
+
+  // Compute summary totals from current transactions
+  const summaryData = useMemo(() => {
+    if (!transactions || transactions.length === 0) return { accounts: [], categories: [] };
+
+    // Account totals
+    const acctMap = {};
+    for (const txn of transactions) {
+      const name = txn.account_name || 'Unknown';
+      acctMap[name] = (acctMap[name] || 0) + txn.amount;
+    }
+    const accounts = Object.entries(acctMap)
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => a.total - b.total);
+
+    // Category totals (from splits)
+    const catMap = {};
+    for (const txn of transactions) {
+      if (txn.splits && txn.splits.length > 0) {
+        for (const s of txn.splits) {
+          const name = s.category_name || 'Uncategorized';
+          catMap[name] = (catMap[name] || 0) + s.amount;
+        }
+      } else {
+        catMap['Uncategorized'] = (catMap['Uncategorized'] || 0) + txn.amount;
+      }
+    }
+    const cats = Object.entries(catMap)
+      .filter(([, total]) => total !== 0)
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => a.total - b.total);
+
+    return { accounts, categories: cats };
+  }, [transactions]);
+
   if (!transactions) {
     return (
       <div className="loading-container">
@@ -132,7 +169,18 @@ function Transactions() {
 
   return (
     <div className="transactions-page">
-      <h4>Transactions</h4>
+      <div className="d-flex justify-content-between align-items-center">
+        <h4>Transactions</h4>
+        <Button
+          className="d-none d-md-inline-block"
+          variant={showSummary ? 'primary' : 'outline-primary'}
+          size="sm"
+          onClick={() => setShowSummary(!showSummary)}
+          title="Summary"
+        >
+          &#931; Summary
+        </Button>
+      </div>
 
       {/* Month navigation + search */}
       <div className="transactions-header">
@@ -149,8 +197,9 @@ function Transactions() {
         />
       </div>
 
-      {/* Scrollable table area */}
-      <div className="transactions-body">
+      <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* Main content */}
+        <div className="transactions-body">
 
       {/* Desktop table */}
       <div className="d-none d-md-block">
@@ -245,6 +294,36 @@ function Transactions() {
       {transactions.length === 0 && (
         <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: 40 }}>No transactions found.</p>
       )}
+      </div>
+
+        {/* Summary side panel */}
+        {showSummary && (
+          <div className="d-none d-md-block" style={{
+            width: 280,
+            flexShrink: 0,
+            backgroundColor: '#1a1f25',
+            borderRadius: 8,
+            padding: '12px 16px',
+            overflowY: 'auto',
+            fontSize: '0.85em',
+          }}>
+            <h6 style={{ color: '#aaa', borderBottom: '1px solid #333', paddingBottom: 6, marginBottom: 8 }}>Accounts</h6>
+            {summaryData.accounts.map(a => (
+              <div key={a.name} className="d-flex justify-content-between" style={{ padding: '3px 0' }}>
+                <span style={{ color: '#ccc' }}>{a.name}</span>
+                <span style={{ color: '#ccc', fontWeight: 'bold' }}>{fmt(a.total)}</span>
+              </div>
+            ))}
+
+            <h6 style={{ color: '#aaa', borderBottom: '1px solid #333', paddingBottom: 6, marginTop: 16, marginBottom: 8 }}>Categories</h6>
+            {summaryData.categories.map(c => (
+              <div key={c.name} className="d-flex justify-content-between" style={{ padding: '3px 0' }}>
+                <span style={{ color: '#ccc' }}>{c.name}</span>
+                <span style={{ color: '#ccc', fontWeight: 'bold' }}>{fmt(c.total)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Edit Modal */}

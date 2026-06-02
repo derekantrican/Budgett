@@ -11,6 +11,7 @@ function Settings() {
   const [baseUrl, setBaseUrl] = useState('');
   const [plaidEnv, setPlaidEnv] = useState('sandbox');
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
+  const [numberFormat, setNumberFormat] = useState('1,000.00');
 
   // Edit institution modal
   const [editItem, setEditItem] = useState(null);
@@ -23,6 +24,7 @@ function Settings() {
       if (s.webhook_url) setWebhookUrl(s.webhook_url);
       if (s.base_url) setBaseUrl(s.base_url);
       if (s.plaid_env) setPlaidEnv(s.plaid_env);
+      if (s.number_format) setNumberFormat(s.number_format);
     });
   }, []);
 
@@ -291,6 +293,20 @@ function Settings() {
           />
         </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: 'max-content auto', alignItems: 'center', gap: 10 }}>
+          <div className="settings-label">Number Format:</div>
+          <Form.Select
+            value={numberFormat}
+            onChange={(e) => setNumberFormat(e.target.value)}
+            style={{ maxWidth: 250, background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+          >
+            <option value="1,000.00">1,000.00</option>
+            <option value="1000.00">1000.00</option>
+            <option value="1.000,00">1.000,00</option>
+            <option value="1000,00">1000,00</option>
+          </Form.Select>
+        </div>
+
         <div>
           <h5 style={{ color: 'var(--text-secondary)' }}>Plaid Settings</h5>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
@@ -307,7 +323,7 @@ function Settings() {
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="settings-button" onClick={() => updateSettings({ date_format: dateFormat, webhook_url: webhookUrl, base_url: baseUrl, plaid_env: plaidEnv })}>Save</button>
+          <button className="settings-button" onClick={() => updateSettings({ date_format: dateFormat, webhook_url: webhookUrl, base_url: baseUrl, plaid_env: plaidEnv, number_format: numberFormat })}>Save</button>
           <button className="settings-button" style={{ background: 'var(--bg-tertiary)' }}>Revert</button>
         </div>
       </div>

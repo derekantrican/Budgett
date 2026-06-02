@@ -164,6 +164,7 @@ a {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  min-width: 0;
 }
 
 .transactions-search {
