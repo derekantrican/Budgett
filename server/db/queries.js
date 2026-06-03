@@ -159,6 +159,11 @@ const getIncompleteTransactions = () =>
        OR t.account_id IS NULL
        OR NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)
      )
+     AND (
+       t.plaid_transaction_id IS NULL
+       OR a.hide_from_transactions IS NULL
+       OR a.hide_from_transactions = 0
+     )
      ORDER BY t.date DESC`);
 const updateTransactionFromPending = (plaidTxnId, amount, id) => {
   run(`UPDATE transactions SET plaid_transaction_id = ?, pending_transaction_id = NULL, is_pending = 0,
