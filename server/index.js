@@ -87,3 +87,17 @@ start().catch((err) => {
   console.error('Failed to start server:', err);
   process.exit(1);
 });
+
+// Log unhandled errors to DB and console
+const { createLog } = require('./db/queries');
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  try { createLog('error', 'uncaughtException', err.stack || err.message); } catch (e) { /* db may be gone */ }
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+  try { createLog('error', 'unhandledRejection', reason?.stack || String(reason)); } catch (e) { /* db may be gone */ }
+});
