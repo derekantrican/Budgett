@@ -70,13 +70,13 @@ function Transactions() {
     setEditDate(txn.date || '');
     setEditSplits(
       txn.splits?.length
-        ? txn.splits.map(s => ({ ...s }))
-        : [{ category_id: '', amount: txn.amount, notes: '' }]
+        ? txn.splits.map(s => ({ ...s, amount: parseFloat(s.amount).toFixed(2) }))
+        : [{ category_id: '', amount: parseFloat(txn.amount).toFixed(2), notes: '' }]
     );
   }, []);
 
   const addSplit = () => {
-    setEditSplits(prev => [...prev, { category_id: '', amount: 0, notes: '' }]);
+    setEditSplits(prev => [...prev, { category_id: '', amount: '0.00', notes: '' }]);
   };
 
   const removeSplit = (idx) => {
@@ -203,15 +203,15 @@ function Transactions() {
 
       {/* Desktop table */}
       <div className="d-none d-md-block">
-        <Table striped hover responsive variant="dark" className="transaction-table">
+        <Table striped hover responsive variant="dark" className="transaction-table" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr>
-              <th className="fit-width">Date</th>
-              <th style={{ textAlign: 'left' }}>Where</th>
+              <th style={{ width: 110 }}>Date</th>
+              <th style={{ width: 300, textAlign: 'left' }}>Where</th>
               <th style={{ textAlign: 'left' }}>Notes</th>
-              <th>Category</th>
-              <th className="fit-width">Amount</th>
-              <th>Account</th>
+              <th style={{ width: 200 }}>Category</th>
+              <th style={{ width: 125 }}>Amount</th>
+              <th style={{ width: 200 }}>Account</th>
             </tr>
           </thead>
           <tbody>
@@ -346,20 +346,31 @@ function Transactions() {
 
             <div className="d-flex justify-content-between align-items-center mb-2">
               <strong>Itemized Splits ({editSplits.length})</strong>
-              <div>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em', marginRight: 12 }}>
-                  Total: {fmt(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0))}
+              <div className="d-flex align-items-center gap-2">
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
+                  Total: {fmt(editTxn.amount)}
                 </span>
+                {Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005 && (
+                  <span style={{ color: '#ff4444', fontWeight: 'bold', fontSize: '0.85em' }}>
+                    (split total: {fmt(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0))})
+                  </span>
+                )}
                 <Button variant="outline-primary" size="sm" onClick={addSplit}>+ Add Split</Button>
               </div>
             </div>
 
             {editSplits.map((split, idx) => (
               <div key={idx} className="d-flex gap-2 mb-2 align-items-center">
+                <Form.Control
+                  placeholder="Notes"
+                  value={split.notes || ''}
+                  onChange={(e) => updateSplitField(idx, 'notes', e.target.value)}
+                  style={{ flex: 1 }}
+                />
                 <Form.Select
                   value={split.category_id || ''}
                   onChange={(e) => updateSplitField(idx, 'category_id', e.target.value)}
-                  style={{ flex: 2 }}
+                  style={{ width: 200, flex: 'none' }}
                 >
                   <option value="">Uncategorized</option>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -369,13 +380,8 @@ function Transactions() {
                   step="0.01"
                   value={split.amount}
                   onChange={(e) => updateSplitField(idx, 'amount', e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <Form.Control
-                  placeholder="Notes"
-                  value={split.notes || ''}
-                  onChange={(e) => updateSplitField(idx, 'notes', e.target.value)}
-                  style={{ flex: 2 }}
+                  onBlur={(e) => updateSplitField(idx, 'amount', parseFloat(e.target.value || 0).toFixed(2))}
+                  style={{ width: 125, flex: 'none' }}
                 />
                 {editSplits.length > 1 && (
                   <Button variant="outline-danger" size="sm" onClick={() => removeSplit(idx)}>×</Button>
@@ -383,16 +389,23 @@ function Transactions() {
               </div>
             ))}
 
-            {editTxn.plaid_transaction_id && (
+            {(editTxn.account_name || editTxn.plaid_transaction_id) && (
               <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: 8 }}>
-                Plaid ID: {editTxn.plaid_transaction_id}
+                {editTxn.account_name && <>Account: {editTxn.account_name}</>}
+                {editTxn.account_name && editTxn.plaid_transaction_id && ' · '}
+                {editTxn.plaid_transaction_id && <>Plaid ID: {editTxn.plaid_transaction_id}</>}
               </small>
             )}
+
           </Modal.Body>
         )}
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setEditTxn(null)}>Cancel</Button>
-          <Button variant="primary" onClick={handleSave} disabled={saving}>
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            disabled={saving || (editTxn && Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005)}
+          >
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </Modal.Footer>

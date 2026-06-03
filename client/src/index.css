@@ -205,6 +205,12 @@ a {
   border-top: none !important;
 }
 
+.transaction-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Subtle left accent for all split rows */
 .transaction-table .split-row td:first-child {
   box-shadow: inset 3px 0 0 var(--bs-primary);
