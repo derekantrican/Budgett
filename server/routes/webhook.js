@@ -11,7 +11,8 @@ router.post('/', async (req, res) => {
     createWebhookPayload(`${webhook_type}.${webhook_code}`, JSON.stringify(req.body));
     createLog('info', 'webhook_received', `${webhook_type}.${webhook_code} for item ${item_id}`);
   } catch (e) {
-    console.error('Error logging webhook:', e);
+    console.error('Error logging webhook:', e.message);
+    createLog('error', 'webhook_log_failed', e.message);
   }
 
   try {

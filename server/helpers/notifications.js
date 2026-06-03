@@ -1,42 +1,37 @@
-const { getAllEndpoints, createWebhookPayload } = require('../db/queries');
+const { getSetting } = require('../db/queries');
 
 async function sendNotifications(eventType, variables) {
-  const allEndpoints = getAllEndpoints();
+  const webhookUrl = getSetting('webhook_url');
+  if (!webhookUrl) return;
 
-  for (const endpoint of allEndpoints) {
-    const eventTypes = JSON.parse(endpoint.event_types_json || '[]');
-    if (eventTypes.length > 0 && !eventTypes.includes(eventType)) {
-      continue;
-    }
+  try {
+    const body = JSON.stringify({
+      content: formatMessage(eventType, variables),
+    });
 
-    try {
-      const body = interpolateTemplate(endpoint.body_template, variables);
-
-      await fetch(endpoint.url, {
-        method: endpoint.method || 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      });
-
-      createWebhookPayload(eventType, body, 'outgoing', endpoint.url);
-    }
-    catch (err) {
-      console.error(`Notification failed for endpoint ${endpoint.name}:`, err.message);
-      createWebhookPayload(`${eventType}.FAILED`, JSON.stringify({ error: err.message, endpoint: endpoint.name }), 'outgoing', endpoint.url);
-    }
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+  } catch (err) {
+    console.error(`Notification failed:`, err.message);
   }
 }
 
-function interpolateTemplate(template, variables) {
-  if (!template) {
-    return JSON.stringify(variables);
+function formatMessage(eventType, vars) {
+  switch (eventType) {
+    case 'transaction_found':
+      return `**${vars.merchant}** ${vars.amount} on ${vars.date}\nCategory: ${vars.category}\nAccount: ${vars.account_name}\n${vars.record_link}`;
+    case 'sync_complete':
+      return `🔄 Sync complete for **${vars.institution}**: +${vars.added_count} added, ~${vars.modified_count} modified, -${vars.removed_count} removed`;
+    case 'item_login_required':
+      return `⚠️ **${vars.institution}** requires re-authentication\n${vars.settings_link}`;
+    case 'item_login_repaired':
+      return `✅ **${vars.institution}** login repaired`;
+    default:
+      return `[${eventType}] ${JSON.stringify(vars)}`;
   }
-
-  let result = template;
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-  }
-  return result;
 }
 
-module.exports = { sendNotifications, interpolateTemplate };
+module.exports = { sendNotifications };

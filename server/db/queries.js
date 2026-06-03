@@ -65,6 +65,8 @@ async function initQueries() {
       amount REAL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
+    "ALTER TABLE webhook_payloads ADD COLUMN direction TEXT NOT NULL DEFAULT 'incoming'",
+    'ALTER TABLE webhook_payloads ADD COLUMN destination TEXT',
   ];
   for (const sql of migrations) {
     try { _db.run(sql); }
