@@ -1,12 +1,14 @@
-const { getSetting } = require('../db/queries');
+const { getSetting, createWebhookPayload } = require('../db/queries');
 
 async function sendNotifications(eventType, variables) {
   const webhookUrl = getSetting('webhook_url');
   if (!webhookUrl) return;
 
+  const content = formatMessage(eventType, variables);
+
   try {
     const body = JSON.stringify({
-      content: formatMessage(eventType, variables),
+      content,
       username: 'Budgett',
     });
 
@@ -15,8 +17,12 @@ async function sendNotifications(eventType, variables) {
       headers: { 'Content-Type': 'application/json' },
       body,
     });
+
+    // Log outgoing webhook
+    createWebhookPayload(eventType, JSON.stringify({ content }), 'outgoing', webhookUrl);
   } catch (err) {
     console.error(`Notification failed:`, err.message);
+    createWebhookPayload(`${eventType}_FAILED`, JSON.stringify({ error: err.message, content }), 'outgoing', webhookUrl);
   }
 }
 
