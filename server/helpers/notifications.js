@@ -7,6 +7,7 @@ async function sendNotifications(eventType, variables) {
   try {
     const body = JSON.stringify({
       content: formatMessage(eventType, variables),
+      username: 'Budgett',
     });
 
     await fetch(webhookUrl, {
@@ -21,14 +22,19 @@ async function sendNotifications(eventType, variables) {
 
 function formatMessage(eventType, vars) {
   switch (eventType) {
-    case 'transaction_found':
-      return `**${vars.merchant}** ${vars.amount} on ${vars.date}\nCategory: ${vars.category}\nAccount: ${vars.account_name}\n${vars.record_link}`;
+    case 'transaction_found': {
+      const prefix = vars.amount > 0
+        ? 'You received the following refund: '
+        : 'The following transaction was found: ';
+      const dollarAmount = `$${Math.abs(vars.amount).toFixed(2)}`;
+      return `${prefix}${dollarAmount} ${vars.merchant} (${vars.account_name}) [[RECORD]](<${vars.record_link}>)`;
+    }
     case 'sync_complete':
-      return `🔄 Sync complete for **${vars.institution}**: +${vars.added_count} added, ~${vars.modified_count} modified, -${vars.removed_count} removed`;
+      return `Syncing transactions for ${vars.institution} (${vars.added_count} added, ${vars.modified_count} modified, ${vars.removed_count} removed)`;
     case 'item_login_required':
-      return `⚠️ **${vars.institution}** requires re-authentication\n${vars.settings_link}`;
+      return `⚠️ ${vars.institution} needs to be re-authorized. Please visit: [[RE-AUTH]](<${vars.settings_link}>) to reauthorize it`;
     case 'item_login_repaired':
-      return `✅ **${vars.institution}** login repaired`;
+      return `✅ ${vars.institution} login repaired`;
     default:
       return `[${eventType}] ${JSON.stringify(vars)}`;
   }
