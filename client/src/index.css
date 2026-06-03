@@ -216,6 +216,16 @@ a {
   box-shadow: inset 3px 0 0 var(--bs-primary);
 }
 
+/* Red left indicator for incomplete transactions */
+.transaction-table .transaction-incomplete td:first-child {
+  box-shadow: inset 3px 0 0 var(--bs-danger);
+}
+
+/* Both indicators: red on left, blue next to it */
+.transaction-table .split-row.transaction-incomplete td:first-child {
+  box-shadow: inset 3px 0 0 var(--bs-danger), inset 6px 0 0 var(--bs-primary);
+}
+
 .transaction-row:active {
   background-color: #596791 !important;
 }

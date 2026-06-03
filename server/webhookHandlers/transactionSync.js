@@ -2,7 +2,9 @@ const { plaidClient } = require('../routes/link');
 const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByPlaidId,
   getTransactionByPendingId, softRemoveTransaction, restoreTransaction,
   createLog, createSplit, getAllRules, updateTransactionFromPending,
-  updateTransactionPlaidData, getAccountByPlaidId, getSetting } = require('../db/queries');
+  updateTransactionPlaidData, getAccountByPlaidId, getSetting,
+  findIncompleteMatch, linkIncompleteTransaction,
+  findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications } = require('../helpers/notifications');
 
@@ -80,30 +82,54 @@ async function processAddedTransaction(txn, io) {
   }
 
   if (matchedPending) {
+    // Pending→Posted: only update plaid_id and amount, preserve user edits
     updateTransactionFromPending(
       txn.transaction_id,
       -txn.amount,
-      txn.name || txn.merchant_name,
-      txn.date,
-      txn.personal_finance_category?.primary || null,
-      JSON.stringify(txn),
       matchedPending.id
     );
     createLog('info', 'pending_matched', `Pending→Posted: ${txn.name} (${txn.amount})`);
     return;
   }
 
-  // Resolve account
+  // Resolve account (used by fuzzy match and transaction creation)
   const account = getAccountByPlaidId(txn.account_id);
   const accountId = account ? account.id : null;
 
-  // Insert new transaction
+  // Check for incomplete transactions (no plaid_id, within 7 days, same amount)
+  const incompleteMatch = findIncompleteMatch(-txn.amount);
+  if (incompleteMatch) {
+    linkIncompleteTransaction(txn.transaction_id, incompleteMatch.id);
+    createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.name} (${txn.amount})`);
+    return;
+  }
+
+  // Fuzzy match: posted transaction without pending_transaction_id link
+  // Look for a recent pending transaction on the same account with exact amount OR similar merchant
+  if (!txn.pending && accountId) {
+    const incomingMerchant = txn.name || txn.merchant_name || '';
+    const fuzzyMatch = findFuzzyPendingMatch(accountId, -txn.amount, txn.date, incomingMerchant);
+    if (fuzzyMatch) {
+      promotePendingToPosted(txn.transaction_id, -txn.amount, fuzzyMatch.id);
+      createLog('info', 'fuzzy_pending_matched',
+        `Posted txn matched pending #${fuzzyMatch.id} (${fuzzyMatch.merchant}): plaid_id ${fuzzyMatch.plaid_transaction_id} → ${txn.transaction_id}, amount ${fuzzyMatch.amount} → ${-txn.amount}`);
+      return;
+    }
+  }
+
+  // Try to match a rule
+  const rules = getAllRules();
+  const merchantName = txn.name || txn.merchant_name;
+  const matchedRule = matchRule(rules, merchantName, -txn.amount);
+  const displayName = (matchedRule && matchedRule.rename_to) ? matchedRule.rename_to : merchantName;
+
+  // Insert new transaction (use renamed merchant if rule specifies)
   const result = createTransaction(
     txn.transaction_id,
     txn.pending_transaction_id || null,
     accountId,
     txn.date,
-    txn.name || txn.merchant_name,
+    displayName,
     -txn.amount, // Invert: Plaid positive = expense, we use negative = expense
     txn.pending ? 1 : 0,
     txn.personal_finance_category?.primary || null,
@@ -112,12 +138,9 @@ async function processAddedTransaction(txn, io) {
 
   const txnId = result.lastInsertRowid;
 
-  // Try to match a rule
-  const rules = getAllRules();
-  const matchedRule = matchRule(rules, txn.name || txn.merchant_name);
   if (matchedRule) {
-    createSplit(txnId, matchedRule.category_id, -txn.amount, matchedRule.notes_template || null);
-    createLog('info', 'rule_matched', `Rule "${matchedRule.pattern}" matched for ${txn.name}`);
+    createSplit(txnId, matchedRule.category_id || null, -txn.amount, matchedRule.notes_template || null);
+    createLog('info', 'rule_matched', `Rule "${matchedRule.pattern}" matched for ${merchantName}${matchedRule.rename_to ? ' → ' + matchedRule.rename_to : ''}`);
   }
 
   // Build record link
@@ -125,19 +148,19 @@ async function processAddedTransaction(txn, io) {
   const recordParams = new URLSearchParams({
     plaidid: txn.transaction_id,
     date: txn.date,
-    where: txn.name || txn.merchant_name || '',
+    where: displayName,
     amount: String(-txn.amount),
     ...(account ? { paymentmethod: account.display_name || account.name } : {}),
-    ...(matchedRule ? { category: matchedRule.category_name } : {}),
+    ...(matchedRule && matchedRule.category_name ? { category: matchedRule.category_name } : {}),
   });
   const recordLink = `${baseUrl}/recordTransaction?${recordParams.toString()}`;
 
   // Send notifications
   await sendNotifications('transaction_found', {
-    merchant: txn.name || txn.merchant_name,
+    merchant: displayName,
     amount: txn.amount,
     date: txn.date,
-    category: matchedRule ? matchedRule.category_name : 'Uncategorized',
+    category: matchedRule && matchedRule.category_name ? matchedRule.category_name : 'Uncategorized',
     account_name: account ? (account.display_name || account.name) : 'Unknown',
     record_link: recordLink,
   });
@@ -151,8 +174,10 @@ async function processAddedTransaction(txn, io) {
 
 async function processModifiedTransaction(txn, io) {
   const existing = getTransactionByPlaidId(txn.transaction_id);
-  if (!existing) 
+  if (!existing) {
+    createLog('warn', 'modify_not_found', `Attempted to modify transaction ${txn.transaction_id} (${txn.name}, $${txn.amount}), but could not find it`);
     return;
+  }
 
   updateTransactionPlaidData(
     -txn.amount,
@@ -167,8 +192,27 @@ async function processModifiedTransaction(txn, io) {
 }
 
 async function processRemovedTransaction(txn, io) {
+  const existing = getTransactionByPlaidId(txn.transaction_id);
+  if (!existing) {
+    createLog('warn', 'remove_not_found', `Attempted to remove transaction ${txn.transaction_id}, but could not find it in database`);
+    return;
+  }
+  if (existing.is_removed) {
+    createLog('info', 'already_removed', `Transaction ${txn.transaction_id} already marked removed, skipping`);
+    return;
+  }
+
+  // If the transaction is pending, don't delete it — strip the plaid_id so it
+  // shows up in "incomplete transactions" and user-specified data is preserved.
+  // (The posted version likely already exists as a separate entry.)
+  if (existing.is_pending) {
+    unlinkPlaidId(existing.id);
+    createLog('info', 'pending_unlinked', `Pending transaction unlinked: ${existing.merchant} ($${existing.amount}) — plaid_id ${txn.transaction_id} removed, moved to incomplete`);
+    return;
+  }
+
   softRemoveTransaction(txn.transaction_id);
-  createLog('info', 'transaction_removed', `Soft-removed: ${txn.transaction_id}`);
+  createLog('info', 'transaction_removed', `Soft-removed: ${txn.transaction_id} (${existing.merchant}, $${existing.amount})`);
 }
 
 module.exports = { syncTransactions };

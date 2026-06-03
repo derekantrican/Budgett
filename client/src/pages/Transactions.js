@@ -218,10 +218,11 @@ function Transactions() {
             {transactions.map((txn) => {
               const hasSplits = txn.splits?.length > 1;
               if (!hasSplits) {
+                const isIncomplete = !txn.plaid_transaction_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
                 return (
                   <tr
                     key={txn.id}
-                    className={`transaction-row ${txn.is_removed ? 'transaction-removed' : ''}`}
+                    className={`transaction-row ${txn.is_removed ? 'transaction-removed' : ''} ${isIncomplete ? 'transaction-incomplete' : ''}`}
                     onClick={() => openEdit(txn)}
                   >
                     <td className="fit-width">{formatDate(txn.date, dateFormat)}</td>
@@ -237,10 +238,11 @@ function Transactions() {
                 );
               }
               // Multi-split: render one row per split
+              const splitIncomplete = !txn.plaid_transaction_id || !txn.merchant || txn.splits.some(s => !s.category_name);
               return txn.splits.map((split, idx) => (
                 <tr
                   key={`${txn.id}-${idx}`}
-                  className={`transaction-row split-row ${idx > 0 ? 'split-continuation' : 'split-start'} ${txn.is_removed ? 'transaction-removed' : ''}`}
+                  className={`transaction-row split-row ${idx > 0 ? 'split-continuation' : 'split-start'} ${txn.is_removed ? 'transaction-removed' : ''} ${splitIncomplete && idx === 0 ? 'transaction-incomplete' : ''}`}
                   onClick={() => openEdit(txn)}
                 >
                   <td className="fit-width">

@@ -67,6 +67,8 @@ async function initQueries() {
     )`,
     "ALTER TABLE webhook_payloads ADD COLUMN direction TEXT NOT NULL DEFAULT 'incoming'",
     'ALTER TABLE webhook_payloads ADD COLUMN destination TEXT',
+    'ALTER TABLE rules ADD COLUMN amount_condition TEXT',
+    'ALTER TABLE rules ADD COLUMN rename_to TEXT',
   ];
   for (const sql of migrations) {
     try { _db.run(sql); }
@@ -137,7 +139,7 @@ const getTransactionsByDateRange = (startDate, endDate) =>
        AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
        ORDER BY t.date ASC`, [startDate, endDate]);
 const softRemoveTransaction = (plaidTxnId) => {
-  run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
+  return run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
 };
 const restoreTransaction = (plaidTxnId) => {
   run("UPDATE transactions SET is_removed = 0, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
@@ -158,15 +160,49 @@ const getIncompleteTransactions = () =>
        OR NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)
      )
      ORDER BY t.date DESC`);
-const updateTransactionFromPending = (plaidTxnId, amount, merchant, date, plaidCategory, rawJson, id) => {
+const updateTransactionFromPending = (plaidTxnId, amount, id) => {
   run(`UPDATE transactions SET plaid_transaction_id = ?, pending_transaction_id = NULL, is_pending = 0,
-       amount = ?, merchant = ?, date = ?, plaid_category = ?, plaid_raw_json = ?, updated_at = datetime('now') WHERE id = ?`,
-  [plaidTxnId, amount, merchant, date, plaidCategory, rawJson, id]);
+       amount = ?, updated_at = datetime('now') WHERE id = ?`,
+  [plaidTxnId, amount, id]);
 };
 const updateTransactionPlaidData = (amount, merchant, date, plaidCategory, rawJson, plaidTxnId) => {
   run(`UPDATE transactions SET amount = ?, merchant = ?, date = ?, plaid_category = ?, plaid_raw_json = ?, updated_at = datetime('now')
        WHERE plaid_transaction_id = ?`, [amount, merchant, date, plaidCategory, rawJson, plaidTxnId]);
 };
+
+// Find an incomplete transaction (no plaid_id, within 7 days) matching the given amount
+const findIncompleteMatch = (amount) =>
+  get(`SELECT * FROM transactions
+       WHERE plaid_transaction_id IS NULL AND is_removed = 0
+       AND date >= date('now', '-7 days')
+       AND ABS(amount - ?) < 0.005
+       ORDER BY date DESC LIMIT 1`, [amount]);
+
+// Link an incomplete transaction to the incoming plaid transaction
+const linkIncompleteTransaction = (plaidTxnId, id) =>
+  run(`UPDATE transactions SET plaid_transaction_id = ?, updated_at = datetime('now') WHERE id = ?`,
+    [plaidTxnId, id]);
+
+// Find a pending transaction that likely matches a posted one
+// Matches on: same account, recent date, AND (exact amount OR similar merchant name)
+const findFuzzyPendingMatch = (accountId, amount, date, merchantName) =>
+  get(`SELECT * FROM transactions
+       WHERE is_pending = 1 AND is_removed = 0 AND account_id = ?
+       AND date >= date(?, '-5 days') AND date <= date(?, '+2 days')
+       AND (ABS(amount - ?) < 0.005 OR INSTR(LOWER(?), LOWER(merchant)) > 0 OR INSTR(LOWER(merchant), LOWER(?)) > 0)
+       ORDER BY ABS(amount - ?) ASC LIMIT 1`,
+    [accountId, date, date, amount, merchantName, merchantName, amount]);
+
+// Promote a pending transaction to posted: update plaid_id, amount, mark not pending
+const promotePendingToPosted = (newPlaidTxnId, amount, id) =>
+  run(`UPDATE transactions SET plaid_transaction_id = ?, amount = ?, is_pending = 0,
+       pending_transaction_id = NULL, updated_at = datetime('now') WHERE id = ?`,
+    [newPlaidTxnId, amount, id]);
+
+// Strip plaid_id from a transaction (demotes to incomplete, preserves user data)
+const unlinkPlaidId = (id) =>
+  run(`UPDATE transactions SET plaid_transaction_id = NULL, pending_transaction_id = NULL,
+       is_pending = 0, updated_at = datetime('now') WHERE id = ?`, [id]);
 
 // Transaction Splits
 const createSplit = (txnId, categoryId, amount, notes) =>
@@ -196,13 +232,13 @@ const toggleCategoryHidden = (id, isHidden) => {
 // Rules
 const getAllRules = () =>
   all(`SELECT r.*, c.name as category_name FROM rules r LEFT JOIN categories c ON r.category_id = c.id
-      WHERE r.expires_at IS NULL OR r.expires_at > datetime('now') ORDER BY r.created_at DESC`);
-const createRule = (pattern, categoryId, notesTemplate, expiresAt) =>
-  run('INSERT INTO rules (pattern, category_id, notes_template, expires_at) VALUES (?, ?, ?, ?)',
-    [pattern, categoryId, notesTemplate, expiresAt]);
-const updateRule = (id, pattern, categoryId, notesTemplate, expiresAt) =>
-  run('UPDATE rules SET pattern = ?, category_id = ?, notes_template = ?, expires_at = ? WHERE id = ?',
-    [pattern, categoryId, notesTemplate, expiresAt, id]);
+      ORDER BY r.created_at DESC`);
+const createRule = (pattern, categoryId, notesTemplate, amountCondition, renameTo) =>
+  run('INSERT INTO rules (pattern, category_id, notes_template, amount_condition, rename_to) VALUES (?, ?, ?, ?, ?)',
+    [pattern, categoryId, notesTemplate, amountCondition, renameTo]);
+const updateRule = (id, pattern, categoryId, notesTemplate, amountCondition, renameTo) =>
+  run('UPDATE rules SET pattern = ?, category_id = ?, notes_template = ?, amount_condition = ?, rename_to = ? WHERE id = ?',
+    [pattern, categoryId, notesTemplate, amountCondition, renameTo, id]);
 const deleteRule = (id) => run('DELETE FROM rules WHERE id = ?', [id]);
 
 // Logs
@@ -265,6 +301,8 @@ module.exports = {
   createTransaction, getTransactionByPlaidId, getTransactionByPendingId,
   getTransactionsByDateRange, softRemoveTransaction, restoreTransaction,
   getIncompleteTransactions, updateTransactionFromPending, updateTransactionPlaidData,
+  findIncompleteMatch, linkIncompleteTransaction,
+  findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
   // Splits
   createSplit, getSplitsByTransaction, deleteSplitsByTransaction,
   // Categories
