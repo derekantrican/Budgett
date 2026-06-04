@@ -165,7 +165,7 @@ function Rules() {
               <Form.Label>Category</Form.Label>
               <Form.Select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
                 <option value="">— None (don't change) —</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Form.Select>
             </Form.Group>
           </div>

@@ -278,7 +278,7 @@ function RecordTransaction() {
           <label style={styles.label}>Category:</label>
           <select value={form.category_id} onChange={handleInputChange('category_id')} style={styles.select}>
             <option value=""></option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
 

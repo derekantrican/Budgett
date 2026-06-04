@@ -378,7 +378,7 @@ function Transactions() {
                   style={{ width: 200, flex: 'none' }}
                 >
                   <option value="">Uncategorized</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Form.Select>
                 <Form.Control
                   type="number"

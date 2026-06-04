@@ -77,8 +77,8 @@ function Templates() {
           <tr>
             <th style={{ textAlign: 'left' }}>Name</th>
             <th style={{ textAlign: 'left' }}>Merchant</th>
-            <th>Category</th>
             <th style={{ textAlign: 'left' }}>Notes</th>
+            <th>Category</th>
             <th>Amount</th>
             <th className="fit-width"></th>
           </tr>
@@ -88,8 +88,8 @@ function Templates() {
             <tr key={tmpl.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(tmpl)}>
               <td style={{ textAlign: 'left' }}>{tmpl.name}</td>
               <td style={{ textAlign: 'left' }}>{tmpl.merchant || '—'}</td>
-              <td>{tmpl.category_name || '—'}</td>
               <td style={{ textAlign: 'left' }}>{tmpl.notes || '—'}</td>
+              <td>{tmpl.category_name || '—'}</td>
               <td>{tmpl.amount || '—'}</td>
               <td className="fit-width">
                 <Button variant="outline-danger" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(tmpl.id); }}>✕</Button>
@@ -124,10 +124,18 @@ function Templates() {
             />
           </Form.Group>
           <Form.Group className="mb-3">
+            <Form.Label>Notes</Form.Label>
+            <Form.Control
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              placeholder="Default notes"
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
             <Form.Label>Category</Form.Label>
             <Form.Select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
               <option value="">— None —</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3">
@@ -136,14 +144,6 @@ function Templates() {
               <option value="">— None —</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Form.Select>
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>Notes</Form.Label>
-            <Form.Control
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Default notes"
-            />
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Amount</Form.Label>
