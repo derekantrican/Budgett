@@ -15,6 +15,9 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
 
   createLog('info', 'sync_started', `Starting sync for item ${plaidItemId}`);
 
+  // First pass: count totals without sending individual notifications
+  const allAdded = [], allModified = [], allRemoved = [];
+
   while (hasMore) {
     const response = await plaidClient.transactionsSync({
       access_token: accessToken,
@@ -23,19 +26,11 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
 
     const { added, modified, removed, has_more, next_cursor } = response.data;
 
-    for (const txn of added) {
-      await processAddedTransaction(txn, io);
-    }
+    allAdded.push(...added);
+    allModified.push(...modified);
+    allRemoved.push(...removed);
     addedCount += added.length;
-
-    for (const txn of modified) {
-      await processModifiedTransaction(txn, io);
-    }
     modifiedCount += modified.length;
-
-    for (const txn of removed) {
-      await processRemovedTransaction(txn, io);
-    }
     removedCount += removed.length;
 
     hasMore = has_more;
@@ -47,7 +42,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     updateItemCursor(currentCursor, item.id);
   }
 
-  // Send sync summary notification
+  // Send sync summary notification FIRST
   if (addedCount > 0 || modifiedCount > 0 || removedCount > 0) {
     const instName = item ? (item.display_name || item.institution_name) : plaidItemId;
     await sendNotifications('sync_complete', {
@@ -56,6 +51,58 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
       modified_count: String(modifiedCount),
       removed_count: String(removedCount),
     });
+
+    // Send detailed listing of added/modified/removed
+    let details = '';
+    if (allAdded.length > 0) {
+      details += 'Added transactions:\n\n';
+      details += allAdded.map(t => {
+        const amt = `$${Math.abs(t.amount).toFixed(2)}`;
+        return `- ${t.amount <= 0 ? '' : '-'}${amt} ${t.name || t.merchant_name}`;
+      }).join('\n');
+      details += '\n\n';
+    }
+
+    if (allModified.length > 0) {
+      details += 'Modified transactions:\n\n';
+      details += allModified.map(t => {
+        const amt = `$${Math.abs(t.amount).toFixed(2)}`;
+        return `- ${t.amount <= 0 ? '' : '-'}${amt} ${t.name || t.merchant_name}`;
+      }).join('\n');
+      details += '\n\n';
+    }
+
+    if (allRemoved.length > 0) {
+      details += 'Removed transactions:\n\n';
+      details += allRemoved.map(r => {
+        // Check if removed txn matches a pending_transaction_id in added (pending→posted)
+        const match = allAdded.find(a => a.pending_transaction_id === r.transaction_id);
+        if (match) {
+          const amt = `$${Math.abs(match.amount).toFixed(2)}`;
+          return `- ${r.transaction_id} (was: ${match.amount <= 0 ? '' : '-'}${amt} ${match.name || match.merchant_name})`;
+        }
+
+        return `- ${r.transaction_id}`;
+      }).join('\n');
+      details += '\n';
+    }
+
+    if (details) {
+      await sendNotifications('sync_details', { details });
+    }
+  }
+
+  // Then process transactions (which sends individual notifications)
+  for (const txn of allAdded) {
+    await processAddedTransaction(txn, io);
+  }
+
+  for (const txn of allModified) {
+    await processModifiedTransaction(txn, io);
+  }
+
+  for (const txn of allRemoved) {
+    await processRemovedTransaction(txn, io);
   }
 
   createLog('info', 'sync_completed', `Sync completed for item ${plaidItemId}`);
@@ -72,6 +119,7 @@ async function processAddedTransaction(txn, io) {
       restoreTransaction(txn.transaction_id);
       createLog('info', 'transaction_restored', `Restored: ${txn.name} (${txn.amount})`);
     }
+
     return;
   }
 
@@ -89,6 +137,7 @@ async function processAddedTransaction(txn, io) {
       matchedPending.id
     );
     createLog('info', 'pending_matched', `Pending→Posted: ${txn.name} (${txn.amount})`);
+    await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${txn.name}` });
     return;
   }
 
@@ -101,6 +150,7 @@ async function processAddedTransaction(txn, io) {
   if (incompleteMatch) {
     linkIncompleteTransaction(txn.transaction_id, incompleteMatch.id);
     createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.name} (${txn.amount})`);
+    await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${txn.name}` });
     return;
   }
 
@@ -113,6 +163,7 @@ async function processAddedTransaction(txn, io) {
       promotePendingToPosted(txn.transaction_id, -txn.amount, fuzzyMatch.id);
       createLog('info', 'fuzzy_pending_matched',
         `Posted txn matched pending #${fuzzyMatch.id} (${fuzzyMatch.merchant}): plaid_id ${fuzzyMatch.plaid_transaction_id} → ${txn.transaction_id}, amount ${fuzzyMatch.amount} → ${-txn.amount}`);
+      await sendNotifications('sync_update', { message: `UPDATED (fuzzy matched pending): ${txn.name} → ${fuzzyMatch.merchant}` });
       return;
     }
   }
@@ -158,7 +209,7 @@ async function processAddedTransaction(txn, io) {
   // Send notifications
   await sendNotifications('transaction_found', {
     merchant: displayName,
-    amount: txn.amount,
+    amount: -txn.amount,  // Use Budgett convention: negative = expense, positive = income
     date: txn.date,
     category: matchedRule && matchedRule.category_name ? matchedRule.category_name : 'Uncategorized',
     account_name: account ? (account.display_name || account.name) : 'Unknown',
@@ -197,6 +248,7 @@ async function processRemovedTransaction(txn, io) {
     createLog('warn', 'remove_not_found', `Attempted to remove transaction ${txn.transaction_id}, but could not find it in database`);
     return;
   }
+
   if (existing.is_removed) {
     createLog('info', 'already_removed', `Transaction ${txn.transaction_id} already marked removed, skipping`);
     return;

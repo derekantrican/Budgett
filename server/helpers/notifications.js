@@ -37,6 +37,10 @@ function formatMessage(eventType, vars) {
     }
     case 'sync_complete':
       return `Syncing transactions for ${vars.institution} (${vars.added_count} added, ${vars.modified_count} modified, ${vars.removed_count} removed)`;
+    case 'sync_details':
+      return vars.details;
+    case 'sync_update':
+      return vars.message;
     case 'item_login_required':
       return `⚠️ ${vars.institution} needs to be re-authorized. Please visit: [[RE-AUTH]](<${vars.settings_link}>) to reauthorize it`;
     case 'item_login_repaired':
