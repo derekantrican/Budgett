@@ -128,21 +128,21 @@ function Categories() {
   
   const catData = visibleCategories.map(cat => {
     const spent = transactions
-      .filter(t => t.amount < 0 && t.splits?.some(s => s.category_id === cat.id))
+      .filter(t => t.splits?.some(s => s.category_id === cat.id))
       .reduce((sum, t) => {
         const catSplits = t.splits.filter(s => s.category_id === cat.id);
-        return sum + catSplits.reduce((s, split) => s + Math.abs(split.amount), 0);
+        return sum + catSplits.reduce((s, split) => s + split.amount, 0);
       }, 0);
     return { ...cat, spent, budgeted: evaluateBudget(cat) };
   });
 
   const uncategorizedSpent = transactions
-    .filter(t => t.amount < 0 && (!t.splits || t.splits.length === 0))
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    .filter(t => !t.splits || t.splits.length === 0)
+    .reduce((sum, t) => sum + t.amount, 0);
 
   const pieData = [
-    ...catData.filter(c => c.spent > 0).map(c => ({ name: c.name, value: c.spent, color: c.color || '#4e89ff' })),
-    ...(uncategorizedSpent > 0 ? [{ name: 'Uncategorized', value: uncategorizedSpent, color: '#6c757d' }] : [])
+    ...catData.filter(c => c.spent !== 0).map(c => ({ name: c.name, value: Math.abs(c.spent), color: c.color || '#4e89ff' })),
+    ...(uncategorizedSpent !== 0 ? [{ name: 'Uncategorized', value: Math.abs(uncategorizedSpent), color: '#6c757d' }] : [])
   ];
 
   return (
@@ -254,7 +254,7 @@ function Categories() {
             </thead>
             <tbody>
               {catData.filter(c => c.include_in_summary !== 0).map(cat => {
-                const diff = Math.abs(cat.budgeted) - cat.spent;
+                const diff = Math.abs(cat.budgeted) - Math.abs(cat.spent);
                 return (
                   <tr key={cat.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(cat)}>
                     <td style={{ textAlign: 'left' }}>
@@ -262,7 +262,7 @@ function Categories() {
                       {cat.name}
                     </td>
                     <td className="fit-width">{cat.budgeted ? formatCurrency(cat.budgeted) : '—'}</td>
-                    <td className="fit-width">{formatCurrency(cat.spent)}</td>
+                    <td className="fit-width">{formatCurrency(Math.abs(cat.spent))}</td>
                     <td className="fit-width" style={{ color: diff >= 0 ? '#4fa94d' : '#dc3545' }}>
                       {cat.budgeted !== 0 ? formatCurrency(diff) : '—'}
                     </td>
