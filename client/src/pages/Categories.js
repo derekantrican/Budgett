@@ -146,7 +146,7 @@ function Categories() {
   ];
 
   return (
-    <div>
+    <div style={{ overflowX: 'hidden' }}>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4>Categories</h4>
         <Button variant="primary" onClick={() => setShowModal(true)}>+ Add Category</Button>
@@ -173,21 +173,21 @@ function Categories() {
         </Button>
       </div>
 
-      <div className="categories-layout" style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div className="categories-layout" style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', alignItems: 'flex-start', overflow: 'hidden' }}>
         {/* Pie Chart */}
         {pieData.length > 0 && (
           <div style={{ position: 'relative', maxWidth: '100%', overflow: 'hidden' }}>
-            <PieChart width={Math.min(window.innerWidth > 600 ? 700 : 320, window.innerWidth - 32)} height={window.innerWidth > 600 ? 700 : 320}>
+            <PieChart width={Math.min(window.innerWidth > 600 ? 700 : 300, window.innerWidth - 32)} height={window.innerWidth > 600 ? 700 : 300}>
               <Pie
                 data={pieData}
                 cx="50%"
                 cy="50%"
-                outerRadius={window.innerWidth > 600 ? 190 : 130}
-                innerRadius={window.innerWidth > 600 ? 95 : 65}
+                outerRadius={window.innerWidth > 600 ? 190 : 110}
+                innerRadius={window.innerWidth > 600 ? 95 : 55}
                 dataKey="value"
                 isAnimationActive={false}
                 onMouseLeave={() => setHoveredSlice(null)}
-                label={window.innerWidth > 600 ? ({ cx, cy, midAngle, outerRadius: or, name, percent }) => {
+                label={window.innerWidth > 768 ? ({ cx, cy, midAngle, outerRadius: or, name, percent }) => {
                   const RADIAN = Math.PI / 180;
                   const sin = Math.sin(-midAngle * RADIAN);
                   const cos = Math.cos(-midAngle * RADIAN);
