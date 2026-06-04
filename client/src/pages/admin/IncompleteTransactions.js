@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Badge, Button, Form, Modal, Spinner } from 'react-bootstrap';
-import { getIncompleteTransactions, getCategories, updateTransaction, deleteTransaction, getPlaidCandidates, linkPlaidId, mergeAndLinkPlaid } from '../../services/api';
+import { getIncompleteTransactions, getCategories, getAccounts, updateTransaction, deleteTransaction, getPlaidCandidates, linkPlaidId, mergeAndLinkPlaid } from '../../services/api';
 import { formatCurrency } from '../../utils/currency';
 
 const fmt = formatCurrency;
@@ -8,6 +8,7 @@ const fmt = formatCurrency;
 function IncompleteTransactions() {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [editTxn, setEditTxn] = useState(null);
   const [form, setForm] = useState({});
   const [checked, setChecked] = useState(new Set());
@@ -25,6 +26,7 @@ function IncompleteTransactions() {
   const loadData = () => {
     getIncompleteTransactions().then(setTransactions);
     getCategories().then(setCategories);
+    getAccounts().then(setAccounts);
   };
 
   useEffect(() => {
@@ -237,6 +239,18 @@ function IncompleteTransactions() {
                   <option value="">— Select category —</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Account</Form.Label>
+                <Form.Select
+                  value={form.account_id || ''}
+                  onChange={(e) => setForm({ ...form, account_id: e.target.value })}
+                >
+                  <option value="">— No account —</option>
+                  {accounts.filter(a => !a.is_deleted && !a.hide_from_transactions).map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
                 </Form.Select>
               </Form.Group>

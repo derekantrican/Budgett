@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Form, Button, Badge, Modal, Spinner } from 'react-bootstrap';
-import { getTransactions, searchTransactions, getCategories, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction } from '../services/api';
+import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 
 const fmt = formatCurrency;
@@ -26,6 +26,7 @@ function formatDate(dateStr, pattern) {
 function Transactions() {
   const [transactions, setTransactions] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [search, setSearch] = useState('');
   const [editTxn, setEditTxn] = useState(null);
   const [isNewTxn, setIsNewTxn] = useState(false);
@@ -33,6 +34,7 @@ function Transactions() {
   const [editMerchant, setEditMerchant] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editAmount, setEditAmount] = useState('0.00');
+  const [editAccountId, setEditAccountId] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
@@ -49,6 +51,7 @@ function Transactions() {
   useEffect(() => {
     loadTransactions();
     getCategories().then(setCategories);
+    getAccounts().then(setAccounts);
     getSettings().then(s => {
       if (s.date_format) 
         setDateFormat(s.date_format); setCurrencySettings(s); 
@@ -97,6 +100,7 @@ function Transactions() {
     setEditMerchant('');
     setEditDate(dateStr);
     setEditAmount('0.00');
+    setEditAccountId('');
     setEditSplits([{ category_id: '', amount: '0.00', notes: '' }]);
     setConfirmDelete(false);
   };
@@ -124,6 +128,7 @@ function Transactions() {
           date: editDate,
           merchant: editMerchant,
           amount,
+          account_id: editAccountId || null,
           splits: editSplits.map(s => ({
             category_id: s.category_id || null,
             amount: parseFloat(s.amount) || 0,
@@ -434,6 +439,18 @@ function Transactions() {
                 </Form.Group>
               )}
             </div>
+
+            {isNewTxn && (
+              <Form.Group className="mb-3">
+                <Form.Label>Account</Form.Label>
+                <Form.Select value={editAccountId} onChange={(e) => setEditAccountId(e.target.value)}>
+                  <option value="">— No account —</option>
+                  {accounts.filter(a => !a.is_deleted && !a.hide_from_transactions).map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            )}
 
             <div className="d-flex justify-content-between align-items-center mb-2">
               <strong>Itemized Splits ({editSplits.length})</strong>
