@@ -25,7 +25,7 @@ function Logs() {
           <tbody>
             {logs.map((log) => (
               <tr key={log.id}>
-                <td>{new Date(log.timestamp + 'Z').toLocaleString()}</td>
+                <td>{new Date(log.timestamp + 'Z').toLocaleString([], { hour12: false })}</td>
                 <td className={log.level === 'error' ? 'text-danger' : log.level === 'warn' ? 'text-warning' : ''}>{log.level}</td>
                 <td>{log.action}</td>
                 <td>{log.detail}</td>

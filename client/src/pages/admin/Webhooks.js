@@ -19,7 +19,7 @@ function Webhooks() {
           <Accordion.Header>
             <Badge bg={payload.type?.includes('FAILED') ? 'danger' : 'secondary'} className="me-2">{payload.type}</Badge>
             {payload.destination && <span style={{ color: 'var(--text-secondary)', fontSize: '0.8em', marginRight: 8 }}>{payload.destination}</span>}
-            <span style={{ fontSize: '0.85em' }}>{new Date(payload.timestamp + 'Z').toLocaleString()}</span>
+            <span style={{ fontSize: '0.85em' }}>{new Date(payload.timestamp + 'Z').toLocaleString([], { hour12: false })}</span>
           </Accordion.Header>
           <Accordion.Body>
             <pre style={{ fontSize: '0.8rem', maxHeight: '400px', overflow: 'auto', color: '#e0e0e0', backgroundColor: '#1e1e2e', padding: '12px', borderRadius: '6px', margin: 0 }}>
