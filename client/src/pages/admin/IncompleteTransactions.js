@@ -170,8 +170,8 @@ function IncompleteTransactions() {
         </thead>
         <tbody>
           {transactions.map((txn) => (
-            <tr key={txn.id} style={{ background: checked.has(txn.id) ? 'rgba(75, 171, 247, 0.1)' : undefined }}>
-              <td>
+            <tr key={txn.id} style={{ background: checked.has(txn.id) ? 'rgba(75, 171, 247, 0.1)' : undefined, cursor: 'pointer' }} onClick={() => handleEdit(txn)}>
+              <td onClick={(e) => e.stopPropagation()}>
                 <Form.Check
                   type="checkbox"
                   checked={checked.has(txn.id)}
@@ -184,7 +184,7 @@ function IncompleteTransactions() {
               <td>{fmt(txn.amount)}</td>
               <td>{txn.account_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
               <td>{issues(txn)}</td>
-              <td>
+              <td onClick={(e) => e.stopPropagation()}>
                 <div className="d-flex gap-1">
                   <Button size="sm" variant="outline-light" onClick={() => handleEdit(txn)}>Fix</Button>
                   {txn.missing_plaid_id ? (
@@ -221,6 +221,14 @@ function IncompleteTransactions() {
                 />
               </Form.Group>
               <Form.Group className="mb-3">
+                <Form.Label>Notes</Form.Label>
+                <Form.Control
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  placeholder="Optional notes"
+                />
+              </Form.Group>
+              <Form.Group className="mb-3">
                 <Form.Label>Category</Form.Label>
                 <Form.Select
                   value={form.category_id}
@@ -231,14 +239,6 @@ function IncompleteTransactions() {
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </Form.Select>
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label>Notes</Form.Label>
-                <Form.Control
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  placeholder="Optional notes"
-                />
               </Form.Group>
             </>
           )}
