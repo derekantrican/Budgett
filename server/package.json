@@ -32,6 +32,10 @@
       "@stylistic/nonblock-statement-body-position": [
         "warn",
         "below"
+      ],
+      "@stylistic/padding-line-between-statements": [
+        "warn",
+        { "blankLine": "always", "prev": "block-like", "next": "*" }
       ]
     }
   },

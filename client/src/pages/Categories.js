@@ -40,6 +40,7 @@ function Categories() {
       startDate = `${viewYear}-01-01`;
       endDate = `${viewYear}-12-31`;
     }
+
     const [cats, txns] = await Promise.all([getCategories(), getTransactions(startDate, endDate)]);
     setCategories(cats);
     setTransactions(txns);
@@ -63,7 +64,8 @@ function Categories() {
   };
 
   const handleEditSave = async () => {
-    if (!editCat) return;
+    if (!editCat) 
+return;
     await updateCategoryApi(editCat.id, {
       name: editCat.name,
       color: editForm.color,
@@ -72,14 +74,18 @@ function Categories() {
     if (editForm.is_hidden !== !!editCat.is_hidden) {
       await toggleCategoryHidden(editCat.id, editForm.is_hidden);
     }
+
     setEditCat(null);
     loadData();
   };
 
   const prevPeriod = () => {
     if (viewMode === 'month') {
-      if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
-      else setViewMonth(viewMonth - 1);
+      if (viewMonth === 0) {
+ setViewMonth(11); setViewYear(viewYear - 1); 
+}
+      else 
+setViewMonth(viewMonth - 1);
     }
     else {
       setViewYear(viewYear - 1);
@@ -88,8 +94,11 @@ function Categories() {
 
   const nextPeriod = () => {
     if (viewMode === 'month') {
-      if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
-      else setViewMonth(viewMonth + 1);
+      if (viewMonth === 11) {
+ setViewMonth(0); setViewYear(viewYear + 1); 
+}
+      else 
+setViewMonth(viewMonth + 1);
     }
     else {
       setViewYear(viewYear + 1);
@@ -110,15 +119,18 @@ function Categories() {
 
   // Evaluate budgets for the current period
   const evaluateBudget = (cat) => {
-    if (!cat.budgeted_amount_expression) return 0;
+    if (!cat.budgeted_amount_expression) 
+return 0;
     if (viewMode === 'year') {
       // Sum across all 12 months
       let total = 0;
       for (let m = 0; m < 12; m++) {
         total += evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, m);
       }
+
       return total;
     }
+
     return evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, viewMonth);
   };
 
@@ -197,7 +209,8 @@ function Categories() {
                   const ey = cy + (or + 55) * sin;
                   const tx = cx + (or + 60) * cos;
                   const textAnchor = cos >= 0 ? 'start' : 'end';
-                  if (percent < 0.015) return null;
+                  if (percent < 0.015) 
+return null;
                   return (
                     <g>
                       <line x1={mx} y1={my} x2={ex} y2={ey} stroke="#aaa" strokeWidth={1} />

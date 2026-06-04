@@ -29,12 +29,16 @@ export const getTransactionByPlaidId = (plaidId) =>
   request(`/transactions/by-plaid-id/${encodeURIComponent(plaidId)}`);
 export const getPlaidCandidates = (txnId, amountOverride, startDate, endDate) => {
   const params = new URLSearchParams();
-  if (amountOverride !== undefined) params.set('amount_override', amountOverride);
-  if (startDate) params.set('start_date', startDate);
-  if (endDate) params.set('end_date', endDate);
+  if (amountOverride !== undefined) 
+params.set('amount_override', amountOverride);
+  if (startDate) 
+params.set('start_date', startDate);
+  if (endDate) 
+params.set('end_date', endDate);
   const qs = params.toString() ? `?${params.toString()}` : '';
   return request(`/transactions/${txnId}/plaid-candidates${qs}`);
 };
+
 export const linkPlaidId = (txnId, plaidTransactionId) =>
   request(`/transactions/${txnId}/link-plaid`, { method: 'PUT', body: JSON.stringify({ plaid_transaction_id: plaidTransactionId }) });
 export const mergeAndLinkPlaid = (transactionIds, plaidTransactionId) =>

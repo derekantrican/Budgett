@@ -8,6 +8,7 @@ router.get('/', (req, res) => {
   for (const row of rows) {
     settings[row.key] = row.value;
   }
+
   res.json(settings);
 });
 
@@ -17,6 +18,7 @@ router.put('/', (req, res) => {
   for (const [key, value] of Object.entries(updates)) {
     setSetting(key, String(value));
   }
+
   res.json({ success: true });
 });
 

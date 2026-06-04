@@ -30,8 +30,15 @@ router.post('/', (req, res) => {
 // PUT /api/rules/:id
 router.put('/:id', (req, res) => {
   const { pattern, category_id, notes_template, amount_condition, rename_to } = req.body;
-  if (!pattern) return res.status(400).json({ error: 'pattern required' });
-  try { new RegExp(pattern); } catch (e) { return res.status(400).json({ error: 'Invalid regex pattern' }); }
+  if (!pattern) 
+    return res.status(400).json({ error: 'pattern required' });
+  try {
+    new RegExp(pattern); 
+  }
+  catch (e) {
+    return res.status(400).json({ error: 'Invalid regex pattern' }); 
+  }
+
   updateRule(req.params.id, pattern, category_id || null, notes_template || null, amount_condition || null, rename_to || null);
   res.json({ success: true });
 });

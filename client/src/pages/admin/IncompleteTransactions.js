@@ -26,13 +26,17 @@ function IncompleteTransactions() {
     getCategories().then(setCategories);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+ loadData(); 
+}, []);
 
   const toggleCheck = (id) => {
     setChecked(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) 
+next.delete(id);
+      else 
+next.add(id);
       return next;
     });
   };
@@ -105,6 +109,7 @@ function IncompleteTransactions() {
     else {
       await linkPlaidId(matchTxns[0].id, plaidId);
     }
+
     setMatchTxns([]);
     setChecked(new Set());
     loadData();
@@ -118,10 +123,14 @@ function IncompleteTransactions() {
 
   const issues = (txn) => {
     const badges = [];
-    if (txn.missing_category) badges.push(<Badge key="cat" bg="danger" className="me-1">No category</Badge>);
-    if (txn.missing_merchant) badges.push(<Badge key="mer" bg="warning" className="me-1">No merchant</Badge>);
-    if (txn.missing_account) badges.push(<Badge key="acc" bg="info" className="me-1">No account</Badge>);
-    if (txn.missing_plaid_id) badges.push(<Badge key="pid" bg="secondary" className="me-1">No Plaid ID</Badge>);
+    if (txn.missing_category) 
+badges.push(<Badge key="cat" bg="danger" className="me-1">No category</Badge>);
+    if (txn.missing_merchant) 
+badges.push(<Badge key="mer" bg="warning" className="me-1">No merchant</Badge>);
+    if (txn.missing_account) 
+badges.push(<Badge key="acc" bg="info" className="me-1">No account</Badge>);
+    if (txn.missing_plaid_id) 
+badges.push(<Badge key="pid" bg="secondary" className="me-1">No Plaid ID</Badge>);
     return badges;
   };
 

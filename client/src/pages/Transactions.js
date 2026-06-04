@@ -7,7 +7,8 @@ const fmt = formatCurrency;
 
 // Format a YYYY-MM-DD date string according to a format pattern
 function formatDate(dateStr, pattern) {
-  if (!dateStr) return '';
+  if (!dateStr) 
+return '';
   const [y, m, d] = dateStr.split('-').map(Number);
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthsFull = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -45,7 +46,10 @@ function Transactions() {
   useEffect(() => {
     loadTransactions();
     getCategories().then(setCategories);
-    getSettings().then(s => { if (s.date_format) setDateFormat(s.date_format); setCurrencySettings(s); });
+    getSettings().then(s => {
+ if (s.date_format) 
+setDateFormat(s.date_format); setCurrencySettings(s); 
+});
   }, [startDate, endDate]);
 
   const loadTransactions = async () => {
@@ -91,7 +95,8 @@ function Transactions() {
   };
 
   const handleSave = async () => {
-    if (!editTxn) return;
+    if (!editTxn) 
+return;
     setSaving(true);
     try {
       await updateTransaction(editTxn.id, { merchant: editMerchant, date: editDate });
@@ -130,7 +135,8 @@ function Transactions() {
 
   // Compute summary totals from current transactions
   const summaryData = useMemo(() => {
-    if (!transactions || transactions.length === 0) return { accounts: [], categories: [] };
+    if (!transactions || transactions.length === 0) 
+return { accounts: [], categories: [] };
 
     // Account totals
     const acctMap = {};
@@ -138,6 +144,7 @@ function Transactions() {
       const name = txn.account_name || 'Unknown';
       acctMap[name] = (acctMap[name] || 0) + txn.amount;
     }
+
     const accounts = Object.entries(acctMap)
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => a.total - b.total);
@@ -150,10 +157,12 @@ function Transactions() {
           const name = s.category_name || 'Uncategorized';
           catMap[name] = (catMap[name] || 0) + s.amount;
         }
-      } else {
+      }
+ else {
         catMap['Uncategorized'] = (catMap['Uncategorized'] || 0) + txn.amount;
       }
     }
+
     const cats = Object.entries(catMap)
       .filter(([, total]) => total !== 0)
       .map(([name, total]) => ({ name, total }))
@@ -240,6 +249,7 @@ function Transactions() {
                   </tr>
                 );
               }
+
               // Multi-split: render one row per split
               const splitIncomplete = !txn.plaid_transaction_id || !txn.merchant || txn.splits.some(s => !s.category_name);
               return txn.splits.map((split, idx) => (

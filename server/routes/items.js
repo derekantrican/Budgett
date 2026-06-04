@@ -10,6 +10,7 @@ router.get('/', (req, res) => {
   for (const item of items) {
     item.accounts = getAccountsByItem(item.id);
   }
+
   res.json(items);
 });
 
@@ -22,14 +23,17 @@ router.patch('/:id', (req, res) => {
   if (display_name !== undefined) {
     updates.push('display_name = ?'); params.push(display_name || null); 
   }
+
   if (display_icon_url !== undefined) {
     updates.push('display_icon_url = ?'); params.push(display_icon_url || null); 
   }
+
   if (updates.length > 0) {
     updates.push("updated_at = datetime('now')");
     params.push(id);
     run(`UPDATE items SET ${updates.join(', ')} WHERE id = ?`, params);
   }
+
   res.json({ success: true });
 });
 

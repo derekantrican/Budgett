@@ -22,6 +22,7 @@ router.get('/', (req, res) => {
         splits: [],
       });
     }
+
     if (row.category_id) {
       transactionsMap.get(row.id).splits.push({
         category_id: row.category_id,
@@ -63,6 +64,7 @@ router.get('/search', (req, res) => {
     if (!transactionsMap.has(row.id)) {
       transactionsMap.set(row.id, { ...row, splits: [] });
     }
+
     if (row.category_id) {
       transactionsMap.get(row.id).splits.push({
         category_id: row.category_id,
@@ -85,7 +87,8 @@ router.get('/incomplete', (req, res) => {
 // GET /api/transactions/by-plaid-id/:plaidId
 router.get('/by-plaid-id/:plaidId', (req, res) => {
   const txn = getTransactionByPlaidId(req.params.plaidId);
-  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+  if (!txn) 
+    return res.status(404).json({ error: 'Transaction not found' });
   const splits = getSplitsByTransaction(txn.id);
   res.json({ ...txn, splits });
 });
@@ -146,6 +149,7 @@ router.put('/merge-and-link-plaid', (req, res) => {
         createSplit(primaryId, null, otherTxn.amount, otherTxn.notes);
       }
     }
+
     // Soft-delete the merged transaction
     run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE id = ?", [otherId]);
   }
@@ -198,12 +202,15 @@ router.put('/:id', (req, res) => {
   if (merchant !== undefined) {
     updates.push('merchant = ?'); params.push(merchant || null); 
   }
+
   if (date !== undefined) {
     updates.push('date = ?'); params.push(date || null); 
   }
+
   if (notes !== undefined) {
     updates.push('notes = ?'); params.push(notes || null); 
   }
+
   if (account_id !== undefined) {
     updates.push('account_id = ?'); params.push(account_id || null); 
   }
@@ -240,6 +247,7 @@ router.get('/:id/plaid-candidates', async (req, res) => {
   if (!txn) {
     return res.status(404).json({ error: 'Transaction not found' });
   }
+
   if (!txn.plaid_account_id) {
     return res.status(400).json({ error: 'Transaction has no linked account with a Plaid account ID' });
   }
@@ -305,6 +313,7 @@ router.get('/:id/plaid-candidates', async (req, res) => {
         else if (dayDiff <= 3) 
           score += 10;
       }
+
       // Fuzzy merchant match
       if (txn.merchant && pt.name) {
         const a = txn.merchant.toLowerCase();
@@ -355,6 +364,7 @@ router.put('/:id/link-plaid', (req, res) => {
   if (!plaid_transaction_id) {
     return res.status(400).json({ error: 'plaid_transaction_id required' });
   }
+
   const { run } = require('../db/queries');
   run("UPDATE transactions SET plaid_transaction_id = ?, updated_at = datetime('now') WHERE id = ?", [plaid_transaction_id, id]);
   res.json({ success: true });

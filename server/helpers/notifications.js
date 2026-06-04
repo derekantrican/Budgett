@@ -2,7 +2,8 @@ const { getSetting, createWebhookPayload } = require('../db/queries');
 
 async function sendNotifications(eventType, variables) {
   const webhookUrl = getSetting('webhook_url');
-  if (!webhookUrl) return;
+  if (!webhookUrl) 
+    return;
 
   const content = formatMessage(eventType, variables);
 
@@ -20,7 +21,8 @@ async function sendNotifications(eventType, variables) {
 
     // Log outgoing webhook
     createWebhookPayload(eventType, JSON.stringify({ content }), 'outgoing', webhookUrl);
-  } catch (err) {
+  }
+  catch (err) {
     console.error(`Notification failed:`, err.message);
     createWebhookPayload(`${eventType}_FAILED`, JSON.stringify({ error: err.message, content }), 'outgoing', webhookUrl);
   }
@@ -35,6 +37,7 @@ function formatMessage(eventType, vars) {
       const dollarAmount = `$${Math.abs(vars.amount).toFixed(2)}`;
       return `${prefix}${dollarAmount} ${vars.merchant} (${vars.account_name}) [[RECORD]](<${vars.record_link}>)`;
     }
+
     case 'sync_complete':
       return `Syncing transactions for ${vars.institution} (${vars.added_count} added, ${vars.modified_count} modified, ${vars.removed_count} removed)`;
     case 'sync_details':

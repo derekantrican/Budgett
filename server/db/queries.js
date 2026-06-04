@@ -22,6 +22,7 @@ function get(sql, params = []) {
     stmt.free();
     return row;
   }
+
   stmt.free();
   return null;
 }
@@ -35,6 +36,7 @@ function all(sql, params = []) {
   while (stmt.step()) {
     rows.push(stmt.getAsObject());
   }
+
   stmt.free();
   return rows;
 }
@@ -71,7 +73,9 @@ async function initQueries() {
     'ALTER TABLE rules ADD COLUMN rename_to TEXT',
   ];
   for (const sql of migrations) {
-    try { _db.run(sql); }
+    try {
+      _db.run(sql); 
+    }
     catch (e) { /* column/table already exists */ }
   }
 
@@ -104,6 +108,7 @@ const getItemByPlaidId = (plaidItemId) =>
 const updateItemCursor = (cursor, itemId) => {
   run("UPDATE items SET transaction_cursor = ?, updated_at = datetime('now') WHERE id = ?", [cursor, itemId]);
 };
+
 const updateItemStatus = (status, itemId) => {
   run("UPDATE items SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, itemId]);
 };
@@ -141,9 +146,11 @@ const getTransactionsByDateRange = (startDate, endDate) =>
 const softRemoveTransaction = (plaidTxnId) => {
   return run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
 };
+
 const restoreTransaction = (plaidTxnId) => {
   run("UPDATE transactions SET is_removed = 0, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
 };
+
 const getIncompleteTransactions = () =>
   all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name,
        (SELECT ts2.category_id FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id LIMIT 1) as split_category_id,
@@ -170,6 +177,7 @@ const updateTransactionFromPending = (plaidTxnId, amount, id) => {
        amount = ?, updated_at = datetime('now') WHERE id = ?`,
   [plaidTxnId, amount, id]);
 };
+
 const updateTransactionPlaidData = (amount, merchant, date, plaidCategory, rawJson, plaidTxnId) => {
   run(`UPDATE transactions SET amount = ?, merchant = ?, date = ?, plaid_category = ?, plaid_raw_json = ?, updated_at = datetime('now')
        WHERE plaid_transaction_id = ?`, [amount, merchant, date, plaidCategory, rawJson, plaidTxnId]);
@@ -196,13 +204,13 @@ const findFuzzyPendingMatch = (accountId, amount, date, merchantName) =>
        AND date >= date(?, '-5 days') AND date <= date(?, '+2 days')
        AND (ABS(amount - ?) < 0.005 OR INSTR(LOWER(?), LOWER(merchant)) > 0 OR INSTR(LOWER(merchant), LOWER(?)) > 0)
        ORDER BY ABS(amount - ?) ASC LIMIT 1`,
-    [accountId, date, date, amount, merchantName, merchantName, amount]);
+  [accountId, date, date, amount, merchantName, merchantName, amount]);
 
 // Promote a pending transaction to posted: update plaid_id, amount, mark not pending
 const promotePendingToPosted = (newPlaidTxnId, amount, id) =>
   run(`UPDATE transactions SET plaid_transaction_id = ?, amount = ?, is_pending = 0,
        pending_transaction_id = NULL, updated_at = datetime('now') WHERE id = ?`,
-    [newPlaidTxnId, amount, id]);
+  [newPlaidTxnId, amount, id]);
 
 // Strip plaid_id from a transaction (demotes to incomplete, preserves user data)
 const unlinkPlaidId = (id) =>
@@ -230,6 +238,7 @@ const updateCategory = (name, color, expr, resetOnNew, sortOrder, id) => {
   run("UPDATE categories SET name = ?, color = ?, budgeted_amount_expression = ?, reset_on_new_month = ?, sort_order = ?, updated_at = datetime('now') WHERE id = ?",
     [name, color, expr, resetOnNew, sortOrder, id]);
 };
+
 const toggleCategoryHidden = (id, isHidden) => {
   run("UPDATE categories SET is_hidden = ?, updated_at = datetime('now') WHERE id = ?", [isHidden ? 1 : 0, id]);
 };
@@ -293,6 +302,7 @@ const getSetting = (key) => {
   const row = get('SELECT value FROM app_settings WHERE key = ?', [key]);
   return row ? row.value : null;
 };
+
 const setSetting = (key, value) =>
   run('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)', [key, value]);
 

@@ -93,11 +93,18 @@ const { createLog } = require('./db/queries');
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
-  try { createLog('error', 'uncaughtException', err.stack || err.message); } catch (e) { /* db may be gone */ }
+  try {
+    createLog('error', 'uncaughtException', err.stack || err.message); 
+  }
+  catch (e) { /* db may be gone */ }
+
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
-  try { createLog('error', 'unhandledRejection', reason?.stack || String(reason)); } catch (e) { /* db may be gone */ }
+  try {
+    createLog('error', 'unhandledRejection', reason?.stack || String(reason)); 
+  }
+  catch (e) { /* db may be gone */ }
 });

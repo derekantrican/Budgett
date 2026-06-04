@@ -52,15 +52,18 @@ function Templates() {
     };
     if (editId) {
       await updateTemplateApi(editId, data);
-    } else {
+    }
+ else {
       await createTemplateApi(data);
     }
+
     setShowModal(false);
     loadData();
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this template?')) return;
+    if (!window.confirm('Delete this template?')) 
+return;
     await deleteTemplateApi(id);
     loadData();
   };
@@ -92,7 +95,9 @@ function Templates() {
               <td>{tmpl.category_name || '—'}</td>
               <td>{tmpl.amount || '—'}</td>
               <td className="fit-width">
-                <Button variant="outline-danger" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(tmpl.id); }}>✕</Button>
+                <Button variant="outline-danger" size="sm" onClick={(e) => {
+ e.stopPropagation(); handleDelete(tmpl.id); 
+}}>✕</Button>
               </td>
             </tr>
           ))}

@@ -132,23 +132,32 @@ function RecordTransaction() {
 
     const params = new URLSearchParams(window.location.search);
     const prefill = {};
-    if (params.get('date')) prefill.date = params.get('date');
-    if (params.get('merchant') || params.get('where')) prefill.merchant = params.get('merchant') || params.get('where');
-    if (params.get('notes')) prefill.notes = params.get('notes');
-    if (params.get('amount')) prefill.amount = params.get('amount');
-    if (params.get('plaidid')) prefill.plaidid = params.get('plaidid');
+    if (params.get('date')) 
+prefill.date = params.get('date');
+    if (params.get('merchant') || params.get('where')) 
+prefill.merchant = params.get('merchant') || params.get('where');
+    if (params.get('notes')) 
+prefill.notes = params.get('notes');
+    if (params.get('amount')) 
+prefill.amount = params.get('amount');
+    if (params.get('plaidid')) 
+prefill.plaidid = params.get('plaidid');
     if (params.get('category')) {
       const match = cats.find(c => c.name.toLowerCase() === params.get('category').toLowerCase());
-      if (match) prefill.category_id = match.id;
+      if (match) 
+prefill.category_id = match.id;
     }
+
     if (params.get('account') || params.get('paymentmethod')) {
       const name = params.get('account') || params.get('paymentmethod');
       const match = accts.find(a =>
         (a.display_name || a.name).toLowerCase() === name.toLowerCase() ||
         a.name.toLowerCase() === name.toLowerCase()
       );
-      if (match) prefill.account_id = match.id;
+      if (match) 
+prefill.account_id = match.id;
     }
+
     if (Object.keys(prefill).length > 0) {
       setForm(f => ({ ...f, ...prefill }));
     }
@@ -160,13 +169,16 @@ function RecordTransaction() {
         if (!params.get('category') && txn.splits && txn.splits.length > 0) {
           setForm(f => ({ ...f, category_id: txn.splits[0].category_id || '' }));
         }
-      } catch (e) {
+      }
+ catch (e) {
         // Transaction not found — will create new
       }
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+ loadData(); 
+}, [loadData]);
 
   const applyTemplate = (e) => {
     const t = templates.find(tpl => tpl.id === Number(e.target.value));
@@ -183,7 +195,8 @@ function RecordTransaction() {
   };
 
   const handleRecord = async () => {
-    if (!form.amount) return;
+    if (!form.amount) 
+return;
     setSaving(true);
     try {
       const amount = parseFloat(form.amount);
@@ -193,7 +206,8 @@ function RecordTransaction() {
 
       if (existingTxnId) {
         await updateSplits(existingTxnId, splits);
-      } else {
+      }
+ else {
         await createTransaction({
           date: form.date || today(),
           merchant: form.merchant || null,
@@ -222,9 +236,11 @@ function RecordTransaction() {
       setForm({ date: today(), merchant: '', notes: '', category_id: '', account_id: '', amount: '', plaidid: '' });
       setExistingTxnId(null);
       setTimeout(() => setRecorded(''), 2500);
-    } catch (e) {
+    }
+ catch (e) {
       alert('Error: ' + e.message);
     }
+
     setSaving(false);
   };
 
@@ -245,11 +261,16 @@ function RecordTransaction() {
               {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             <button style={styles.applyButton}
-              onMouseOver={e => { e.target.style.backgroundColor = '#3a6de5'; }}
-              onMouseOut={e => { e.target.style.backgroundColor = '#4e89ff'; }}
+              onMouseOver={e => {
+ e.target.style.backgroundColor = '#3a6de5'; 
+}}
+              onMouseOut={e => {
+ e.target.style.backgroundColor = '#4e89ff'; 
+}}
               onClick={() => {
                 const sel = document.getElementById('templateSelect');
-                if (sel.value) applyTemplate({ target: { value: sel.value } });
+                if (sel.value) 
+applyTemplate({ target: { value: sel.value } });
               }}
             >Apply</button>
           </div>
@@ -314,8 +335,13 @@ function RecordTransaction() {
             style={{ ...styles.button, opacity: saving || !form.amount ? 0.6 : 1 }}
             disabled={saving || !form.amount}
             onClick={handleRecord}
-            onMouseOver={e => { if (!saving) e.target.style.backgroundColor = '#3a6de5'; }}
-            onMouseOut={e => { e.target.style.backgroundColor = '#4e89ff'; }}
+            onMouseOver={e => {
+ if (!saving) 
+e.target.style.backgroundColor = '#3a6de5'; 
+}}
+            onMouseOut={e => {
+ e.target.style.backgroundColor = '#4e89ff'; 
+}}
           >
             {saving ? 'Saving…' : existingTxnId ? 'Update' : 'Record'}
           </button>

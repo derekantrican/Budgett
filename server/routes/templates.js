@@ -11,7 +11,8 @@ router.get('/', (req, res) => {
 // POST /api/templates
 router.post('/', (req, res) => {
   const { name, merchant, notes, category_id, account_id, amount } = req.body;
-  if (!name) return res.status(400).json({ error: 'name is required' });
+  if (!name) 
+    return res.status(400).json({ error: 'name is required' });
   const result = createTemplate(name, merchant || null, notes || null, category_id || null, account_id || null, amount || null);
   res.status(201).json({ id: result.lastInsertRowid });
 });
@@ -19,7 +20,8 @@ router.post('/', (req, res) => {
 // PUT /api/templates/:id
 router.put('/:id', (req, res) => {
   const { name, merchant, notes, category_id, account_id, amount } = req.body;
-  if (!name) return res.status(400).json({ error: 'name is required' });
+  if (!name) 
+    return res.status(400).json({ error: 'name is required' });
   updateTemplate(req.params.id, name, merchant || null, notes || null, category_id || null, account_id || null, amount || null);
   res.json({ success: true });
 });

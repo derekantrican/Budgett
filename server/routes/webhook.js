@@ -10,7 +10,8 @@ router.post('/', async (req, res) => {
   try {
     createWebhookPayload(`${webhook_type}.${webhook_code}`, JSON.stringify(req.body));
     createLog('info', 'webhook_received', `${webhook_type}.${webhook_code} for item ${item_id}`);
-  } catch (e) {
+  }
+  catch (e) {
     console.error('Error logging webhook:', e.message);
     createLog('error', 'webhook_log_failed', e.message);
   }
@@ -35,7 +36,8 @@ router.post('/', async (req, res) => {
             await sendNotifications('item_login_repaired', {
               institution: item.display_name || item.institution_name,
             });
-          } else {
+          }
+          else {
             updateItemStatus('login_required', item.id);
             createLog('warn', 'item_login_required', `Item ${item_id} requires re-authentication`);
             const baseUrl = getSetting('base_url') || 'http://localhost:3000';
@@ -47,7 +49,8 @@ router.post('/', async (req, res) => {
         }
       }
     }
-  } catch (err) {
+  }
+  catch (err) {
     console.error('Webhook processing error:', err);
     createLog('error', 'webhook_error', `${webhook_type}.${webhook_code}: ${err.message}`);
   }

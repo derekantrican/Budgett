@@ -17,7 +17,8 @@ function Login({ onLogin }) {
         ? await register(username, password)
         : await login(username, password);
       onLogin(user);
-    } catch (err) {
+    }
+ catch (err) {
       setError(err.message);
     }
   };

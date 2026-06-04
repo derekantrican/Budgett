@@ -54,10 +54,12 @@ router.get('/me', (req, res) => {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
+
   const user = getUserById(req.session.userId);
   if (!user) {
     return res.status(401).json({ error: 'User not found' });
   }
+
   res.json(user);
 });
 

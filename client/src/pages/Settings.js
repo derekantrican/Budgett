@@ -20,11 +20,16 @@ function Settings() {
   useEffect(() => {
     loadItems();
     getSettings().then(s => {
-      if (s.date_format) setDateFormat(s.date_format);
-      if (s.webhook_url) setWebhookUrl(s.webhook_url);
-      if (s.base_url) setBaseUrl(s.base_url);
-      if (s.plaid_env) setPlaidEnv(s.plaid_env);
-      if (s.number_format) setNumberFormat(s.number_format);
+      if (s.date_format) 
+setDateFormat(s.date_format);
+      if (s.webhook_url) 
+setWebhookUrl(s.webhook_url);
+      if (s.base_url) 
+setBaseUrl(s.base_url);
+      if (s.plaid_env) 
+setPlaidEnv(s.plaid_env);
+      if (s.number_format) 
+setNumberFormat(s.number_format);
     });
   }, []);
 
@@ -37,7 +42,8 @@ function Settings() {
     try {
       const { link_token } = await getLinkToken();
       setLinkToken(link_token);
-    } catch (err) {
+    }
+ catch (err) {
       alert('Failed to create link token. Make sure PLAID credentials and WEBHOOK_URL are configured in .env.');
     }
   };
@@ -55,11 +61,13 @@ function Settings() {
   });
 
   useEffect(() => {
-    if (linkToken && ready) open();
+    if (linkToken && ready) 
+open();
   }, [linkToken, ready, open]);
 
   const formatBalance = (val) => {
-    if (val == null) return '—';
+    if (val == null) 
+return '—';
     return '$' + Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
@@ -89,6 +97,7 @@ function Settings() {
         hide_from_transactions: acct.hide_from_transactions,
       });
     }
+
     setEditItem(null);
     loadItems();
   };
