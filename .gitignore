@@ -21,3 +21,6 @@ npm-debug.log*
 # Misc
 *.xlsx
 *.csv
+
+# Budgett API script
+budgett_api.py
