@@ -141,8 +141,8 @@ function Categories() {
     .reduce((sum, t) => sum + t.amount, 0);
 
   const pieData = [
-    ...catData.filter(c => c.spent !== 0).map(c => ({ name: c.name, value: Math.abs(c.spent), color: c.color || '#4e89ff' })),
-    ...(uncategorizedSpent !== 0 ? [{ name: 'Uncategorized', value: Math.abs(uncategorizedSpent), color: '#6c757d' }] : [])
+    ...catData.filter(c => c.spent !== 0).map(c => ({ name: c.name, value: Math.abs(c.spent), rawSpent: c.spent, color: c.color || '#4e89ff' })),
+    ...(uncategorizedSpent !== 0 ? [{ name: 'Uncategorized', value: Math.abs(uncategorizedSpent), rawSpent: uncategorizedSpent, color: '#6c757d' }] : [])
   ];
 
   return (
@@ -176,8 +176,8 @@ function Categories() {
       <div className="categories-layout" style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         {/* Pie Chart */}
         {pieData.length > 0 && (
-          <div style={{ position: 'relative' }}>
-            <PieChart width={window.innerWidth > 600 ? 700 : 320} height={window.innerWidth > 600 ? 700 : 320}>
+          <div style={{ position: 'relative', maxWidth: '100%', overflow: 'hidden' }}>
+            <PieChart width={Math.min(window.innerWidth > 600 ? 700 : 320, window.innerWidth - 32)} height={window.innerWidth > 600 ? 700 : 320}>
               <Pie
                 data={pieData}
                 cx="50%"
@@ -234,7 +234,7 @@ function Categories() {
               {hoveredSlice ? (
                 <>
                   <div style={{ fontWeight: 'bold', fontSize: '1em', color: hoveredSlice.color }}>{hoveredSlice.name}</div>
-                  <div style={{ fontSize: '1.2em', color: '#fff' }}>{formatCurrency(hoveredSlice.value)}</div>
+                  <div style={{ fontSize: '1.2em', color: '#fff' }}>{formatCurrency(hoveredSlice.rawSpent)}</div>
                 </>
               ) : null}
             </div>
