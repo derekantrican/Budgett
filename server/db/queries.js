@@ -228,6 +228,11 @@ const deleteSplitsByTransaction = (txnId) => {
   run('DELETE FROM transaction_splits WHERE transaction_id = ?', [txnId]);
 };
 
+const deleteTransaction = (txnId) => {
+  run('DELETE FROM transaction_splits WHERE transaction_id = ?', [txnId]);
+  run('DELETE FROM transactions WHERE id = ?', [txnId]);
+};
+
 // Categories
 const getAllCategories = () =>
   all('SELECT * FROM categories ORDER BY is_hidden ASC, sort_order ASC');
@@ -319,7 +324,7 @@ module.exports = {
   findIncompleteMatch, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
   // Splits
-  createSplit, getSplitsByTransaction, deleteSplitsByTransaction,
+  createSplit, getSplitsByTransaction, deleteSplitsByTransaction, deleteTransaction,
   // Categories
   getAllCategories, createCategory, updateCategory, toggleCategoryHidden,
   // Rules

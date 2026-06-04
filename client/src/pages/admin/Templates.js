@@ -53,7 +53,7 @@ function Templates() {
     if (editId) {
       await updateTemplateApi(editId, data);
     }
- else {
+    else {
       await createTemplateApi(data);
     }
 
@@ -63,7 +63,7 @@ function Templates() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this template?')) 
-return;
+      return;
     await deleteTemplateApi(id);
     loadData();
   };
@@ -96,8 +96,8 @@ return;
               <td>{tmpl.amount || '—'}</td>
               <td className="fit-width">
                 <Button variant="outline-danger" size="sm" onClick={(e) => {
- e.stopPropagation(); handleDelete(tmpl.id); 
-}}>✕</Button>
+                  e.stopPropagation(); handleDelete(tmpl.id); 
+                }}>✕</Button>
               </td>
             </tr>
           ))}

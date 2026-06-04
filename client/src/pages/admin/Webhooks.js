@@ -24,13 +24,13 @@ function Webhooks() {
           <Accordion.Body>
             <pre style={{ fontSize: '0.8rem', maxHeight: '400px', overflow: 'auto', color: '#e0e0e0', backgroundColor: '#1e1e2e', padding: '12px', borderRadius: '6px', margin: 0 }}>
               {(() => {
- try {
- return JSON.stringify(JSON.parse(payload.raw_json), null, 2); 
-}
- catch {
- return payload.raw_json; 
-} 
-})()}
+                try {
+                  return JSON.stringify(JSON.parse(payload.raw_json), null, 2); 
+                }
+                catch {
+                  return payload.raw_json; 
+                } 
+              })()}
             </pre>
           </Accordion.Body>
         </Accordion.Item>

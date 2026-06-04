@@ -65,7 +65,7 @@ function Categories() {
 
   const handleEditSave = async () => {
     if (!editCat) 
-return;
+      return;
     await updateCategoryApi(editCat.id, {
       name: editCat.name,
       color: editForm.color,
@@ -82,10 +82,10 @@ return;
   const prevPeriod = () => {
     if (viewMode === 'month') {
       if (viewMonth === 0) {
- setViewMonth(11); setViewYear(viewYear - 1); 
-}
+        setViewMonth(11); setViewYear(viewYear - 1); 
+      }
       else 
-setViewMonth(viewMonth - 1);
+        setViewMonth(viewMonth - 1);
     }
     else {
       setViewYear(viewYear - 1);
@@ -95,10 +95,10 @@ setViewMonth(viewMonth - 1);
   const nextPeriod = () => {
     if (viewMode === 'month') {
       if (viewMonth === 11) {
- setViewMonth(0); setViewYear(viewYear + 1); 
-}
+        setViewMonth(0); setViewYear(viewYear + 1); 
+      }
       else 
-setViewMonth(viewMonth + 1);
+        setViewMonth(viewMonth + 1);
     }
     else {
       setViewYear(viewYear + 1);
@@ -120,7 +120,7 @@ setViewMonth(viewMonth + 1);
   // Evaluate budgets for the current period
   const evaluateBudget = (cat) => {
     if (!cat.budgeted_amount_expression) 
-return 0;
+      return 0;
     if (viewMode === 'year') {
       // Sum across all 12 months
       let total = 0;
@@ -210,7 +210,7 @@ return 0;
                   const tx = cx + (or + 60) * cos;
                   const textAnchor = cos >= 0 ? 'start' : 'end';
                   if (percent < 0.015) 
-return null;
+                    return null;
                   return (
                     <g>
                       <line x1={mx} y1={my} x2={ex} y2={ey} stroke="#aaa" strokeWidth={1} />

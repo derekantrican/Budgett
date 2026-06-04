@@ -226,6 +226,40 @@ a {
   box-shadow: inset 3px 0 0 var(--bs-danger), inset 6px 0 0 var(--bs-primary);
 }
 
+/* Split edit row layout */
+.split-edit-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.split-edit-notes {
+  flex: 1;
+}
+
+.split-edit-bottom {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 340px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .split-edit-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .split-edit-notes {
+    width: 100%;
+  }
+
+  .split-edit-bottom {
+    width: 100%;
+  }
+}
+
 .transaction-row:active {
   background-color: #596791 !important;
 }

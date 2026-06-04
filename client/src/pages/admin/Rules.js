@@ -48,7 +48,7 @@ function Rules() {
     if (editId) {
       await updateRule(editId, data);
     }
- else {
+    else {
       await createRule(data);
     }
 
@@ -58,7 +58,7 @@ function Rules() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this rule?')) 
-return;
+      return;
     await deleteRule(id);
     loadData();
   };
@@ -108,8 +108,8 @@ return;
               <td>{rule.category_name || '—'}</td>
               <td className="fit-width">
                 <Button variant="outline-danger" size="sm" onClick={(e) => {
- e.stopPropagation(); handleDelete(rule.id); 
-}}>✕</Button>
+                  e.stopPropagation(); handleDelete(rule.id); 
+                }}>✕</Button>
               </td>
             </tr>
           ))}

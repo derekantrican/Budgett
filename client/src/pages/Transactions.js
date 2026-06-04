@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Form, Button, Badge, Modal, Spinner } from 'react-bootstrap';
-import { getTransactions, searchTransactions, getCategories, getSettings, updateTransaction, updateSplits } from '../services/api';
+import { getTransactions, searchTransactions, getCategories, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 
 const fmt = formatCurrency;
@@ -8,7 +8,7 @@ const fmt = formatCurrency;
 // Format a YYYY-MM-DD date string according to a format pattern
 function formatDate(dateStr, pattern) {
   if (!dateStr) 
-return '';
+    return '';
   const [y, m, d] = dateStr.split('-').map(Number);
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthsFull = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -28,10 +28,13 @@ function Transactions() {
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [editTxn, setEditTxn] = useState(null);
+  const [isNewTxn, setIsNewTxn] = useState(false);
   const [editSplits, setEditSplits] = useState([]);
   const [editMerchant, setEditMerchant] = useState('');
   const [editDate, setEditDate] = useState('');
+  const [editAmount, setEditAmount] = useState('0.00');
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -47,9 +50,9 @@ function Transactions() {
     loadTransactions();
     getCategories().then(setCategories);
     getSettings().then(s => {
- if (s.date_format) 
-setDateFormat(s.date_format); setCurrencySettings(s); 
-});
+      if (s.date_format) 
+        setDateFormat(s.date_format); setCurrencySettings(s); 
+    });
   }, [startDate, endDate]);
 
   const loadTransactions = async () => {
@@ -73,14 +76,30 @@ setDateFormat(s.date_format); setCurrencySettings(s);
   // Open edit modal
   const openEdit = useCallback((txn) => {
     setEditTxn(txn);
+    setIsNewTxn(false);
     setEditMerchant(txn.merchant || '');
     setEditDate(txn.date || '');
+    setEditAmount(parseFloat(txn.amount).toFixed(2));
     setEditSplits(
       txn.splits?.length
         ? txn.splits.map(s => ({ ...s, amount: parseFloat(s.amount).toFixed(2) }))
         : [{ category_id: '', amount: parseFloat(txn.amount).toFixed(2), notes: '' }]
     );
+    setConfirmDelete(false);
   }, []);
+
+  // Open modal for new manual transaction
+  const openNew = () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    setEditTxn({ id: null, amount: 0 });
+    setIsNewTxn(true);
+    setEditMerchant('');
+    setEditDate(dateStr);
+    setEditAmount('0.00');
+    setEditSplits([{ category_id: '', amount: '0.00', notes: '' }]);
+    setConfirmDelete(false);
+  };
 
   const addSplit = () => {
     setEditSplits(prev => [...prev, { category_id: '', amount: '0.00', notes: '' }]);
@@ -96,15 +115,53 @@ setDateFormat(s.date_format); setCurrencySettings(s);
 
   const handleSave = async () => {
     if (!editTxn) 
-return;
+      return;
     setSaving(true);
     try {
-      await updateTransaction(editTxn.id, { merchant: editMerchant, date: editDate });
-      await updateSplits(editTxn.id, editSplits.map(s => ({
-        category_id: s.category_id || null,
-        amount: parseFloat(s.amount) || 0,
-        notes: s.notes || null,
-      })));
+      if (isNewTxn) {
+        const amount = parseFloat(editAmount) || 0;
+        const result = await createTransaction({
+          date: editDate,
+          merchant: editMerchant,
+          amount,
+          splits: editSplits.map(s => ({
+            category_id: s.category_id || null,
+            amount: parseFloat(s.amount) || 0,
+            notes: s.notes || null,
+          })),
+        });
+
+        if (result?.id) {
+          await updateSplits(result.id, editSplits.map(s => ({
+            category_id: s.category_id || null,
+            amount: parseFloat(s.amount) || 0,
+            notes: s.notes || null,
+          })));
+        }
+      }
+      else {
+        await updateTransaction(editTxn.id, { merchant: editMerchant, date: editDate });
+        await updateSplits(editTxn.id, editSplits.map(s => ({
+          category_id: s.category_id || null,
+          amount: parseFloat(s.amount) || 0,
+          notes: s.notes || null,
+        })));
+      }
+
+      setEditTxn(null);
+      loadTransactions();
+    }
+    finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editTxn || !editTxn.id) 
+      return;
+    setSaving(true);
+    try {
+      await deleteTransaction(editTxn.id);
       setEditTxn(null);
       loadTransactions();
     }
@@ -136,7 +193,7 @@ return;
   // Compute summary totals from current transactions
   const summaryData = useMemo(() => {
     if (!transactions || transactions.length === 0) 
-return { accounts: [], categories: [] };
+      return { accounts: [], categories: [] };
 
     // Account totals
     const acctMap = {};
@@ -158,7 +215,7 @@ return { accounts: [], categories: [] };
           catMap[name] = (catMap[name] || 0) + s.amount;
         }
       }
- else {
+      else {
         catMap['Uncategorized'] = (catMap['Uncategorized'] || 0) + txn.amount;
       }
     }
@@ -183,15 +240,18 @@ return { accounts: [], categories: [] };
     <div className="transactions-page">
       <div className="d-flex justify-content-between align-items-center">
         <h4>Transactions</h4>
-        <Button
-          className="d-none d-md-inline-block"
-          variant={showSummary ? 'primary' : 'outline-primary'}
-          size="sm"
-          onClick={() => setShowSummary(!showSummary)}
-          title="Summary"
-        >
-          &#931; Summary
-        </Button>
+        <div className="d-flex gap-2">
+          <Button variant="success" size="sm" onClick={openNew}>+ Add Transaction</Button>
+          <Button
+            className="d-none d-md-inline-block"
+            variant={showSummary ? 'primary' : 'outline-primary'}
+            size="sm"
+            onClick={() => setShowSummary(!showSummary)}
+            title="Summary"
+          >
+            &#931; Summary
+          </Button>
+        </div>
       </div>
 
       {/* Month navigation + search */}
@@ -213,103 +273,103 @@ return { accounts: [], categories: [] };
         {/* Main content */}
         <div className="transactions-body">
 
-      {/* Desktop table */}
-      <div className="d-none d-md-block">
-        <Table striped hover responsive variant="dark" className="transaction-table" style={{ tableLayout: 'fixed' }}>
-          <thead>
-            <tr>
-              <th style={{ width: 110 }}>Date</th>
-              <th style={{ width: 300, textAlign: 'left' }}>Where</th>
-              <th style={{ textAlign: 'left' }}>Notes</th>
-              <th style={{ width: 200 }}>Category</th>
-              <th style={{ width: 125 }}>Amount</th>
-              <th style={{ width: 200 }}>Account</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.map((txn) => {
-              const hasSplits = txn.splits?.length > 1;
-              if (!hasSplits) {
-                const isIncomplete = !txn.plaid_transaction_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
-                return (
-                  <tr
-                    key={txn.id}
-                    className={`transaction-row ${txn.is_removed ? 'transaction-removed' : ''} ${isIncomplete ? 'transaction-incomplete' : ''}`}
-                    onClick={() => openEdit(txn)}
-                  >
-                    <td className="fit-width">{formatDate(txn.date, dateFormat)}</td>
-                    <td style={{ textAlign: 'left' }}>
-                      {txn.merchant}
-                      {txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
-                    </td>
-                    <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{txn.splits?.[0]?.notes || ''}</td>
-                    <td>{txn.splits?.[0]?.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
-                    <td className="fit-width">{fmt(txn.amount)}</td>
-                    <td>{txn.account_name || ''}</td>
-                  </tr>
-                );
-              }
-
-              // Multi-split: render one row per split
-              const splitIncomplete = !txn.plaid_transaction_id || !txn.merchant || txn.splits.some(s => !s.category_name);
-              return txn.splits.map((split, idx) => (
-                <tr
-                  key={`${txn.id}-${idx}`}
-                  className={`transaction-row split-row ${idx > 0 ? 'split-continuation' : 'split-start'} ${txn.is_removed ? 'transaction-removed' : ''} ${splitIncomplete && idx === 0 ? 'transaction-incomplete' : ''}`}
-                  onClick={() => openEdit(txn)}
-                >
-                  <td className="fit-width">
-                    {idx === 0 ? formatDate(txn.date, dateFormat) : ''}
-                  </td>
-                  <td style={{ textAlign: 'left' }}>
-                    {idx === 0 ? txn.merchant : ''}
-                    {idx === 0 && txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
-                  </td>
-                  <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{split.notes || ''}</td>
-                  <td>{split.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
-                  <td className="fit-width">{fmt(split.amount)}</td>
-                  <td>{txn.account_name || ''}</td>
+          {/* Desktop table */}
+          <div className="d-none d-md-block">
+            <Table striped hover responsive variant="dark" className="transaction-table" style={{ tableLayout: 'fixed' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 110 }}>Date</th>
+                  <th style={{ width: 300, textAlign: 'left' }}>Where</th>
+                  <th style={{ textAlign: 'left' }}>Notes</th>
+                  <th style={{ width: 200 }}>Category</th>
+                  <th style={{ width: 125 }}>Amount</th>
+                  <th style={{ width: 200 }}>Account</th>
                 </tr>
-              ));
-            })}
-          </tbody>
-        </Table>
-      </div>
+              </thead>
+              <tbody>
+                {transactions.map((txn) => {
+                  const hasSplits = txn.splits?.length > 1;
+                  if (!hasSplits) {
+                    const isIncomplete = !txn.plaid_transaction_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
+                    return (
+                      <tr
+                        key={txn.id}
+                        className={`transaction-row ${txn.is_removed ? 'transaction-removed' : ''} ${isIncomplete ? 'transaction-incomplete' : ''}`}
+                        onClick={() => openEdit(txn)}
+                      >
+                        <td className="fit-width">{formatDate(txn.date, dateFormat)}</td>
+                        <td style={{ textAlign: 'left' }}>
+                          {txn.merchant}
+                          {txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
+                        </td>
+                        <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{txn.splits?.[0]?.notes || ''}</td>
+                        <td>{txn.splits?.[0]?.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
+                        <td className="fit-width">{fmt(txn.amount)}</td>
+                        <td>{txn.account_name || ''}</td>
+                      </tr>
+                    );
+                  }
 
-      {/* Mobile cards */}
-      <div className="d-md-none">
-        {transactions.map((txn) => (
-          <div key={txn.id} className={`transaction-card ${txn.is_removed ? 'transaction-removed' : ''}`} onClick={() => openEdit(txn)}>
-            <div className="transaction-card-header d-flex justify-content-between">
-              <span>{txn.merchant}</span>
-              <span>{fmt(txn.amount)}</span>
-            </div>
-            {txn.splits?.length > 1 ? (
-              txn.splits.map((split, idx) => (
-                <div key={idx} className="d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em', paddingLeft: 8 }}>
-                  <span>{split.category_name || 'Uncategorized'}</span>
-                  <span>{fmt(split.amount)}</span>
-                </div>
-              ))
-            ) : (
-              <div className="transaction-card-body d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
-                <span>{formatDate(txn.date, dateFormat)}</span>
-                <span>{txn.splits?.[0]?.category_name || 'Uncategorized'}</span>
-              </div>
-            )}
-            {txn.splits?.length > 1 && (
-              <div style={{ color: 'var(--text-secondary)', fontSize: '0.8em', padding: '2px 8px' }}>
-                {formatDate(txn.date, dateFormat)}
-              </div>
-            )}
+                  // Multi-split: render one row per split
+                  const splitIncomplete = !txn.plaid_transaction_id || !txn.merchant || txn.splits.some(s => !s.category_name);
+                  return txn.splits.map((split, idx) => (
+                    <tr
+                      key={`${txn.id}-${idx}`}
+                      className={`transaction-row split-row ${idx > 0 ? 'split-continuation' : 'split-start'} ${txn.is_removed ? 'transaction-removed' : ''} ${splitIncomplete && idx === 0 ? 'transaction-incomplete' : ''}`}
+                      onClick={() => openEdit(txn)}
+                    >
+                      <td className="fit-width">
+                        {idx === 0 ? formatDate(txn.date, dateFormat) : ''}
+                      </td>
+                      <td style={{ textAlign: 'left' }}>
+                        {idx === 0 ? txn.merchant : ''}
+                        {idx === 0 && txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
+                      </td>
+                      <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{split.notes || ''}</td>
+                      <td>{split.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
+                      <td className="fit-width">{fmt(split.amount)}</td>
+                      <td>{txn.account_name || ''}</td>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </Table>
           </div>
-        ))}
-      </div>
 
-      {transactions.length === 0 && (
-        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: 40 }}>No transactions found.</p>
-      )}
-      </div>
+          {/* Mobile cards */}
+          <div className="d-md-none">
+            {transactions.map((txn) => (
+              <div key={txn.id} className={`transaction-card ${txn.is_removed ? 'transaction-removed' : ''}`} onClick={() => openEdit(txn)}>
+                <div className="transaction-card-header d-flex justify-content-between">
+                  <span>{txn.merchant}</span>
+                  <span>{fmt(txn.amount)}</span>
+                </div>
+                {txn.splits?.length > 1 ? (
+                  txn.splits.map((split, idx) => (
+                    <div key={idx} className="d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em', paddingLeft: 8 }}>
+                      <span>{split.category_name || 'Uncategorized'}</span>
+                      <span>{fmt(split.amount)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="transaction-card-body d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
+                    <span>{formatDate(txn.date, dateFormat)}</span>
+                    <span>{txn.splits?.[0]?.category_name || 'Uncategorized'}</span>
+                  </div>
+                )}
+                {txn.splits?.length > 1 && (
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.8em', padding: '2px 8px' }}>
+                    {formatDate(txn.date, dateFormat)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {transactions.length === 0 && (
+            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: 40 }}>No transactions found.</p>
+          )}
+        </div>
 
         {/* Summary side panel */}
         {showSummary && (
@@ -341,10 +401,10 @@ return { accounts: [], categories: [] };
         )}
       </div>
 
-      {/* Edit Modal */}
+      {/* Edit/Add Modal */}
       <Modal show={!!editTxn} onHide={() => setEditTxn(null)} size="lg" data-bs-theme="dark">
         <Modal.Header closeButton>
-          <Modal.Title>Edit Transaction</Modal.Title>
+          <Modal.Title>{isNewTxn ? 'Add Transaction' : 'Edit Transaction'}</Modal.Title>
         </Modal.Header>
         {editTxn && (
           <Modal.Body>
@@ -357,15 +417,33 @@ return { accounts: [], categories: [] };
                 <Form.Label>Where (Merchant)</Form.Label>
                 <Form.Control value={editMerchant} onChange={(e) => setEditMerchant(e.target.value)} />
               </Form.Group>
+              {isNewTxn && (
+                <Form.Group style={{ flex: 1 }}>
+                  <Form.Label>Amount</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.01"
+                    value={editAmount}
+                    onChange={(e) => {
+                      setEditAmount(e.target.value);
+                      if (editSplits.length === 1) {
+                        updateSplitField(0, 'amount', e.target.value);
+                      }
+                    }}
+                  />
+                </Form.Group>
+              )}
             </div>
 
             <div className="d-flex justify-content-between align-items-center mb-2">
               <strong>Itemized Splits ({editSplits.length})</strong>
               <div className="d-flex align-items-center gap-2">
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
-                  Total: {fmt(editTxn.amount)}
-                </span>
-                {Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005 && (
+                {!isNewTxn && (
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
+                    Total: {fmt(editTxn.amount)}
+                  </span>
+                )}
+                {!isNewTxn && Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005 && (
                   <span style={{ color: '#ff4444', fontWeight: 'bold', fontSize: '0.85em' }}>
                     (split total: {fmt(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0))})
                   </span>
@@ -375,32 +453,35 @@ return { accounts: [], categories: [] };
             </div>
 
             {editSplits.map((split, idx) => (
-              <div key={idx} className="d-flex gap-2 mb-2 align-items-center">
-                <Form.Control
-                  placeholder="Notes"
-                  value={split.notes || ''}
-                  onChange={(e) => updateSplitField(idx, 'notes', e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <Form.Select
-                  value={split.category_id || ''}
-                  onChange={(e) => updateSplitField(idx, 'category_id', e.target.value)}
-                  style={{ width: 200, flex: 'none' }}
-                >
-                  <option value="">Uncategorized</option>
-                  {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </Form.Select>
-                <Form.Control
-                  type="number"
-                  step="0.01"
-                  value={split.amount}
-                  onChange={(e) => updateSplitField(idx, 'amount', e.target.value)}
-                  onBlur={(e) => updateSplitField(idx, 'amount', parseFloat(e.target.value || 0).toFixed(2))}
-                  style={{ width: 125, flex: 'none' }}
-                />
-                {editSplits.length > 1 && (
-                  <Button variant="outline-danger" size="sm" onClick={() => removeSplit(idx)}>×</Button>
-                )}
+              <div key={idx} className="split-edit-row mb-2">
+                <div className="split-edit-notes">
+                  <Form.Control
+                    placeholder="Notes"
+                    value={split.notes || ''}
+                    onChange={(e) => updateSplitField(idx, 'notes', e.target.value)}
+                  />
+                </div>
+                <div className="split-edit-bottom">
+                  <Form.Select
+                    value={split.category_id || ''}
+                    onChange={(e) => updateSplitField(idx, 'category_id', e.target.value)}
+                    style={{ flex: 1 }}
+                  >
+                    <option value="">Uncategorized</option>
+                    {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </Form.Select>
+                  <Form.Control
+                    type="number"
+                    step="0.01"
+                    value={split.amount}
+                    onChange={(e) => updateSplitField(idx, 'amount', e.target.value)}
+                    onBlur={(e) => updateSplitField(idx, 'amount', parseFloat(e.target.value || 0).toFixed(2))}
+                    style={{ width: 125, flex: 'none' }}
+                  />
+                  {editSplits.length > 1 && (
+                    <Button variant="outline-danger" size="sm" onClick={() => removeSplit(idx)}>×</Button>
+                  )}
+                </div>
               </div>
             ))}
 
@@ -415,13 +496,24 @@ return { accounts: [], categories: [] };
           </Modal.Body>
         )}
         <Modal.Footer>
+          {!isNewTxn && editTxn && !editTxn.plaid_transaction_id && (
+            confirmDelete ? (
+              <div className="me-auto d-flex align-items-center gap-2">
+                <span style={{ color: '#ff4444', fontSize: '0.9em' }}>Are you sure?</span>
+                <Button variant="danger" size="sm" onClick={handleDelete} disabled={saving}>Yes, Delete</Button>
+                <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <Button variant="outline-danger" className="me-auto" onClick={() => setConfirmDelete(true)}>Delete</Button>
+            )
+          )}
           <Button variant="secondary" onClick={() => setEditTxn(null)}>Cancel</Button>
           <Button
             variant="primary"
             onClick={handleSave}
-            disabled={saving || (editTxn && Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005)}
+            disabled={saving || (!isNewTxn && editTxn && Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005)}
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? 'Saving...' : isNewTxn ? 'Add Transaction' : 'Save Changes'}
           </Button>
         </Modal.Footer>
       </Modal>

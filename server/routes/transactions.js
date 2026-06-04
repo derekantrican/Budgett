@@ -370,4 +370,22 @@ router.put('/:id/link-plaid', (req, res) => {
   res.json({ success: true });
 });
 
+// DELETE /api/transactions/:id - only allowed for transactions without a plaid_id
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  const { get, deleteTransaction } = require('../db/queries');
+  const txn = get('SELECT plaid_transaction_id FROM transactions WHERE id = ?', [id]);
+
+  if (!txn) {
+    return res.status(404).json({ error: 'Transaction not found' });
+  }
+
+  if (txn.plaid_transaction_id) {
+    return res.status(400).json({ error: 'Cannot delete a transaction linked to Plaid' });
+  }
+
+  deleteTransaction(id);
+  res.json({ success: true });
+});
+
 module.exports = router;

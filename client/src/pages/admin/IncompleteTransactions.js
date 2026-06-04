@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Badge, Button, Form, Modal, Spinner } from 'react-bootstrap';
-import { getIncompleteTransactions, getCategories, updateTransaction, getPlaidCandidates, linkPlaidId, mergeAndLinkPlaid } from '../../services/api';
+import { getIncompleteTransactions, getCategories, updateTransaction, deleteTransaction, getPlaidCandidates, linkPlaidId, mergeAndLinkPlaid } from '../../services/api';
 import { formatCurrency } from '../../utils/currency';
 
 const fmt = formatCurrency;
@@ -11,6 +11,7 @@ function IncompleteTransactions() {
   const [editTxn, setEditTxn] = useState(null);
   const [form, setForm] = useState({});
   const [checked, setChecked] = useState(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Plaid candidate matching state
   const [matchTxns, setMatchTxns] = useState([]); // transactions being matched
@@ -27,16 +28,16 @@ function IncompleteTransactions() {
   };
 
   useEffect(() => {
- loadData(); 
-}, []);
+    loadData(); 
+  }, []);
 
   const toggleCheck = (id) => {
     setChecked(prev => {
       const next = new Set(prev);
       if (next.has(id)) 
-next.delete(id);
+        next.delete(id);
       else 
-next.add(id);
+        next.add(id);
       return next;
     });
   };
@@ -55,6 +56,15 @@ next.add(id);
   const handleSave = async () => {
     await updateTransaction(editTxn.id, form);
     setEditTxn(null);
+    loadData();
+  };
+
+  const handleDeleteIncomplete = async () => {
+    if (!editTxn) 
+      return;
+    await deleteTransaction(editTxn.id);
+    setEditTxn(null);
+    setConfirmDelete(false);
     loadData();
   };
 
@@ -124,13 +134,13 @@ next.add(id);
   const issues = (txn) => {
     const badges = [];
     if (txn.missing_category) 
-badges.push(<Badge key="cat" bg="danger" className="me-1">No category</Badge>);
+      badges.push(<Badge key="cat" bg="danger" className="me-1">No category</Badge>);
     if (txn.missing_merchant) 
-badges.push(<Badge key="mer" bg="warning" className="me-1">No merchant</Badge>);
+      badges.push(<Badge key="mer" bg="warning" className="me-1">No merchant</Badge>);
     if (txn.missing_account) 
-badges.push(<Badge key="acc" bg="info" className="me-1">No account</Badge>);
+      badges.push(<Badge key="acc" bg="info" className="me-1">No account</Badge>);
     if (txn.missing_plaid_id) 
-badges.push(<Badge key="pid" bg="secondary" className="me-1">No Plaid ID</Badge>);
+      badges.push(<Badge key="pid" bg="secondary" className="me-1">No Plaid ID</Badge>);
     return badges;
   };
 
@@ -234,6 +244,17 @@ badges.push(<Badge key="pid" bg="secondary" className="me-1">No Plaid ID</Badge>
           )}
         </Modal.Body>
         <Modal.Footer>
+          {editTxn && !editTxn.plaid_transaction_id && (
+            confirmDelete ? (
+              <div className="me-auto d-flex align-items-center gap-2">
+                <span style={{ color: '#ff4444', fontSize: '0.9em' }}>Are you sure?</span>
+                <Button variant="danger" size="sm" onClick={handleDeleteIncomplete}>Yes, Delete</Button>
+                <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <Button variant="outline-danger" className="me-auto" onClick={() => setConfirmDelete(true)}>Delete</Button>
+            )
+          )}
           <Button variant="secondary" onClick={() => setEditTxn(null)}>Cancel</Button>
           <Button variant="primary" onClick={handleSave}>Save</Button>
         </Modal.Footer>

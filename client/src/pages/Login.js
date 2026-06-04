@@ -18,7 +18,7 @@ function Login({ onLogin }) {
         : await login(username, password);
       onLogin(user);
     }
- catch (err) {
+    catch (err) {
       setError(err.message);
     }
   };
