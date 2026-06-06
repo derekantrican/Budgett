@@ -188,7 +188,7 @@ function RecordTransaction() {
         merchant: t.merchant || '',
         notes: t.notes || '',
         category_id: t.category_id || '',
-        account_id: t.account_id || '',
+        ...(t.account_id ? { account_id: String(t.account_id) } : {}),
         ...(t.amount ? { amount: String(t.amount) } : {}),
       }));
     }
