@@ -58,7 +58,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
       details += 'Added transactions:\n\n';
       details += allAdded.map(t => {
         const amt = `$${Math.abs(t.amount).toFixed(2)}`;
-        return `- ${t.amount <= 0 ? '' : '-'}${amt} ${t.name || t.merchant_name}`;
+        return `- ${t.amount <= 0 ? '' : '-'}${amt} ${t.merchant_name || t.name}`;
       }).join('\n');
       details += '\n\n';
     }
@@ -67,7 +67,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
       details += 'Modified transactions:\n\n';
       details += allModified.map(t => {
         const amt = `$${Math.abs(t.amount).toFixed(2)}`;
-        return `- ${t.amount <= 0 ? '' : '-'}${amt} ${t.name || t.merchant_name}`;
+        return `- ${t.amount <= 0 ? '' : '-'}${amt} ${t.merchant_name || t.name}`;
       }).join('\n');
       details += '\n\n';
     }
@@ -79,7 +79,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
         const match = allAdded.find(a => a.pending_transaction_id === r.transaction_id);
         if (match) {
           const amt = `$${Math.abs(match.amount).toFixed(2)}`;
-          return `- ${r.transaction_id} (was: ${match.amount <= 0 ? '' : '-'}${amt} ${match.name || match.merchant_name})`;
+          return `- ${r.transaction_id} (was: ${match.amount <= 0 ? '' : '-'}${amt} ${match.merchant_name || match.name})`;
         }
 
         return `- ${r.transaction_id}`;
@@ -117,7 +117,8 @@ async function processAddedTransaction(txn, io) {
   if (existing) {
     if (existing.is_removed) {
       restoreTransaction(txn.transaction_id);
-      createLog('info', 'transaction_restored', `Restored: ${txn.name} (${txn.amount})`);
+      createLog('info', 'transaction_restored', `Restored: ${txn.merchant_name || txn.name} (${txn.amount})`);
+
     }
 
     return;
@@ -136,8 +137,8 @@ async function processAddedTransaction(txn, io) {
       -txn.amount,
       matchedPending.id
     );
-    createLog('info', 'pending_matched', `Pending→Posted: ${txn.name} (${txn.amount})`);
-    await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${txn.name}` });
+    createLog('info', 'pending_matched', `Pending→Posted: ${txn.merchant_name || txn.name} (${txn.amount})`);
+    await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${txn.merchant_name || txn.name}` });
     return;
   }
 
@@ -149,28 +150,28 @@ async function processAddedTransaction(txn, io) {
   const incompleteMatch = findIncompleteMatch(-txn.amount);
   if (incompleteMatch) {
     linkIncompleteTransaction(txn.transaction_id, incompleteMatch.id);
-    createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.name} (${txn.amount})`);
-    await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${txn.name}` });
+    createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.merchant_name || txn.name} (${txn.amount})`);
+    await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${txn.merchant_name || txn.name}` });
     return;
   }
 
   // Fuzzy match: posted transaction without pending_transaction_id link
   // Look for a recent pending transaction on the same account with exact amount OR similar merchant
   if (!txn.pending && accountId) {
-    const incomingMerchant = txn.name || txn.merchant_name || '';
+    const incomingMerchant = txn.merchant_name || txn.name || '';
     const fuzzyMatch = findFuzzyPendingMatch(accountId, -txn.amount, txn.date, incomingMerchant);
     if (fuzzyMatch) {
       promotePendingToPosted(txn.transaction_id, -txn.amount, fuzzyMatch.id);
       createLog('info', 'fuzzy_pending_matched',
         `Posted txn matched pending #${fuzzyMatch.id} (${fuzzyMatch.merchant}): plaid_id ${fuzzyMatch.plaid_transaction_id} → ${txn.transaction_id}, amount ${fuzzyMatch.amount} → ${-txn.amount}`);
-      await sendNotifications('sync_update', { message: `UPDATED (fuzzy matched pending): ${txn.name} → ${fuzzyMatch.merchant}` });
+      await sendNotifications('sync_update', { message: `UPDATED (fuzzy matched pending): ${txn.merchant_name || txn.name} → ${fuzzyMatch.merchant}` });
       return;
     }
   }
 
   // Try to match a rule
   const rules = getAllRules();
-  const merchantName = txn.name || txn.merchant_name;
+  const merchantName = txn.merchant_name || txn.name;
   const matchedRule = matchRule(rules, merchantName, -txn.amount);
   const displayName = (matchedRule && matchedRule.rename_to) ? matchedRule.rename_to : merchantName;
 
@@ -216,30 +217,30 @@ async function processAddedTransaction(txn, io) {
     record_link: recordLink,
   });
 
-  createLog('info', 'transaction_added', `Added: ${txn.name} (${txn.amount})`);
+  createLog('info', 'transaction_added', `Added: ${txn.merchant_name || txn.name} (${txn.amount})`);
 
   if (io) {
-    io.emit('NEW_TRANSACTION', { id: txnId, merchant: txn.name, amount: -txn.amount });
+    io.emit('NEW_TRANSACTION', { id: txnId, merchant: txn.merchant_name || txn.name, amount: -txn.amount });
   }
 }
 
 async function processModifiedTransaction(txn, io) {
   const existing = getTransactionByPlaidId(txn.transaction_id);
   if (!existing) {
-    createLog('warn', 'modify_not_found', `Attempted to modify transaction ${txn.transaction_id} (${txn.name}, $${txn.amount}), but could not find it`);
+    createLog('warn', 'modify_not_found', `Attempted to modify transaction ${txn.transaction_id} (${txn.merchant_name || txn.name}, $${txn.amount}), but could not find it`);
     return;
   }
 
   updateTransactionPlaidData(
     -txn.amount,
-    txn.name || txn.merchant_name,
+    txn.merchant_name || txn.name,
     txn.date,
     txn.personal_finance_category?.primary || null,
     JSON.stringify(txn),
     txn.transaction_id
   );
 
-  createLog('info', 'transaction_modified', `Modified: ${txn.name} (${txn.amount})`);
+  createLog('info', 'transaction_modified', `Modified: ${txn.merchant_name || txn.name} (${txn.amount})`);
 }
 
 async function processRemovedTransaction(txn, io) {
