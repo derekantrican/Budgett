@@ -189,7 +189,7 @@ function RecordTransaction() {
         notes: t.notes || '',
         category_id: t.category_id || '',
         account_id: t.account_id || '',
-        amount: t.amount != null ? String(t.amount) : '',
+        ...(t.amount ? { amount: String(t.amount) } : {}),
       }));
     }
   };
