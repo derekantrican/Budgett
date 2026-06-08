@@ -285,7 +285,7 @@ function Categories() {
                   </tr>
                 );
               })}
-              {uncategorizedSpent > 0 && (
+              {uncategorizedSpent !== 0 && (
                 <tr style={{ fontStyle: 'italic' }}>
                   <td style={{ textAlign: 'left' }}>Uncategorized</td>
                   <td className="fit-width">—</td>
