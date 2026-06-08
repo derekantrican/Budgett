@@ -155,6 +155,7 @@ const getIncompleteTransactions = () =>
   all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name,
        (SELECT ts2.category_id FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id LIMIT 1) as split_category_id,
        (SELECT c.name FROM transaction_splits ts2 JOIN categories c ON ts2.category_id = c.id WHERE ts2.transaction_id = t.id LIMIT 1) as category_name,
+       (SELECT ts2.notes FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id LIMIT 1) as notes,
        CASE WHEN t.plaid_transaction_id IS NULL THEN 1 ELSE 0 END as missing_plaid_id,
        CASE WHEN t.merchant IS NULL OR t.merchant = '' THEN 1 ELSE 0 END as missing_merchant,
        CASE WHEN t.account_id IS NULL THEN 1 ELSE 0 END as missing_account,

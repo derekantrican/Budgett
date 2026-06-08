@@ -45,8 +45,12 @@ function Summary() {
 
   // Uncategorized
   const uncategorized = transactions
-    .filter(t => t.amount < 0 && (!t.splits || t.splits.length === 0))
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    .reduce((sum, t) => {
+      if (t.amount >= 0) return sum;
+      if (!t.splits || t.splits.length === 0) return sum + Math.abs(t.amount);
+      const uncatSplits = t.splits.filter(s => !s.category_id);
+      return sum + uncatSplits.reduce((s, split) => s + Math.abs(split.amount), 0);
+    }, 0);
   if (uncategorized > 0) {
     chartData.push({ name: 'Uncategorized', value: uncategorized });
     chartColors.push('#6c757d');

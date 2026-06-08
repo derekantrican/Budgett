@@ -23,10 +23,10 @@ router.get('/', (req, res) => {
       });
     }
 
-    if (row.category_id) {
+    if (row.split_amount !== null) {
       transactionsMap.get(row.id).splits.push({
-        category_id: row.category_id,
-        category_name: row.category_name,
+        category_id: row.category_id || null,
+        category_name: row.category_name || 'Uncategorized',
         amount: row.split_amount,
         notes: row.split_notes,
       });
@@ -65,10 +65,10 @@ router.get('/search', (req, res) => {
       transactionsMap.set(row.id, { ...row, splits: [] });
     }
 
-    if (row.category_id) {
+    if (row.split_amount !== null) {
       transactionsMap.get(row.id).splits.push({
-        category_id: row.category_id,
-        category_name: row.category_name,
+        category_id: row.category_id || null,
+        category_name: row.category_name || 'Uncategorized',
         amount: row.split_amount,
         notes: row.split_notes,
       });
@@ -194,7 +194,7 @@ router.put('/:id/splits', (req, res) => {
 router.put('/:id', (req, res) => {
   const { id } = req.params;
   const { merchant, notes, account_id, category_id, date } = req.body;
-  const { run } = require('../db/queries');
+  const { run, createSplit } = require('../db/queries');
 
   // Update transaction fields
   const updates = [];
@@ -207,10 +207,6 @@ router.put('/:id', (req, res) => {
     updates.push('date = ?'); params.push(date || null); 
   }
 
-  if (notes !== undefined) {
-    updates.push('notes = ?'); params.push(notes || null); 
-  }
-
   if (account_id !== undefined) {
     updates.push('account_id = ?'); params.push(account_id || null); 
   }
@@ -221,14 +217,31 @@ router.put('/:id', (req, res) => {
     run(`UPDATE transactions SET ${updates.join(', ')} WHERE id = ?`, params);
   }
 
-  // If category_id provided and no splits exist, create one
-  if (category_id) {
+  // If category_id or notes provided and no splits exist, create one
+  if (category_id !== undefined || notes !== undefined) {
     const { all: allFn } = require('../db/queries');
     const existing = allFn('SELECT id FROM transaction_splits WHERE transaction_id = ?', [id]);
     if (existing.length === 0) {
       const txn = allFn('SELECT amount FROM transactions WHERE id = ?', [id]);
       if (txn.length > 0) {
-        createSplit(id, category_id, txn[0].amount, null);
+        createSplit(id, category_id || null, txn[0].amount, notes || null);
+      }
+    }
+    else {
+      // Update the first split
+      const splitUpdates = [];
+      const splitParams = [];
+      if (category_id !== undefined) {
+        splitUpdates.push('category_id = ?'); splitParams.push(category_id || null);
+      }
+
+      if (notes !== undefined) {
+        splitUpdates.push('notes = ?'); splitParams.push(notes || null);
+      }
+
+      if (splitUpdates.length > 0) {
+        splitParams.push(existing[0].id);
+        run(`UPDATE transaction_splits SET ${splitUpdates.join(', ')} WHERE id = ?`, splitParams);
       }
     }
   }

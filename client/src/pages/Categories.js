@@ -149,8 +149,11 @@ function Categories() {
   });
 
   const uncategorizedSpent = transactions
-    .filter(t => !t.splits || t.splits.length === 0)
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => {
+      if (!t.splits || t.splits.length === 0) return sum + t.amount;
+      const uncatSplits = t.splits.filter(s => !s.category_id);
+      return sum + uncatSplits.reduce((s, split) => s + split.amount, 0);
+    }, 0);
 
   const pieData = [
     ...catData.filter(c => c.spent !== 0).map(c => ({ name: c.name, value: Math.abs(c.spent), rawSpent: c.spent, color: c.color || '#4e89ff' })),
