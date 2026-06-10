@@ -1,56 +1,29 @@
-const { getDb, saveDb } = require('./init');
+const { getDb } = require('./init');
 
 // Helper: run a query that modifies data, returns { lastInsertRowid, changes }
 function run(sql, params = []) {
-  const db = getDbSync();
-  db.run(sql, params);
-  const result = db.exec("SELECT last_insert_rowid() as id, changes() as changes");
-  saveDb();
+  const db = getDb();
+  const result = db.prepare(sql).run(...params);
   return {
-    lastInsertRowid: result[0]?.values[0][0],
-    changes: result[0]?.values[0][1],
+    lastInsertRowid: result.lastInsertRowid,
+    changes: result.changes,
   };
 }
 
 // Helper: get one row
 function get(sql, params = []) {
-  const db = getDbSync();
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  if (stmt.step()) {
-    const row = stmt.getAsObject();
-    stmt.free();
-    return row;
-  }
-
-  stmt.free();
-  return null;
+  const db = getDb();
+  return db.prepare(sql).get(...params) || null;
 }
 
 // Helper: get all rows
 function all(sql, params = []) {
-  const db = getDbSync();
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) {
-    rows.push(stmt.getAsObject());
-  }
-
-  stmt.free();
-  return rows;
+  const db = getDb();
+  return db.prepare(sql).all(...params);
 }
 
-// Sync access to the db (must be initialized first)
-let _db = null;
-function getDbSync() {
-  if (!_db) 
-    throw new Error('Database not initialized. Call initQueries() first.');
-  return _db;
-}
-
-async function initQueries() {
-  _db = await getDb();
+function initQueries() {
+  const db = getDb();
   // Migrations
   const migrations = [
     'ALTER TABLE accounts ADD COLUMN hide_from_transactions INTEGER NOT NULL DEFAULT 0',
@@ -74,7 +47,7 @@ async function initQueries() {
   ];
   for (const sql of migrations) {
     try {
-      _db.run(sql); 
+      db.exec(sql);
     }
     catch (e) { /* column/table already exists */ }
   }
@@ -86,12 +59,10 @@ async function initQueries() {
     '#F1948A', '#82E0AA', '#F8C471', '#AED6F1', '#D2B4DE',
     '#A3E4D7', '#FAD7A0', '#D5DBDB', '#F9E79F', '#A9CCE3',
   ];
-  const noColor = _db.exec("SELECT id FROM categories WHERE color IS NULL OR color = ''");
-  if (noColor.length > 0) {
-    for (const row of noColor[0].values) {
-      const color = palette[Math.floor(Math.random() * palette.length)];
-      _db.run('UPDATE categories SET color = ? WHERE id = ?', [color, row[0]]);
-    }
+  const noColor = db.prepare("SELECT id FROM categories WHERE color IS NULL OR color = ''").all();
+  for (const row of noColor) {
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    db.prepare('UPDATE categories SET color = ? WHERE id = ?').run(color, row.id);
   }
 }
 

@@ -73,9 +73,9 @@ io.on('connection', (socket) => {
 });
 
 // Initialize and start
-async function start() {
-  await initDb();
-  await initQueries();
+function start() {
+  initDb();
+  initQueries();
 
   const PORT = process.env.PORT || 5000;
   server.listen(PORT, '0.0.0.0', () => {
@@ -83,10 +83,13 @@ async function start() {
   });
 }
 
-start().catch((err) => {
+try {
+  start();
+}
+catch (err) {
   console.error('Failed to start server:', err);
   process.exit(1);
-});
+}
 
 // Log unhandled errors to DB and console
 const { createLog } = require('./db/queries');
