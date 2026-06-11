@@ -179,12 +179,11 @@ function Transactions() {
   const navigateMonth = (direction) => {
     const parts = startDate.split('-');
     const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1;
-    const newMonth = month + direction;
-    const start = new Date(year, newMonth, 1);
+    const month = parseInt(parts[1]) - 1 + direction;
+    const start = new Date(year, month, 1);
     const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(end.toISOString().split('T')[0]);
+    setStartDate(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`);
+    setEndDate(`${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`);
   };
 
   const monthLabel = () => {
