@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const { requireAdmin } = require('../middleware/auth');
 const { getRecentLogs, getWebhookPayloads, getIncompleteTransactions } = require('../db/queries');
 
 // GET /api/admin/logs?limit=100
