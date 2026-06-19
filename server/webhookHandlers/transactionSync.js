@@ -191,7 +191,30 @@ async function processAddedTransaction(txn, io) {
   const txnId = result.lastInsertRowid;
 
   if (matchedRule) {
-    createSplit(txnId, matchedRule.category_id || null, -txn.amount, matchedRule.notes_template || null);
+    if (matchedRule.is_split && matchedRule.split_json) {
+      const splits = JSON.parse(matchedRule.split_json);
+      for (const split of splits) {
+        let splitAmount = -txn.amount;
+        if (split.amount_expression) {
+          try {
+            const expr = split.amount_expression
+              .replace(/^=/, '')
+              .replace(/CEILING\(([^,]+),\s*([^)]+)\)/g, '(Math.ceil(($1)/($2))*($2))')
+              .replace(/FLOOR\(([^,]+),\s*([^)]+)\)/g, '(Math.floor(($1)/($2))*($2))')
+              .replace(/amount/g, String(-txn.amount));
+            const fn = new Function(`return (${expr});`);
+            splitAmount = fn();
+          }
+          catch (e) { /* fallback to full amount */ }
+        }
+
+        createSplit(txnId, split.category_id || null, splitAmount, split.notes || null);
+      }
+    }
+    else {
+      createSplit(txnId, matchedRule.category_id || null, -txn.amount, matchedRule.notes_template || null);
+    }
+
     createLog('info', 'rule_matched', `Rule "${matchedRule.pattern}" matched for ${merchantName}${matchedRule.rename_to ? ' → ' + matchedRule.rename_to : ''}`);
   }
 
