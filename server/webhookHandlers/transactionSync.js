@@ -5,7 +5,7 @@ const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByP
   updateTransactionPlaidData, getAccountByPlaidId, getSetting,
   findIncompleteMatch, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
-  updateAccountBalance } = require('../db/queries');
+  updateAccountBalance, updateItemStatus } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications } = require('../helpers/notifications');
 
@@ -130,7 +130,12 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     createLog('info', 'balances_updated', `Updated balances for item ${itemLabel}`);
   }
   catch (e) {
-    createLog('warn', 'balance_update_failed', `Failed to update balances for item ${itemLabel}: ${e.message}`);
+    const plaidError = e.response?.data?.error_code;
+    if (plaidError === 'ITEM_LOGIN_REQUIRED' && item) {
+      updateItemStatus('login_required', item.id);
+    }
+
+    createLog('warn', 'balance_update_failed', `Failed to update balances for item ${itemLabel}: ${plaidError || e.message}`);
   }
 
   if (io) {

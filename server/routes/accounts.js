@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getAllAccounts, getAllItems, getAccountsByItem, updateAccountBalance, run } = require('../db/queries');
+const { getAllAccounts, getAllItems, getAccountsByItem, updateAccountBalance, updateItemStatus, run } = require('../db/queries');
 const { plaidClient } = require('./link');
 
 // GET /api/accounts
@@ -63,9 +63,15 @@ router.get('/refresh-balances', async (req, res) => {
       }
     }
     catch (e) {
+      const plaidError = e.response?.data?.error_code;
+      if (plaidError === 'ITEM_LOGIN_REQUIRED') {
+        updateItemStatus('login_required', item.id);
+      }
+
       results.push({
         institution: item.display_name || item.institution_name,
-        error: e.message,
+        institution_plaid_id: item.plaid_item_id,
+        error: plaidError || e.message,
       });
     }
   }
