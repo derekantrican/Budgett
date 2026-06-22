@@ -360,7 +360,7 @@ function Settings() {
       <h5 className="mt-4 mb-3" style={{ color: 'var(--text-secondary)' }}>Admin Tools</h5>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <NavLink to="/settings/logs" style={{ textDecoration: 'none' }}>
-          <Button variant="outline-light">Activity Log</Button>
+          <Button variant="outline-light">Logs</Button>
         </NavLink>
         <NavLink to="/settings/webhooks" style={{ textDecoration: 'none' }}>
           <Button variant="outline-light">Webhook Inspector</Button>

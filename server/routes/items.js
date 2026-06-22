@@ -72,7 +72,8 @@ router.post('/', async (req, res) => {
     res.status(201).json({ id: itemDbId, item_id });
   }
   catch (err) {
-    console.error('Item exchange error:', err.response?.data || err.message);
+    const logger = require('../helpers/logger');
+    logger.error('item_exchange_failed', err.response?.data?.error_message || err.message);
     res.status(500).json({ error: 'Failed to exchange token' });
   }
 });

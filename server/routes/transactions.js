@@ -365,7 +365,8 @@ router.get('/:id/plaid-candidates', async (req, res) => {
     res.json({ transaction: { id: txn.id, date: txn.date, merchant: txn.merchant, amount: matchAmount }, candidates });
   }
   catch (err) {
-    console.error('Plaid candidates error:', err.response?.data || err.message);
+    const logger = require('../helpers/logger');
+    logger.error('plaid_candidates_failed', err.response?.data?.error_message || err.message);
     res.status(500).json({ error: 'Failed to fetch Plaid transactions' });
   }
 });

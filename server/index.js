@@ -92,22 +92,20 @@ catch (err) {
 }
 
 // Log unhandled errors to DB and console
-const { createLog } = require('./db/queries');
+const logger = require('./helpers/logger');
 
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
   try {
-    createLog('error', 'uncaughtException', err.stack || err.message); 
+    logger.error('uncaughtException', err.stack || err.message); 
   }
-  catch (e) { /* db may be gone */ }
+  catch (e) { console.error('Uncaught Exception:', err); }
 
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection:', reason);
   try {
-    createLog('error', 'unhandledRejection', reason?.stack || String(reason)); 
+    logger.error('unhandledRejection', reason?.stack || String(reason)); 
   }
-  catch (e) { /* db may be gone */ }
+  catch (e) { console.error('Unhandled Rejection:', reason); }
 });

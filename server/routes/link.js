@@ -49,7 +49,8 @@ router.get('/token', async (req, res) => {
     res.json({ link_token: response.data.link_token });
   }
   catch (err) {
-    console.error('Link token error:', err.response?.data || err.message);
+    const logger = require('../helpers/logger');
+    logger.error('link_token_failed', err.response?.data?.error_message || err.message);
     res.status(500).json({ error: 'Failed to create link token' });
   }
 });

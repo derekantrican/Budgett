@@ -1,7 +1,8 @@
 const router = require('express').Router();
-const { createWebhookPayload, createLog, getItemByPlaidId, updateItemStatus, getSetting } = require('../db/queries');
+const { createWebhookPayload, getItemByPlaidId, updateItemStatus, getSetting } = require('../db/queries');
 const { syncTransactions } = require('../webhookHandlers/transactionSync');
 const { sendNotifications } = require('../helpers/notifications');
+const logger = require('../helpers/logger');
 
 // POST /api/webhook (Plaid webhook - unauthenticated)
 router.post('/', async (req, res) => {
@@ -9,11 +10,11 @@ router.post('/', async (req, res) => {
 
   try {
     createWebhookPayload(`${webhook_type}.${webhook_code}`, JSON.stringify(req.body));
-    createLog('info', 'webhook_received', `${webhook_type}.${webhook_code} for item ${item_id}`);
+    logger.info('webhook_received', `${webhook_type}.${webhook_code} for item ${item_id}`);
   }
   catch (e) {
     console.error('Error logging webhook:', e.message);
-    createLog('error', 'webhook_log_failed', e.message);
+    // Can't use logger here — createLog may be what's failing
   }
 
   try {
@@ -32,14 +33,14 @@ router.post('/', async (req, res) => {
         if (item) {
           if (webhook_code === 'LOGIN_REPAIRED') {
             updateItemStatus('ok', item.id);
-            createLog('info', 'item_login_repaired', `Item ${item_id} login repaired`);
+            logger.info('item_login_repaired', `Item ${item_id} login repaired`);
             await sendNotifications('item_login_repaired', {
               institution: item.display_name || item.institution_name,
             });
           }
           else {
             updateItemStatus('login_required', item.id);
-            createLog('warn', 'item_login_required', `Item ${item_id} requires re-authentication`);
+            logger.warn('item_login_required', `Item ${item_id} requires re-authentication`);
             const baseUrl = getSetting('base_url') || 'http://localhost:3000';
             await sendNotifications('item_login_required', {
               institution: item.display_name || item.institution_name,
@@ -51,8 +52,7 @@ router.post('/', async (req, res) => {
     }
   }
   catch (err) {
-    console.error('Webhook processing error:', err);
-    createLog('error', 'webhook_error', `${webhook_type}.${webhook_code}: ${err.message}`);
+    logger.error('webhook_error', `${webhook_type}.${webhook_code}: ${err.message}`);
   }
 
   res.json({ received: true });

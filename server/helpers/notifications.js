@@ -23,7 +23,8 @@ async function sendNotifications(eventType, variables) {
     createWebhookPayload(eventType, JSON.stringify({ content }), 'outgoing', webhookUrl);
   }
   catch (err) {
-    console.error(`Notification failed:`, err.message);
+    const logger = require('./logger');
+    logger.error('notification_failed', `${eventType}: ${err.message}`);
     createWebhookPayload(`${eventType}_FAILED`, JSON.stringify({ error: err.message, content }), 'outgoing', webhookUrl);
   }
 }
