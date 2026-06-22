@@ -66,7 +66,10 @@ CREATE TABLE IF NOT EXISTS transactions (
   amount REAL NOT NULL, -- negative = expense, positive = income
   is_pending INTEGER NOT NULL DEFAULT 0,
   is_removed INTEGER NOT NULL DEFAULT 0, -- soft delete (Plaid removed)
-  is_hidden INTEGER NOT NULL DEFAULT 0, -- gift hiding (future)
+  is_hidden INTEGER NOT NULL DEFAULT 0, -- hidden from main views (auth charges, transfers)
+  is_auth INTEGER NOT NULL DEFAULT 0, -- auth charge (auto-delete when both removed)
+  is_transfer INTEGER NOT NULL DEFAULT 0, -- account transfer
+  linked_transaction_id INTEGER REFERENCES transactions(id), -- paired counterpart
   matched_manual_id INTEGER REFERENCES transactions(id), -- links Plaid txn to manual
   notes TEXT, -- user-provided notes
   plaid_category TEXT, -- Plaid's own category (raw)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Form, Button, Badge, Modal, Spinner } from 'react-bootstrap';
-import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction } from '../services/api';
+import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 
 const fmt = formatCurrency;
@@ -37,6 +37,10 @@ function Transactions() {
   const [editAccountId, setEditAccountId] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [hiddenTxns, setHiddenTxns] = useState([]);
+  const [showHidden, setShowHidden] = useState(false);
+  const [counterpartCandidates, setCounterpartCandidates] = useState(null);
+  const [counterpartLinkType, setCounterpartLinkType] = useState('auth');
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -61,6 +65,8 @@ function Transactions() {
   const loadTransactions = async () => {
     const data = await getTransactions(startDate, endDate);
     setTransactions(data);
+    const hidden = await getHiddenTransactions(startDate, endDate);
+    setHiddenTxns(hidden);
   };
 
   // Search-as-you-type with debounce
@@ -373,6 +379,35 @@ function Transactions() {
           {transactions.length === 0 && (
             <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: 40 }}>No transactions found.</p>
           )}
+
+          {/* Hidden transactions section */}
+          {hiddenTxns.length > 0 && (
+            <div style={{ marginTop: 24, borderTop: '1px solid #333', paddingTop: 12 }}>
+              <div
+                style={{ cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.9em', userSelect: 'none' }}
+                onClick={() => setShowHidden(!showHidden)}
+              >
+                {showHidden ? '▼' : '▶'} Hidden transactions ({hiddenTxns.length})
+              </div>
+              {showHidden && (
+                <Table size="sm" className="d-none d-md-table" style={{ marginTop: 8, opacity: 0.7 }}>
+                  <tbody>
+                    {hiddenTxns.map(txn => (
+                      <tr key={txn.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(txn)}>
+                        <td style={{ width: 100 }}>{formatDate(txn.date, dateFormat)}</td>
+                        <td>{txn.merchant}</td>
+                        <td style={{ textAlign: 'right', width: 100 }}>{fmt(txn.amount)}</td>
+                        <td style={{ width: 80, textAlign: 'center' }}>
+                          {txn.is_auth ? <Badge bg="secondary">Auth</Badge> : null}
+                          {txn.is_transfer ? <Badge bg="info">Transfer</Badge> : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Summary side panel */}
@@ -512,17 +547,44 @@ function Transactions() {
           </Modal.Body>
         )}
         <Modal.Footer>
-          {!isNewTxn && editTxn && !editTxn.plaid_transaction_id && (
-            confirmDelete ? (
-              <div className="me-auto d-flex align-items-center gap-2">
-                <span style={{ color: '#ff4444', fontSize: '0.9em' }}>Are you sure?</span>
-                <Button variant="danger" size="sm" onClick={handleDelete} disabled={saving}>Yes, Delete</Button>
-                <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-              </div>
-            ) : (
-              <Button variant="outline-danger" className="me-auto" onClick={() => setConfirmDelete(true)}>Delete</Button>
-            )
-          )}
+          <div className="me-auto d-flex align-items-center gap-2">
+            {!isNewTxn && editTxn && !editTxn.plaid_transaction_id && (
+              confirmDelete ? (
+                <>
+                  <span style={{ color: '#ff4444', fontSize: '0.9em' }}>Are you sure?</span>
+                  <Button variant="danger" size="sm" onClick={handleDelete} disabled={saving}>Yes, Delete</Button>
+                  <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                </>
+              ) : (
+                <Button variant="outline-danger" onClick={() => setConfirmDelete(true)}>Delete</Button>
+              )
+            )}
+            {!isNewTxn && editTxn && !editTxn.linked_transaction_id && (
+              <Button
+                variant="outline-info"
+                onClick={async () => {
+                  const candidates = await getCounterpartCandidates(editTxn.id);
+                  setCounterpartCandidates(candidates);
+                  setCounterpartLinkType('auth');
+                }}
+              >
+                Link counterpart
+              </Button>
+            )}
+            {!isNewTxn && editTxn && editTxn.linked_transaction_id && (
+              <Button
+                variant="outline-warning"
+                size="sm"
+                onClick={async () => {
+                  await unlinkCounterpart(editTxn.id);
+                  setEditTxn(null);
+                  loadTransactions();
+                }}
+              >
+                Unlink counterpart
+              </Button>
+            )}
+          </div>
           <Button variant="secondary" onClick={() => setEditTxn(null)}>Cancel</Button>
           <Button
             variant="primary"
@@ -532,6 +594,54 @@ function Transactions() {
             {saving ? 'Saving...' : isNewTxn ? 'Add Transaction' : 'Save Changes'}
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      {/* Counterpart candidates modal */}
+      <Modal show={counterpartCandidates !== null} onHide={() => setCounterpartCandidates(null)} data-bs-theme="dark">
+        <Modal.Header closeButton>
+          <Modal.Title>Link Counterpart</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>Link type</Form.Label>
+            <Form.Select value={counterpartLinkType} onChange={e => setCounterpartLinkType(e.target.value)}>
+              <option value="auth">Auth charge</option>
+              <option value="transfer">Transfer</option>
+            </Form.Select>
+          </Form.Group>
+          {counterpartCandidates && counterpartCandidates.length === 0 && (
+            <p style={{ color: 'var(--text-secondary)' }}>No matching counterpart found (opposite amount within 7 days).</p>
+          )}
+          {counterpartCandidates && counterpartCandidates.map(c => (
+            <div
+              key={c.id}
+              className="d-flex justify-content-between align-items-center counterpart-candidate"
+              style={{
+                padding: '10px 14px',
+                borderBottom: '1px solid #333',
+                cursor: 'pointer',
+                borderRadius: 6,
+                marginBottom: 4,
+                border: '1px solid #444',
+                transition: 'background-color 0.15s, border-color 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#2a3040'; e.currentTarget.style.borderColor = '#58a6ff'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.borderColor = '#444'; }}
+              onClick={async () => {
+                await linkCounterpart(editTxn.id, c.id, counterpartLinkType, true);
+                setCounterpartCandidates(null);
+                setEditTxn(null);
+                loadTransactions();
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 500 }}>{c.merchant || '(no merchant)'}</div>
+                <small style={{ color: 'var(--text-secondary)' }}>{formatDate(c.date, dateFormat)} · {c.account_name}</small>
+              </div>
+              <span style={{ fontWeight: 'bold', fontSize: '1.05em' }}>{fmt(c.amount)}</span>
+            </div>
+          ))}
+        </Modal.Body>
       </Modal>
     </div>
   );

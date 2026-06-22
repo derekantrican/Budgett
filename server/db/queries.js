@@ -44,6 +44,9 @@ function initQueries() {
     'ALTER TABLE webhook_payloads ADD COLUMN destination TEXT',
     'ALTER TABLE rules ADD COLUMN amount_condition TEXT',
     'ALTER TABLE rules ADD COLUMN rename_to TEXT',
+    'ALTER TABLE transactions ADD COLUMN is_auth INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE transactions ADD COLUMN is_transfer INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE transactions ADD COLUMN linked_transaction_id INTEGER REFERENCES transactions(id)',
   ];
   for (const sql of migrations) {
     try {
@@ -111,7 +114,15 @@ const getTransactionsByDateRange = (startDate, endDate) =>
        FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
        LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
        LEFT JOIN categories c ON ts.category_id = c.id
-       WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0
+       WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0 AND t.is_hidden = 0
+       AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
+       ORDER BY t.date ASC`, [startDate, endDate]);
+const getHiddenTransactionsByDateRange = (startDate, endDate) =>
+  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
+       FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
+       LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
+       LEFT JOIN categories c ON ts.category_id = c.id
+       WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0 AND t.is_hidden = 1
        AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
        ORDER BY t.date ASC`, [startDate, endDate]);
 const softRemoveTransaction = (plaidTxnId) => {
@@ -132,7 +143,7 @@ const getIncompleteTransactions = () =>
        CASE WHEN t.account_id IS NULL THEN 1 ELSE 0 END as missing_account,
        CASE WHEN NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id) THEN 1 ELSE 0 END as missing_category
      FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
-     WHERE t.is_removed = 0 AND (
+     WHERE t.is_removed = 0 AND t.is_hidden = 0 AND (
        t.plaid_transaction_id IS NULL
        OR t.merchant IS NULL OR t.merchant = ''
        OR t.account_id IS NULL
@@ -291,7 +302,8 @@ module.exports = {
   createAccount, getAccountsByItem, getAllAccounts, getAccountByPlaidId, updateAccountBalance,
   // Transactions
   createTransaction, getTransactionByPlaidId, getTransactionByPendingId,
-  getTransactionsByDateRange, softRemoveTransaction, restoreTransaction,
+  getTransactionsByDateRange, getHiddenTransactionsByDateRange,
+  softRemoveTransaction, restoreTransaction,
   getIncompleteTransactions, updateTransactionFromPending, updateTransactionPlaidData,
   findIncompleteMatch, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,

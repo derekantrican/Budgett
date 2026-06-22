@@ -45,6 +45,14 @@ export const linkPlaidId = (txnId, plaidTransactionId) =>
   request(`/transactions/${txnId}/link-plaid`, { method: 'PUT', body: JSON.stringify({ plaid_transaction_id: plaidTransactionId }) });
 export const mergeAndLinkPlaid = (transactionIds, plaidTransactionId) =>
   request('/transactions/merge-and-link-plaid', { method: 'PUT', body: JSON.stringify({ transaction_ids: transactionIds, plaid_transaction_id: plaidTransactionId }) });
+export const getHiddenTransactions = (startDate, endDate) =>
+  request(`/transactions/hidden?start_date=${startDate}&end_date=${endDate}`);
+export const getCounterpartCandidates = (txnId) =>
+  request(`/transactions/${txnId}/counterpart-candidates`);
+export const linkCounterpart = (txnId, counterpartId, linkType, hide) =>
+  request(`/transactions/${txnId}/link-counterpart`, { method: 'POST', body: JSON.stringify({ counterpart_id: counterpartId, link_type: linkType, hide }) });
+export const unlinkCounterpart = (txnId) =>
+  request(`/transactions/${txnId}/unlink-counterpart`, { method: 'POST' });
 
 // Categories
 export const getCategories = () => request('/categories');

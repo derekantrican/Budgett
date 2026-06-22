@@ -49,7 +49,7 @@ router.get('/search', (req, res) => {
      FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
      LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
      LEFT JOIN categories c ON ts.category_id = c.id
-     WHERE t.is_removed = 0
+     WHERE t.is_removed = 0 AND t.is_hidden = 0
      AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
      AND (t.merchant LIKE ? OR EXISTS (
        SELECT 1 FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id AND ts2.notes LIKE ?
@@ -82,6 +82,34 @@ router.get('/search', (req, res) => {
 router.get('/incomplete', (req, res) => {
   const rows = getIncompleteTransactions();
   res.json(rows);
+});
+
+// GET /api/transactions/hidden?start_date=...&end_date=...
+router.get('/hidden', (req, res) => {
+  const { start_date, end_date } = req.query;
+  if (!start_date || !end_date) {
+    return res.status(400).json({ error: 'start_date and end_date required' });
+  }
+
+  const { getHiddenTransactionsByDateRange } = require('../db/queries');
+  const rows = getHiddenTransactionsByDateRange(start_date, end_date);
+
+  const transactionsMap = new Map();
+  for (const row of rows) {
+    if (!transactionsMap.has(row.id)) {
+      transactionsMap.set(row.id, { ...row, splits: [] });
+    }
+    if (row.split_amount !== null) {
+      transactionsMap.get(row.id).splits.push({
+        category_id: row.category_id || null,
+        category_name: row.category_name || 'Uncategorized',
+        amount: row.split_amount,
+        notes: row.split_notes,
+      });
+    }
+  }
+
+  res.json(Array.from(transactionsMap.values()));
 });
 
 // GET /api/transactions/by-plaid-id/:plaidId
@@ -399,6 +427,73 @@ router.delete('/:id', (req, res) => {
   }
 
   deleteTransaction(id);
+  res.json({ success: true });
+});
+
+// GET /api/transactions/:id/counterpart-candidates
+router.get('/:id/counterpart-candidates', (req, res) => {
+  const { id } = req.params;
+  const { get, all } = require('../db/queries');
+
+  const txn = get('SELECT * FROM transactions WHERE id = ?', [id]);
+  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+
+  const oppositeAmount = -txn.amount;
+  // Find transactions with opposite amount within 7 days
+  const candidates = all(
+    `SELECT t.*, COALESCE(a.display_name, a.name) as account_name
+     FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
+     WHERE t.id != ? AND t.is_removed = 0 AND t.linked_transaction_id IS NULL
+     AND t.amount = ?
+     AND t.date BETWEEN date(?, '-7 days') AND date(?, '+7 days')
+     ORDER BY ABS(julianday(t.date) - julianday(?)) ASC
+     LIMIT 20`,
+    [id, oppositeAmount, txn.date, txn.date, txn.date]
+  );
+
+  res.json(candidates);
+});
+
+// POST /api/transactions/:id/link-counterpart
+router.post('/:id/link-counterpart', (req, res) => {
+  const { id } = req.params;
+  const { counterpart_id, link_type, hide } = req.body; // link_type: 'auth' | 'transfer'
+  const { get, run } = require('../db/queries');
+
+  if (!counterpart_id || !link_type) {
+    return res.status(400).json({ error: 'counterpart_id and link_type required' });
+  }
+
+  const txn = get('SELECT * FROM transactions WHERE id = ?', [id]);
+  const counterpart = get('SELECT * FROM transactions WHERE id = ?', [counterpart_id]);
+  if (!txn || !counterpart) return res.status(404).json({ error: 'Transaction not found' });
+
+  const isAuth = link_type === 'auth' ? 1 : 0;
+  const isTransfer = link_type === 'transfer' ? 1 : 0;
+  const isHidden = hide ? 1 : 0;
+
+  run(`UPDATE transactions SET linked_transaction_id = ?, is_auth = ?, is_transfer = ?, is_hidden = ?, updated_at = datetime('now') WHERE id = ?`,
+    [counterpart_id, isAuth, isTransfer, isHidden, id]);
+  run(`UPDATE transactions SET linked_transaction_id = ?, is_auth = ?, is_transfer = ?, is_hidden = ?, updated_at = datetime('now') WHERE id = ?`,
+    [id, isAuth, isTransfer, isHidden, counterpart_id]);
+
+  res.json({ success: true });
+});
+
+// POST /api/transactions/:id/unlink-counterpart
+router.post('/:id/unlink-counterpart', (req, res) => {
+  const { get, run } = require('../db/queries');
+  const { id } = req.params;
+
+  const txn = get('SELECT linked_transaction_id FROM transactions WHERE id = ?', [id]);
+  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+
+  if (txn.linked_transaction_id) {
+    run(`UPDATE transactions SET linked_transaction_id = NULL, is_auth = 0, is_transfer = 0, is_hidden = 0, updated_at = datetime('now') WHERE id = ?`,
+      [txn.linked_transaction_id]);
+  }
+  run(`UPDATE transactions SET linked_transaction_id = NULL, is_auth = 0, is_transfer = 0, is_hidden = 0, updated_at = datetime('now') WHERE id = ?`, [id]);
+
   res.json({ success: true });
 });
 
