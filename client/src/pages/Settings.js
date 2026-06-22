@@ -7,6 +7,7 @@ import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, upd
 function Settings() {
   const [items, setItems] = useState([]);
   const [linkToken, setLinkToken] = useState(null);
+  const [reauthItemId, setReauthItemId] = useState(null);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [plaidEnv, setPlaidEnv] = useState('sandbox');
@@ -38,9 +39,10 @@ function Settings() {
     setItems(data);
   };
 
-  const handleGetLinkToken = async () => {
+  const handleGetLinkToken = async (itemId) => {
     try {
-      const { link_token } = await getLinkToken();
+      setReauthItemId(itemId || null);
+      const { link_token } = await getLinkToken(itemId);
       setLinkToken(link_token);
     }
     catch (err) {
@@ -49,10 +51,16 @@ function Settings() {
   };
 
   const onSuccess = useCallback(async (publicToken, metadata) => {
-    await exchangeToken(publicToken, metadata.institution);
+    if (reauthItemId) {
+      await updateItem(reauthItemId, { status: 'ok' });
+    }
+    else {
+      await exchangeToken(publicToken, metadata.institution);
+    }
     setLinkToken(null);
+    setReauthItemId(null);
     loadItems();
-  }, []);
+  }, [reauthItemId]);
 
   const { open, ready } = usePlaidLink({
     token: linkToken,
@@ -158,7 +166,7 @@ function Settings() {
                     </svg>
                   </div>
                   <p style={{ margin: 0, fontSize: '0.9em' }}>You need to login again</p>
-                  <Button size="sm" variant="warning" className="mt-2" onClick={handleGetLinkToken}>Re-authenticate</Button>
+                  <Button size="sm" variant="warning" className="mt-2" onClick={() => handleGetLinkToken(item.id)}>Re-authenticate</Button>
                 </div>
               ) : (
                 <table style={{ width: '100%', fontSize: '0.9em' }}>

@@ -22,15 +22,29 @@ router.get('/token', async (req, res) => {
     const { getSetting } = require('../db/queries');
     const baseUrl = getSetting('base_url') || process.env.WEBHOOK_URL;
     const webhookUrl = baseUrl ? `${baseUrl}/api/webhook` : undefined;
+    const itemId = req.query.item_id;
 
-    const response = await plaidClient.linkTokenCreate({
-      user: { client_user_id: String(req.session.userId) },
+    const linkParams = {
+      user: { client_user_id: 'budgett-user' }, // Any string — Plaid requires it but doesn't validate it
       client_name: 'Budgett',
-      products: ['transactions'],
       country_codes: ['US'],
       language: 'en',
       webhook: webhookUrl,
-    });
+    };
+
+    if (itemId) {
+      // Re-authentication mode — look up access_token from DB
+      const { get } = require('../db/queries');
+      const item = get('SELECT access_token FROM items WHERE id = ?', [itemId]);
+      if (!item) return res.status(404).json({ error: 'Item not found' });
+      linkParams.access_token = item.access_token;
+    }
+    else {
+      // New connection mode
+      linkParams.products = ['transactions'];
+    }
+
+    const response = await plaidClient.linkTokenCreate(linkParams);
 
     res.json({ link_token: response.data.link_token });
   }

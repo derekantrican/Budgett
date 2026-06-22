@@ -66,7 +66,8 @@ export const updateAccount = (id, data) =>
   request(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
 // Link
-export const getLinkToken = () => request('/link/token');
+export const getLinkToken = (itemId) =>
+  request(itemId ? `/link/token?item_id=${encodeURIComponent(itemId)}` : '/link/token');
 
 // Rules
 export const getRules = () => request('/rules');

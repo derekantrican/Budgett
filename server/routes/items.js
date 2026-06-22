@@ -17,7 +17,7 @@ router.get('/', (req, res) => {
 // PATCH /api/items/:id
 router.patch('/:id', (req, res) => {
   const { id } = req.params;
-  const { display_name, display_icon_url } = req.body;
+  const { display_name, display_icon_url, status } = req.body;
   const updates = [];
   const params = [];
   if (display_name !== undefined) {
@@ -26,6 +26,10 @@ router.patch('/:id', (req, res) => {
 
   if (display_icon_url !== undefined) {
     updates.push('display_icon_url = ?'); params.push(display_icon_url || null); 
+  }
+
+  if (status !== undefined) {
+    updates.push('status = ?'); params.push(status);
   }
 
   if (updates.length > 0) {
