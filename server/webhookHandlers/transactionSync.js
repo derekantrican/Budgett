@@ -14,7 +14,10 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
   let currentCursor = cursor;
   let addedCount = 0, modifiedCount = 0, removedCount = 0;
 
-  createLog('info', 'sync_started', `Starting sync for item ${plaidItemId}`);
+  const item = getItemByPlaidId(plaidItemId);
+  const itemLabel = `${plaidItemId}${item ? ` (${item.display_name || item.institution_name})` : ''}`;
+
+  createLog('info', 'sync_started', `Starting sync for item ${itemLabel}`);
 
   // First pass: count totals without sending individual notifications
   const allAdded = [], allModified = [], allRemoved = [];
@@ -38,7 +41,6 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     currentCursor = next_cursor;
   }
 
-  const item = getItemByPlaidId(plaidItemId);
   if (item) {
     updateItemCursor(currentCursor, item.id);
   }
@@ -106,7 +108,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     await processRemovedTransaction(txn, io);
   }
 
-  createLog('info', 'sync_completed', `Sync completed for item ${plaidItemId}`);
+  createLog('info', 'sync_completed', `Sync completed for item ${itemLabel}`);
 
   // Refresh account balances
   try {
@@ -125,10 +127,10 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
       }
     }
 
-    createLog('info', 'balances_updated', `Updated balances for item ${plaidItemId}`);
+    createLog('info', 'balances_updated', `Updated balances for item ${itemLabel}`);
   }
   catch (e) {
-    createLog('warn', 'balance_update_failed', `Failed to update balances for item ${plaidItemId}: ${e.message}`);
+    createLog('warn', 'balance_update_failed', `Failed to update balances for item ${itemLabel}: ${e.message}`);
   }
 
   if (io) {
