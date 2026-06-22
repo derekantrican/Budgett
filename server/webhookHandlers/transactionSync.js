@@ -4,7 +4,8 @@ const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByP
   createLog, createSplit, getAllRules, updateTransactionFromPending,
   updateTransactionPlaidData, getAccountByPlaidId, getSetting,
   findIncompleteMatch, linkIncompleteTransaction,
-  findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId } = require('../db/queries');
+  findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
+  updateAccountBalance } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications } = require('../helpers/notifications');
 
@@ -106,6 +107,29 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
   }
 
   createLog('info', 'sync_completed', `Sync completed for item ${plaidItemId}`);
+
+  // Refresh account balances
+  try {
+    const balanceResponse = await plaidClient.accountsBalanceGet({
+      access_token: accessToken,
+    });
+
+    for (const acct of balanceResponse.data.accounts) {
+      const dbAccount = getAccountByPlaidId(acct.account_id);
+      if (dbAccount) {
+        updateAccountBalance(
+          acct.balances.current,
+          acct.balances.available,
+          dbAccount.id
+        );
+      }
+    }
+
+    createLog('info', 'balances_updated', `Updated balances for item ${plaidItemId}`);
+  }
+  catch (e) {
+    createLog('warn', 'balance_update_failed', `Failed to update balances for item ${plaidItemId}: ${e.message}`);
+  }
 
   if (io) {
     io.emit('SYNC_COMPLETE', { item_id: plaidItemId });
