@@ -192,7 +192,7 @@ function Settings() {
         {/* Add account card */}
         <Card
           style={{ width: 320, border: '2px dashed #3a3a4f', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 150, borderRadius: 10 }}
-          onClick={handleGetLinkToken}
+          onClick={() => handleGetLinkToken()}
         >
           <Card.Body className="text-center" style={{ color: 'var(--text-secondary)' }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>+</div>
