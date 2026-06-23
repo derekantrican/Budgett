@@ -8,6 +8,7 @@ const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByP
   updateAccountBalance, updateItemStatus, get, deleteTransaction } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications } = require('../helpers/notifications');
+const { formatAmount } = require('../helpers/format');
 
 async function syncTransactions(plaidItemId, accessToken, cursor, io) {
   let hasMore = true;
@@ -60,8 +61,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     if (allAdded.length > 0) {
       details += 'Added transactions:\n\n';
       details += allAdded.map(t => {
-        const amt = `$${Math.abs(t.amount).toFixed(2)}`;
-        return `- ${t.amount <= 0 ? '' : '-'}${amt} ${t.merchant_name || t.name}`;
+        return `- ${formatAmount(-t.amount)} ${t.merchant_name || t.name}`;
       }).join('\n');
       details += '\n\n';
     }
@@ -69,8 +69,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     if (allModified.length > 0) {
       details += 'Modified transactions:\n\n';
       details += allModified.map(t => {
-        const amt = `$${Math.abs(t.amount).toFixed(2)}`;
-        return `- ${t.amount <= 0 ? '' : '-'}${amt} ${t.merchant_name || t.name}`;
+        return `- ${formatAmount(-t.amount)} ${t.merchant_name || t.name}`;
       }).join('\n');
       details += '\n\n';
     }
@@ -81,8 +80,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
         // Check if removed txn matches a pending_transaction_id in added (pending→posted)
         const match = allAdded.find(a => a.pending_transaction_id === r.transaction_id);
         if (match) {
-          const amt = `$${Math.abs(match.amount).toFixed(2)}`;
-          return `- ${r.transaction_id} (was: ${match.amount <= 0 ? '' : '-'}${amt} ${match.merchant_name || match.name})`;
+          return `- ${r.transaction_id} (was: ${formatAmount(-match.amount)} ${match.merchant_name || match.name})`;
         }
 
         return `- ${r.transaction_id}`;
@@ -148,7 +146,7 @@ async function processAddedTransaction(txn, io) {
   if (existing) {
     if (existing.is_removed) {
       restoreTransaction(txn.transaction_id);
-      createLog('info', 'transaction_restored', `Restored: ${txn.merchant_name || txn.name} (${txn.amount})`);
+      createLog('info', 'transaction_restored', `Restored: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
 
     }
 
@@ -168,7 +166,7 @@ async function processAddedTransaction(txn, io) {
       -txn.amount,
       matchedPending.id
     );
-    createLog('info', 'pending_matched', `Pending→Posted: ${txn.merchant_name || txn.name} (${txn.amount})`);
+    createLog('info', 'pending_matched', `Pending→Posted: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
     await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${txn.merchant_name || txn.name}` });
     return;
   }
@@ -181,7 +179,7 @@ async function processAddedTransaction(txn, io) {
   const incompleteMatch = findIncompleteMatch(-txn.amount);
   if (incompleteMatch) {
     linkIncompleteTransaction(txn.transaction_id, incompleteMatch.id);
-    createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.merchant_name || txn.name} (${txn.amount})`);
+    createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
     await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${txn.merchant_name || txn.name}` });
     return;
   }
@@ -271,7 +269,7 @@ async function processAddedTransaction(txn, io) {
     record_link: recordLink,
   });
 
-  createLog('info', 'transaction_added', `Added: ${txn.merchant_name || txn.name} (${txn.amount})`);
+  createLog('info', 'transaction_added', `Added: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
 
   if (io) {
     io.emit('NEW_TRANSACTION', { id: txnId, merchant: txn.merchant_name || txn.name, amount: -txn.amount });
@@ -294,7 +292,7 @@ async function processModifiedTransaction(txn, io) {
     txn.transaction_id
   );
 
-  createLog('info', 'transaction_modified', `Modified: ${txn.merchant_name || txn.name} (${txn.amount})`);
+  createLog('info', 'transaction_modified', `Modified: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
 }
 
 async function processRemovedTransaction(txn, io) {
@@ -314,12 +312,12 @@ async function processRemovedTransaction(txn, io) {
   // (The posted version likely already exists as a separate entry.)
   if (existing.is_pending) {
     unlinkPlaidId(existing.id);
-    createLog('info', 'pending_unlinked', `Pending transaction unlinked: ${existing.merchant} ($${existing.amount}) — plaid_id ${txn.transaction_id} removed, moved to incomplete`);
+    createLog('info', 'pending_unlinked', `Pending transaction unlinked: ${existing.merchant} (${formatAmount(existing.amount)}) — plaid_id ${txn.transaction_id} removed, moved to incomplete`);
     return;
   }
 
   softRemoveTransaction(txn.transaction_id);
-  createLog('info', 'transaction_removed', `Soft-removed: ${txn.transaction_id} (${existing.merchant}, $${existing.amount})`);
+  createLog('info', 'transaction_removed', `Soft-removed: ${txn.transaction_id} (${existing.merchant}, ${formatAmount(existing.amount)})`);
 
   // Auth charge auto-delete: if this hidden+auth transaction's counterpart is also removed, hard-delete both
   if (existing.is_hidden && existing.is_auth && existing.linked_transaction_id) {
@@ -327,7 +325,7 @@ async function processRemovedTransaction(txn, io) {
     if (counterpart && counterpart.is_removed) {
       deleteTransaction(existing.id);
       deleteTransaction(counterpart.id);
-      createLog('info', 'auth_pair_deleted', `Auto-deleted auth charge pair: ${existing.merchant} ($${existing.amount}) and counterpart #${counterpart.id}`);
+      createLog('info', 'auth_pair_deleted', `Auto-deleted auth charge pair: ${existing.merchant} (${formatAmount(existing.amount)}) and counterpart #${counterpart.id}`);
     }
   }
 }

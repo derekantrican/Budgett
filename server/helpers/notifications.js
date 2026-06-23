@@ -1,4 +1,5 @@
 const { getSetting, createWebhookPayload } = require('../db/queries');
+const { formatAmount } = require('./format');
 
 async function sendNotifications(eventType, variables) {
   const webhookUrl = getSetting('webhook_url');
@@ -35,8 +36,7 @@ function formatMessage(eventType, vars) {
       const prefix = vars.amount > 0
         ? 'You received the following refund: '
         : 'The following transaction was found: ';
-      const dollarAmount = `$${Math.abs(vars.amount).toFixed(2)}`;
-      return `${prefix}${dollarAmount} ${vars.merchant} (${vars.account_name}) [[RECORD]](<${vars.record_link}>)`;
+      return `${prefix}${formatAmount(vars.amount)} ${vars.merchant} (${vars.account_name}) [[RECORD]](<${vars.record_link}>)`;
     }
 
     case 'sync_complete':
