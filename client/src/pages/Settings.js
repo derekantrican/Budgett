@@ -57,6 +57,7 @@ function Settings() {
     else {
       await exchangeToken(publicToken, metadata.institution);
     }
+
     setLinkToken(null);
     setReauthItemId(null);
     loadItems();
@@ -121,7 +122,7 @@ function Settings() {
       {/* Linked Accounts */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 30 }}>
         {items.map((item) => (
-          <Card key={item.id} className="institution-card" style={{ width: 320, background: '#212529', border: 'none', borderRadius: 10 }}>
+          <Card key={item.id} className="institution-card" style={{ width: 320, maxWidth: '100%', background: '#212529', border: 'none', borderRadius: 10 }}>
             <Card.Header
               style={{
                 background: item.institution_color || '#1a73e8',
@@ -171,8 +172,8 @@ function Settings() {
               ) : (
                 <table style={{ width: '100%', fontSize: '0.9em' }}>
                   <tbody>
-                    {(item.accounts || []).map((acct, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #3a3a4f', opacity: acct.hide_from_transactions ? 0.5 : 1 }}>
+                    {(item.accounts || []).map((acct, i, arr) => (
+                      <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid #3a3a4f' : 'none', opacity: acct.hide_from_transactions ? 0.5 : 1 }}>
                         <td style={{ padding: '10px 12px' }}>
                           {getAccountDisplayName(acct)}
                           {acct.mask ? <span style={{ color: 'var(--text-secondary)' }}> (*{acct.mask})</span> : ''}
@@ -191,7 +192,7 @@ function Settings() {
 
         {/* Add account card */}
         <Card
-          style={{ width: 320, border: '2px dashed #3a3a4f', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 150, borderRadius: 10 }}
+          style={{ width: 320, maxWidth: '100%', border: '2px dashed #3a3a4f', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 150, borderRadius: 10 }}
           onClick={() => handleGetLinkToken()}
         >
           <Card.Body className="text-center" style={{ color: 'var(--text-secondary)' }}>

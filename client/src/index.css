@@ -190,6 +190,10 @@ a {
     width: 100%;
     flex: 1;
   }
+  .transactions-page {
+    height: auto;
+    overflow: visible;
+  }
 }
 
 .transaction-row {
@@ -271,6 +275,19 @@ a {
   border-radius: 5px;
   cursor: pointer;
   transition: background-color 0.2s;
+  border-left: 3px solid transparent;
+}
+
+.transaction-card.transaction-split {
+  border-left-color: var(--bs-primary);
+}
+
+.transaction-card.transaction-incomplete {
+  border-left-color: var(--bs-danger);
+}
+
+.transaction-card.transaction-pending {
+  opacity: 0.6;
 }
 
 .transaction-card:hover {
@@ -291,6 +308,12 @@ a {
 .settings-label {
   font-weight: bold;
   color: var(--text-secondary);
+}
+
+@media (max-width: 767.98px) {
+  .institution-card {
+    width: 100% !important;
+  }
 }
 
 .settings-input {

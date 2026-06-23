@@ -348,32 +348,37 @@ function Transactions() {
 
           {/* Mobile cards */}
           <div className="d-md-none">
-            {transactions.map((txn) => (
-              <div key={txn.id} className={`transaction-card ${txn.is_removed ? 'transaction-removed' : ''}`} onClick={() => openEdit(txn)}>
-                <div className="transaction-card-header d-flex justify-content-between">
-                  <span>{txn.merchant}</span>
-                  <span>{fmt(txn.amount)}</span>
-                </div>
-                {txn.splits?.length > 1 ? (
-                  txn.splits.map((split, idx) => (
-                    <div key={idx} className="d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em', paddingLeft: 8 }}>
-                      <span>{split.category_name || 'Uncategorized'}</span>
-                      <span>{fmt(split.amount)}</span>
+            {transactions.map((txn) => {
+              const hasSplits = txn.splits?.length > 1;
+              const isIncomplete = !txn.plaid_transaction_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
+              const cardClass = `transaction-card${txn.is_removed ? ' transaction-removed' : ''}${hasSplits ? ' transaction-split' : ''}${isIncomplete ? ' transaction-incomplete' : ''}${txn.is_pending ? ' transaction-pending' : ''}`;
+              return (
+                <div key={txn.id} className={cardClass} onClick={() => openEdit(txn)}>
+                  <div className="transaction-card-header d-flex justify-content-between">
+                    <span>{txn.merchant}</span>
+                    <span>{fmt(txn.amount)}</span>
+                  </div>
+                  {txn.splits?.length > 1 ? (
+                    <div style={{ paddingBottom: 6 }}>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8em', padding: '4px 8px 0' }}>
+                        {formatDate(txn.date, dateFormat)}
+                      </div>
+                      {txn.splits.map((split, idx) => (
+                        <div key={idx} className="d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em', padding: '0 10px 2px 8px' }}>
+                          <span>{split.category_name || 'Uncategorized'}</span>
+                          <span>{fmt(split.amount)}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))
-                ) : (
-                  <div className="transaction-card-body d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
-                    <span>{formatDate(txn.date, dateFormat)}</span>
-                    <span>{txn.splits?.[0]?.category_name || 'Uncategorized'}</span>
-                  </div>
-                )}
-                {txn.splits?.length > 1 && (
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.8em', padding: '2px 8px' }}>
-                    {formatDate(txn.date, dateFormat)}
-                  </div>
-                )}
-              </div>
-            ))}
+                  ) : (
+                    <div className="transaction-card-body d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
+                      <span>{formatDate(txn.date, dateFormat)}</span>
+                      <span>{txn.splits?.[0]?.category_name || 'Uncategorized'}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {transactions.length === 0 && (
@@ -625,8 +630,14 @@ function Transactions() {
                 border: '1px solid #444',
                 transition: 'background-color 0.15s, border-color 0.15s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#2a3040'; e.currentTarget.style.borderColor = '#58a6ff'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.borderColor = '#444'; }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = '#2a3040';
+                e.currentTarget.style.borderColor = '#58a6ff';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = '';
+                e.currentTarget.style.borderColor = '#444';
+              }}
               onClick={async () => {
                 await linkCounterpart(editTxn.id, c.id, counterpartLinkType, true);
                 setCounterpartCandidates(null);
