@@ -286,7 +286,6 @@ async function processModifiedTransaction(txn, io) {
   updateTransactionPlaidData(
     -txn.amount,
     txn.merchant_name || txn.name,
-    txn.date,
     txn.personal_finance_category?.primary || null,
     JSON.stringify(txn),
     txn.transaction_id

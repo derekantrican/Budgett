@@ -161,9 +161,9 @@ const updateTransactionFromPending = (plaidTxnId, amount, id) => {
   [plaidTxnId, amount, id]);
 };
 
-const updateTransactionPlaidData = (amount, merchant, date, plaidCategory, rawJson, plaidTxnId) => {
-  run(`UPDATE transactions SET amount = ?, merchant = ?, date = ?, plaid_category = ?, plaid_raw_json = ?, updated_at = datetime('now')
-       WHERE plaid_transaction_id = ?`, [amount, merchant, date, plaidCategory, rawJson, plaidTxnId]);
+const updateTransactionPlaidData = (amount, merchant, plaidCategory, rawJson, plaidTxnId) => {
+  run(`UPDATE transactions SET amount = ?, merchant = ?, plaid_category = ?, plaid_raw_json = ?, updated_at = datetime('now')
+       WHERE plaid_transaction_id = ?`, [amount, merchant, plaidCategory, rawJson, plaidTxnId]);
 };
 
 // Find an incomplete transaction (no plaid_id, within 7 days) matching the given amount
