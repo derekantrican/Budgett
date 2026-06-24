@@ -9,7 +9,7 @@ router.get('/', (req, res) => {
 
 // POST /api/rules
 router.post('/', (req, res) => {
-  const { pattern, category_id, notes_template, amount_condition, rename_to } = req.body;
+  const { pattern, category_id, notes_template, amount_condition, rename_to, is_split, split_json } = req.body;
 
   if (!pattern) {
     return res.status(400).json({ error: 'pattern required' });
@@ -22,14 +22,18 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Invalid regex pattern' });
   }
 
-  const result = createRule(pattern, category_id || null, notes_template || null, amount_condition || null, rename_to || null);
+  const result = createRule(
+    pattern, category_id || null, notes_template || null,
+    amount_condition || null, rename_to || null,
+    is_split || false, split_json || null
+  );
 
   res.status(201).json({ id: result.lastInsertRowid });
 });
 
 // PUT /api/rules/:id
 router.put('/:id', (req, res) => {
-  const { pattern, category_id, notes_template, amount_condition, rename_to } = req.body;
+  const { pattern, category_id, notes_template, amount_condition, rename_to, is_split, split_json } = req.body;
   if (!pattern) 
     return res.status(400).json({ error: 'pattern required' });
   try {
@@ -39,7 +43,11 @@ router.put('/:id', (req, res) => {
     return res.status(400).json({ error: 'Invalid regex pattern' }); 
   }
 
-  updateRule(req.params.id, pattern, category_id || null, notes_template || null, amount_condition || null, rename_to || null);
+  updateRule(
+    req.params.id, pattern, category_id || null, notes_template || null,
+    amount_condition || null, rename_to || null,
+    is_split || false, split_json || null
+  );
   res.json({ success: true });
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Form, Modal } from 'react-bootstrap';
+import { Table, Button, Form, Modal, Badge } from 'react-bootstrap';
 import { getRules, createRule, updateRule, deleteRule, getCategories } from '../../services/api';
 
 function Rules() {
@@ -7,7 +7,10 @@ function Rules() {
   const [categories, setCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ pattern: '', category_id: '', notes_template: '', amount_condition: '', rename_to: '' });
+  const [form, setForm] = useState({
+    pattern: '', category_id: '', notes_template: '',
+    amount_condition: '', rename_to: '', is_split: false, splits: [],
+  });
 
   useEffect(() => {
     loadData();
@@ -19,20 +22,35 @@ function Rules() {
     setCategories(c);
   };
 
+  const emptySplit = () => ({ category_id: '', notes: '', amount_expression: '' });
+
   const openNew = () => {
     setEditId(null);
-    setForm({ pattern: '', category_id: '', notes_template: '', amount_condition: '', rename_to: '' });
+    setForm({
+      pattern: '', category_id: '', notes_template: '',
+      amount_condition: '', rename_to: '', is_split: false, splits: [],
+    });
     setShowModal(true);
   };
 
   const openEdit = (rule) => {
     setEditId(rule.id);
+    let splits = [];
+    if (rule.is_split && rule.split_json) {
+      try {
+        splits = JSON.parse(rule.split_json);
+      }
+      catch (e) { /* ignore */ }
+    }
+
     setForm({
       pattern: rule.pattern,
       category_id: rule.category_id || '',
       notes_template: rule.notes_template || '',
       amount_condition: rule.amount_condition || '',
       rename_to: rule.rename_to || '',
+      is_split: !!rule.is_split,
+      splits,
     });
     setShowModal(true);
   };
@@ -40,11 +58,26 @@ function Rules() {
   const handleSave = async () => {
     const data = {
       pattern: form.pattern,
-      category_id: form.category_id || null,
-      notes_template: form.notes_template || null,
       amount_condition: form.amount_condition || null,
       rename_to: form.rename_to || null,
+      is_split: form.is_split,
     };
+
+    if (form.is_split && form.splits.length > 0) {
+      data.split_json = JSON.stringify(form.splits.map(s => ({
+        category_id: s.category_id || null,
+        notes: s.notes || null,
+        amount_expression: s.amount_expression || null,
+      })));
+      data.category_id = null;
+      data.notes_template = null;
+    }
+    else {
+      data.category_id = form.category_id || null;
+      data.notes_template = form.notes_template || null;
+      data.split_json = null;
+    }
+
     if (editId) {
       await updateRule(editId, data);
     }
@@ -61,6 +94,28 @@ function Rules() {
       return;
     await deleteRule(id);
     loadData();
+  };
+
+  const updateSplit = (index, field, value) => {
+    const updated = [...form.splits];
+    updated[index] = { ...updated[index], [field]: value };
+    setForm({ ...form, splits: updated });
+  };
+
+  const addSplit = () => {
+    setForm({ ...form, splits: [...form.splits, emptySplit()] });
+  };
+
+  const removeSplit = (index) => {
+    setForm({ ...form, splits: form.splits.filter((_, i) => i !== index) });
+  };
+
+  const toggleSplitMode = (isSplit) => {
+    setForm({
+      ...form,
+      is_split: isSplit,
+      splits: isSplit && form.splits.length === 0 ? [emptySplit(), emptySplit()] : form.splits,
+    });
   };
 
   const sectionStyle = {
@@ -80,6 +135,19 @@ function Rules() {
     fontWeight: 600,
   };
 
+  const getSplitSummary = (rule) => {
+    if (!rule.is_split || !rule.split_json)
+      return null;
+
+    try {
+      const splits = JSON.parse(rule.split_json);
+      return splits.length + ' splits';
+    }
+    catch (e) {
+      return null;
+    }
+  };
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -93,7 +161,7 @@ function Rules() {
             <th style={{ textAlign: 'left' }}>Pattern</th>
             <th style={{ textAlign: 'left' }}>Amount Condition</th>
             <th style={{ textAlign: 'left' }}>Rename To</th>
-            <th style={{ textAlign: 'left' }}>Notes Template</th>
+            <th style={{ textAlign: 'left' }}>Notes / Splits</th>
             <th>Category</th>
             <th className="fit-width"></th>
           </tr>
@@ -104,8 +172,12 @@ function Rules() {
               <td style={{ textAlign: 'left', fontFamily: 'monospace' }}>{rule.pattern}</td>
               <td style={{ textAlign: 'left', fontFamily: 'monospace' }}>{rule.amount_condition || '—'}</td>
               <td style={{ textAlign: 'left' }}>{rule.rename_to || '—'}</td>
-              <td style={{ textAlign: 'left' }}>{rule.notes_template || '—'}</td>
-              <td>{rule.category_name || '—'}</td>
+              <td style={{ textAlign: 'left' }}>
+                {rule.is_split
+                  ? <Badge bg="primary">{getSplitSummary(rule)}</Badge>
+                  : (rule.notes_template || '—')}
+              </td>
+              <td>{rule.is_split ? '—' : (rule.category_name || '—')}</td>
               <td className="fit-width">
                 <Button variant="outline-danger" size="sm" onClick={(e) => {
                   e.stopPropagation(); handleDelete(rule.id); 
@@ -119,7 +191,7 @@ function Rules() {
         </tbody>
       </Table>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)} data-bs-theme="dark">
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" data-bs-theme="dark">
         <Modal.Header closeButton>
           <Modal.Title>{editId ? 'Edit Rule' : 'New Rule'}</Modal.Title>
         </Modal.Header>
@@ -148,8 +220,11 @@ function Rules() {
               </Form.Text>
             </Form.Group>
           </div>
+
           <div style={{ ...sectionStyle, backgroundColor: 'rgba(100,200,100,0.04)', borderColor: 'rgba(100,200,100,0.15)' }}>
-            <div style={sectionLabelStyle}>Actions</div>
+            <div className="d-flex justify-content-between align-items-center" style={{ marginBottom: '8px' }}>
+              <div style={sectionLabelStyle}>Actions</div>
+            </div>
             <Form.Group className="mb-3">
               <Form.Label>Rename "Where" to</Form.Label>
               <Form.Control
@@ -158,21 +233,94 @@ function Rules() {
                 placeholder="Leave blank to keep original name"
               />
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Notes Template</Form.Label>
-              <Form.Control
-                value={form.notes_template}
-                onChange={(e) => setForm({ ...form, notes_template: e.target.value })}
-                placeholder="Leave blank for no notes"
-              />
-            </Form.Group>
-            <Form.Group className="mb-0">
-              <Form.Label>Category</Form.Label>
-              <Form.Select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-                <option value="">— None (don't change) —</option>
-                {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Form.Select>
-            </Form.Group>
+
+            <Form.Check
+              type="switch"
+              id="split-mode-switch"
+              label="Create multiple splits"
+              checked={form.is_split}
+              onChange={(e) => toggleSplitMode(e.target.checked)}
+              className="mb-3"
+            />
+
+            {!form.is_split && (
+              <>
+                <Form.Group className="mb-3">
+                  <Form.Label>Notes Template</Form.Label>
+                  <Form.Control
+                    value={form.notes_template}
+                    onChange={(e) => setForm({ ...form, notes_template: e.target.value })}
+                    placeholder="Leave blank for no notes"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-0">
+                  <Form.Label>Category</Form.Label>
+                  <Form.Select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
+                    <option value="">— None (don't change) —</option>
+                    {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </Form.Select>
+                </Form.Group>
+              </>
+            )}
+
+            {form.is_split && (
+              <div>
+                {form.splits.map((split, i) => (
+                  <div key={i} style={{
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '4px',
+                    padding: '10px 12px',
+                    marginBottom: '8px',
+                    position: 'relative',
+                  }}>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <small style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Split {i + 1}</small>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        style={{ padding: '0 6px', fontSize: '0.75rem', lineHeight: '1.4' }}
+                        onClick={() => removeSplit(i)}
+                      >✕</Button>
+                    </div>
+                    <Form.Group className="mb-2">
+                      <Form.Label style={{ fontSize: '0.85em' }}>Category</Form.Label>
+                      <Form.Select
+                        size="sm"
+                        value={split.category_id || ''}
+                        onChange={(e) => updateSplit(i, 'category_id', e.target.value || null)}
+                      >
+                        <option value="">— None —</option>
+                        {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </Form.Select>
+                    </Form.Group>
+                    <Form.Group className="mb-2">
+                      <Form.Label style={{ fontSize: '0.85em' }}>Notes</Form.Label>
+                      <Form.Control
+                        size="sm"
+                        value={split.notes || ''}
+                        onChange={(e) => updateSplit(i, 'notes', e.target.value)}
+                        placeholder="e.g. Half to Derek"
+                      />
+                    </Form.Group>
+                    <Form.Group className="mb-0">
+                      <Form.Label style={{ fontSize: '0.85em' }}>Amount Expression</Form.Label>
+                      <Form.Control
+                        size="sm"
+                        value={split.amount_expression || ''}
+                        onChange={(e) => updateSplit(i, 'amount_expression', e.target.value)}
+                        placeholder="e.g. =CEILING(amount/2, 0.01)"
+                        style={{ fontFamily: 'monospace' }}
+                      />
+                      <Form.Text style={{ color: 'var(--text-secondary)', fontSize: '0.75em' }}>
+                        Use "amount" for the transaction total. Supports CEILING(x, step) and FLOOR(x, step). Leave blank for full amount.
+                      </Form.Text>
+                    </Form.Group>
+                  </div>
+                ))}
+                <Button variant="outline-primary" size="sm" onClick={addSplit}>+ Add Split</Button>
+              </div>
+            )}
           </div>
         </Modal.Body>
         <Modal.Footer>

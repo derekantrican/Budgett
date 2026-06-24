@@ -235,12 +235,12 @@ const toggleCategoryHidden = (id, isHidden) => {
 const getAllRules = () =>
   all(`SELECT r.*, c.name as category_name FROM rules r LEFT JOIN categories c ON r.category_id = c.id
       ORDER BY r.created_at DESC`);
-const createRule = (pattern, categoryId, notesTemplate, amountCondition, renameTo) =>
-  run('INSERT INTO rules (pattern, category_id, notes_template, amount_condition, rename_to) VALUES (?, ?, ?, ?, ?)',
-    [pattern, categoryId, notesTemplate, amountCondition, renameTo]);
-const updateRule = (id, pattern, categoryId, notesTemplate, amountCondition, renameTo) =>
-  run('UPDATE rules SET pattern = ?, category_id = ?, notes_template = ?, amount_condition = ?, rename_to = ? WHERE id = ?',
-    [pattern, categoryId, notesTemplate, amountCondition, renameTo, id]);
+const createRule = (pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit, splitJson) =>
+  run('INSERT INTO rules (pattern, category_id, notes_template, amount_condition, rename_to, is_split, split_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit ? 1 : 0, splitJson]);
+const updateRule = (id, pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit, splitJson) =>
+  run('UPDATE rules SET pattern = ?, category_id = ?, notes_template = ?, amount_condition = ?, rename_to = ?, is_split = ?, split_json = ? WHERE id = ?',
+    [pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit ? 1 : 0, splitJson, id]);
 const deleteRule = (id) => run('DELETE FROM rules WHERE id = ?', [id]);
 
 // Logs
