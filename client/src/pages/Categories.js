@@ -278,7 +278,7 @@ function Categories() {
                       {cat.name}
                     </td>
                     <td className="fit-width">{cat.budgeted ? formatCurrency(cat.budgeted) : '—'}</td>
-                    <td className="fit-width">{formatCurrency(Math.abs(cat.spent))}</td>
+                    <td className="fit-width">{formatCurrency(cat.spent)}</td>
                     <td className="fit-width" style={{ color: diff >= 0 ? '#4fa94d' : '#dc3545' }}>
                       {cat.budgeted !== 0 ? formatCurrency(diff) : '—'}
                     </td>
