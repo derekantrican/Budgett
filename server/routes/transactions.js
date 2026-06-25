@@ -26,7 +26,7 @@ router.get('/', (req, res) => {
     if (row.split_amount !== null) {
       transactionsMap.get(row.id).splits.push({
         category_id: row.category_id || null,
-        category_name: row.category_name || 'Uncategorized',
+        category_name: row.category_name || null,
         amount: row.split_amount,
         notes: row.split_notes,
       });
@@ -68,7 +68,7 @@ router.get('/search', (req, res) => {
     if (row.split_amount !== null) {
       transactionsMap.get(row.id).splits.push({
         category_id: row.category_id || null,
-        category_name: row.category_name || 'Uncategorized',
+        category_name: row.category_name || null,
         amount: row.split_amount,
         notes: row.split_notes,
       });
@@ -102,7 +102,7 @@ router.get('/hidden', (req, res) => {
     if (row.split_amount !== null) {
       transactionsMap.get(row.id).splits.push({
         category_id: row.category_id || null,
-        category_name: row.category_name || 'Uncategorized',
+        category_name: row.category_name || null,
         amount: row.split_amount,
         notes: row.split_notes,
       });

@@ -368,7 +368,7 @@ function Transactions() {
                       </div>
                       {txn.splits.map((split, idx) => (
                         <div key={idx} className="d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em', padding: '0 10px 2px 8px' }}>
-                          <span>{split.category_name || 'Uncategorized'}</span>
+                          <span>{split.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</span>
                           <span>{fmt(split.amount)}</span>
                         </div>
                       ))}
@@ -376,7 +376,7 @@ function Transactions() {
                   ) : (
                     <div className="transaction-card-body d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
                       <span>{formatDate(txn.date, dateFormat)}</span>
-                      <span>{txn.splits?.[0]?.category_name || 'Uncategorized'}</span>
+                      <span>{txn.splits?.[0]?.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</span>
                     </div>
                   )}
                 </div>
@@ -556,7 +556,7 @@ function Transactions() {
                     onChange={(e) => updateSplitField(idx, 'category_id', e.target.value)}
                     style={{ flex: 1 }}
                   >
-                    <option value="">Uncategorized</option>
+                    <option value="">— No category —</option>
                     {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </Form.Select>
                   <Form.Control
