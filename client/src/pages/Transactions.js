@@ -351,11 +351,14 @@ function Transactions() {
             {transactions.map((txn) => {
               const hasSplits = txn.splits?.length > 1;
               const isIncomplete = !txn.plaid_transaction_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
-              const cardClass = `transaction-card${txn.is_removed ? ' transaction-removed' : ''}${hasSplits ? ' transaction-split' : ''}${isIncomplete ? ' transaction-incomplete' : ''}${txn.is_pending ? ' transaction-pending' : ''}`;
+              const cardClass = `transaction-card${txn.is_removed ? ' transaction-removed' : ''}${hasSplits ? ' transaction-split' : ''}${isIncomplete ? ' transaction-incomplete' : ''}`;
               return (
                 <div key={txn.id} className={cardClass} onClick={() => openEdit(txn)}>
                   <div className="transaction-card-header d-flex justify-content-between">
-                    <span>{txn.merchant}</span>
+                    <span>
+                      {txn.merchant}
+                      {txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
+                    </span>
                     <span>{fmt(txn.amount)}</span>
                   </div>
                   {txn.splits?.length > 1 ? (
@@ -418,6 +421,27 @@ function Transactions() {
                     ))}
                   </tbody>
                 </Table>
+                  <div className="d-md-none" style={{ marginTop: 8, opacity: 0.7 }}>
+                    {hiddenTxns.map(txn => (
+                      <div key={txn.id} className="transaction-card" onClick={() => openEdit(txn)}>
+                        <div className="transaction-card-header d-flex justify-content-between">
+                          <span>
+                            {txn.merchant}
+                            {txn.linked_transaction_id
+                              ? <Badge bg="info" className="ms-2">Transfer</Badge>
+                              : txn.is_auth ? <Badge bg="secondary" className="ms-2">Auth</Badge>
+                              : txn.is_transfer ? <Badge bg="info" className="ms-2">Transfer</Badge>
+                              : null}
+                          </span>
+                          <span>{fmt(txn.amount)}</span>
+                        </div>
+                        <div className="transaction-card-body d-flex justify-content-between" style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
+                          <span>{formatDate(txn.date, dateFormat)}</span>
+                          <span>{txn.account_name}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </>
               )}
             </div>

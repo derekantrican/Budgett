@@ -286,9 +286,6 @@ a {
   border-left-color: var(--bs-danger);
 }
 
-.transaction-card.transaction-pending {
-  border-left-color: var(--bs-warning);
-}
 
 .transaction-card:hover {
   background: #3a3f44;
