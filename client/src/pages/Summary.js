@@ -34,11 +34,11 @@ function Summary() {
       .filter(t => t.splits?.some(s => s.category_id === cat.id))
       .reduce((sum, t) => {
         const catSplits = t.splits.filter(s => s.category_id === cat.id);
-        return sum + catSplits.reduce((s, split) => s + Math.abs(split.amount), 0);
+        return sum + catSplits.reduce((s, split) => s + split.amount, 0);
       }, 0);
 
-    if (spent > 0) {
-      chartData.push({ name: cat.name, value: spent });
+    if (spent < 0) {
+      chartData.push({ name: cat.name, value: Math.abs(spent) });
       chartColors.push(cat.color || `hsl(${Math.random() * 360}, 60%, 50%)`);
     }
   }
@@ -46,13 +46,12 @@ function Summary() {
   // Uncategorized
   const uncategorized = transactions
     .reduce((sum, t) => {
-      if (t.amount >= 0) return sum;
-      if (!t.splits || t.splits.length === 0) return sum + Math.abs(t.amount);
+      if (!t.splits || t.splits.length === 0) return sum + t.amount;
       const uncatSplits = t.splits.filter(s => !s.category_id);
-      return sum + uncatSplits.reduce((s, split) => s + Math.abs(split.amount), 0);
+      return sum + uncatSplits.reduce((s, split) => s + split.amount, 0);
     }, 0);
-  if (uncategorized > 0) {
-    chartData.push({ name: 'Uncategorized', value: uncategorized });
+  if (uncategorized < 0) {
+    chartData.push({ name: 'Uncategorized', value: Math.abs(uncategorized) });
     chartColors.push('#6c757d');
   }
 

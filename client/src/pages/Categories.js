@@ -156,8 +156,8 @@ function Categories() {
     }, 0);
 
   const pieData = [
-    ...catData.filter(c => c.spent !== 0).map(c => ({ name: c.name, value: Math.abs(c.spent), rawSpent: c.spent, color: c.color || '#4e89ff' })),
-    ...(uncategorizedSpent !== 0 ? [{ name: 'Uncategorized', value: Math.abs(uncategorizedSpent), rawSpent: uncategorizedSpent, color: '#6c757d' }] : [])
+    ...catData.filter(c => c.spent < 0).map(c => ({ name: c.name, value: Math.abs(c.spent), rawSpent: c.spent, color: c.color || '#4e89ff' })),
+    ...(uncategorizedSpent < 0 ? [{ name: 'Uncategorized', value: Math.abs(uncategorizedSpent), rawSpent: uncategorizedSpent, color: '#6c757d' }] : [])
   ];
 
   return (
