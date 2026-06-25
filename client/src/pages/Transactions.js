@@ -395,21 +395,30 @@ function Transactions() {
                 {showHidden ? '▼' : '▶'} Hidden transactions ({hiddenTxns.length})
               </div>
               {showHidden && (
-                <Table size="sm" className="d-none d-md-table" style={{ marginTop: 8, opacity: 0.7 }}>
+                <>
+                  <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.8em', margin: '8px 0' }}>
+                    Hidden transactions do not count towards categories and summary totals
+                  </p>
+                  <Table size="sm" hover variant="dark" className="d-none d-md-table" style={{ marginTop: 8, opacity: 0.7 }}>
                   <tbody>
                     {hiddenTxns.map(txn => (
                       <tr key={txn.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(txn)}>
                         <td style={{ width: 100 }}>{formatDate(txn.date, dateFormat)}</td>
-                        <td>{txn.merchant}</td>
-                        <td style={{ textAlign: 'right', width: 100 }}>{fmt(txn.amount)}</td>
                         <td style={{ width: 80, textAlign: 'center' }}>
-                          {txn.is_auth ? <Badge bg="secondary">Auth</Badge> : null}
-                          {txn.is_transfer ? <Badge bg="info">Transfer</Badge> : null}
+                          {txn.linked_transaction_id
+                            ? <Badge bg="info">Transfer</Badge>
+                            : txn.is_auth ? <Badge bg="secondary">Auth</Badge>
+                            : txn.is_transfer ? <Badge bg="info">Transfer</Badge>
+                            : null}
                         </td>
+                        <td>{txn.merchant}</td>
+                        <td style={{ textAlign: 'right', width: 125 }}>{fmt(txn.amount)}</td>
+                        <td style={{ width: 200, color: 'var(--text-secondary)', fontSize: '0.85em' }}>{txn.account_name}</td>
                       </tr>
                     ))}
                   </tbody>
                 </Table>
+                </>
               )}
             </div>
           )}

@@ -122,8 +122,8 @@ const getHiddenTransactionsByDateRange = (startDate, endDate) =>
        FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
        LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
        LEFT JOIN categories c ON ts.category_id = c.id
-       WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0 AND t.is_hidden = 1
-       AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
+       WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0
+       AND (t.is_hidden = 1 OR a.hide_from_transactions = 1)
        ORDER BY t.date ASC`, [startDate, endDate]);
 const softRemoveTransaction = (plaidTxnId) => {
   return run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
