@@ -67,6 +67,8 @@ export const toggleCategoryHidden = (id, isHidden) =>
 export const getItems = () => request('/items');
 export const updateItem = (id, data) =>
   request(`/items/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+export const deleteItem = (id, deleteTransactions) =>
+  request(`/items/${id}?delete_transactions=${deleteTransactions}`, { method: 'DELETE' });
 export const exchangeToken = (publicToken, institution) =>
   request('/items', { method: 'POST', body: JSON.stringify({ public_token: publicToken, institution }) });
 export const getAccounts = () => request('/accounts');

@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { createItem, createAccount, getAccountsByItem, run } = require('../db/queries');
+const { createItem, createAccount, getAccountsByItem, deleteItem, run } = require('../db/queries');
 const { plaidClient } = require('./link');
 const { syncTransactions } = require('../webhookHandlers/transactionSync');
 
@@ -39,6 +39,24 @@ router.patch('/:id', (req, res) => {
   }
 
   res.json({ success: true });
+});
+
+// DELETE /api/items/:id
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  const deleteTransactions = req.query.delete_transactions === 'true';
+
+  try {
+    deleteItem(id, deleteTransactions);
+    const logger = require('../helpers/logger');
+    logger.info('item_deleted', `Deleted institution ${id} (transactions ${deleteTransactions ? 'deleted' : 'kept'})`);
+    res.json({ success: true });
+  }
+  catch (err) {
+    const logger = require('../helpers/logger');
+    logger.error('item_delete_failed', err.message);
+    res.status(500).json({ error: 'Failed to delete institution' });
+  }
 });
 
 // POST /api/items (exchange public token after Link flow)

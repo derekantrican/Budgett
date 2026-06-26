@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Form, Modal } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
-import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount } from '../services/api';
+import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount, deleteItem } from '../services/api';
 
 function Settings() {
   const [items, setItems] = useState([]);
@@ -17,6 +17,11 @@ function Settings() {
   // Edit institution modal
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
+
+  // Delete institution flow
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteOptions, setDeleteOptions] = useState(false);
+  const [deleteTxnAction, setDeleteTxnAction] = useState('keep');
 
   useEffect(() => {
     loadItems();
@@ -203,7 +208,7 @@ function Settings() {
       </div>
 
       {/* Edit Institution Modal */}
-      <Modal show={!!editItem} onHide={() => setEditItem(null)} data-bs-theme="dark">
+      <Modal show={!!editItem} onHide={() => { setEditItem(null); setConfirmDelete(false); setDeleteOptions(false); setDeleteTxnAction('keep'); }} data-bs-theme="dark">
         <Modal.Header closeButton>
           <Modal.Title>Edit Institution</Modal.Title>
         </Modal.Header>
@@ -267,9 +272,54 @@ function Settings() {
             </>
           )}
         </Modal.Body>
+        <Modal.Footer className="d-flex justify-content-between">
+          <Button variant="outline-danger" onClick={() => setConfirmDelete(true)}>Delete</Button>
+          <div>
+            <Button variant="secondary" className="me-2" onClick={() => setEditItem(null)}>Cancel</Button>
+            <Button variant="primary" onClick={handleEditSave}>Save</Button>
+          </div>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Confirm Delete Modal */}
+      <Modal show={confirmDelete} onHide={() => setConfirmDelete(false)} data-bs-theme="dark" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Delete Institution</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to delete <strong>{editItem?.display_name || editItem?.institution_name}</strong> and all its accounts?
+        </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setEditItem(null)}>Cancel</Button>
-          <Button variant="primary" onClick={handleEditSave}>Save</Button>
+          <Button variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+          <Button variant="danger" onClick={() => { setConfirmDelete(false); setDeleteOptions(true); }}>Yes, Delete</Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Delete Options Modal */}
+      <Modal show={deleteOptions} onHide={() => setDeleteOptions(false)} data-bs-theme="dark" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Delete Options</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>Transactions for this institution in the database should be</Form.Label>
+            <Form.Select
+              value={deleteTxnAction}
+              onChange={(e) => setDeleteTxnAction(e.target.value)}
+            >
+              <option value="keep">Kept</option>
+              <option value="delete">Deleted</option>
+            </Form.Select>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setDeleteOptions(false)}>Cancel</Button>
+          <Button variant="danger" onClick={async () => {
+            await deleteItem(editItem.id, deleteTxnAction === 'delete');
+            setDeleteOptions(false);
+            setEditItem(null);
+            loadItems();
+          }}>Continue</Button>
         </Modal.Footer>
       </Modal>
 

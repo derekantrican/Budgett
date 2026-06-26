@@ -87,6 +87,31 @@ const updateItemStatus = (status, itemId) => {
   run("UPDATE items SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, itemId]);
 };
 
+const deleteItem = (itemId, deleteTransactions) => {
+  const accounts = all('SELECT id FROM accounts WHERE item_id = ?', [itemId]);
+  const accountIds = accounts.map(a => a.id);
+
+  if (accountIds.length > 0) {
+    const placeholders = accountIds.map(() => '?').join(',');
+    if (deleteTransactions) {
+      // Delete splits for transactions on these accounts
+      run(`DELETE FROM transaction_splits WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id IN (${placeholders}))`, accountIds);
+      // Delete transactions
+      run(`DELETE FROM transactions WHERE account_id IN (${placeholders})`, accountIds);
+    }
+    else {
+      // Nullify account references so transactions are kept
+      run(`UPDATE transactions SET account_id = NULL, updated_at = datetime('now') WHERE account_id IN (${placeholders})`, accountIds);
+    }
+
+    // Delete accounts
+    run(`DELETE FROM accounts WHERE item_id = ?`, [itemId]);
+  }
+
+  // Delete the item
+  run('DELETE FROM items WHERE id = ?', [itemId]);
+};
+
 // Accounts
 const createAccount = (itemId, plaidAcctId, name, officialName, type, subtype, mask, currentBal, availBal) =>
   run('INSERT INTO accounts (item_id, plaid_account_id, name, official_name, type, subtype, mask, current_balance, available_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -297,7 +322,7 @@ const setSetting = (key, value) =>
 module.exports = {
   initQueries, run, get, all,
   // Items
-  createItem, getAllItems, getItemByPlaidId, updateItemCursor, updateItemStatus,
+  createItem, getAllItems, getItemByPlaidId, updateItemCursor, updateItemStatus, deleteItem,
   // Accounts
   createAccount, getAccountsByItem, getAllAccounts, getAccountByPlaidId, updateAccountBalance,
   // Transactions
