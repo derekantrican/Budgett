@@ -5,6 +5,7 @@ import Summary from './pages/Summary';
 import Transactions from './pages/Transactions';
 import Categories from './pages/Categories';
 import Income from './pages/Income';
+import Planning from './pages/Planning';
 import RecordTransaction from './pages/RecordTransaction';
 import Settings from './pages/Settings';
 import AdminLogs from './pages/admin/Logs';
@@ -29,6 +30,7 @@ function App() {
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/income" element={<Income />} />
+          <Route path="/planning" element={<Planning />} />
           <Route path="/recordTransaction" element={<RecordTransaction />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/logs" element={<AdminLogs />} />

@@ -19,6 +19,7 @@ function Navigation() {
             <Nav.Link as={NavLink} to="/transactions" onClick={() => setExpanded(false)} style={{ color: '#ccc' }}>Transactions</Nav.Link>
             <Nav.Link as={NavLink} to="/categories" onClick={() => setExpanded(false)} style={{ color: '#ccc' }}>Categories</Nav.Link>
             <Nav.Link as={NavLink} to="/income" onClick={() => setExpanded(false)} style={{ color: '#ccc' }}>Income</Nav.Link>
+            <Nav.Link as={NavLink} to="/planning" onClick={() => setExpanded(false)} style={{ color: '#ccc' }}>Planning</Nav.Link>
             <Nav.Link as={NavLink} to="/settings" onClick={() => setExpanded(false)} style={{ color: '#ccc' }}>Settings</Nav.Link>
           </Nav>
         </Navbar.Collapse>
