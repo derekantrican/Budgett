@@ -11,13 +11,14 @@ const { initQueries } = require('./db/queries');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
+const corsOrigin = process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? true : 'http://localhost:3000');
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: 'http://localhost:3000', credentials: true },
+  cors: { origin: corsOrigin, credentials: true },
 });
 
 // Middleware
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 
 // Make io available to routes
