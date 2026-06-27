@@ -55,8 +55,18 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 // Serve React client in production
 const clientBuildPath = path.resolve(__dirname, '../client/build');
 if (process.env.NODE_ENV === 'production' || !process.env.NODE_ENV) {
-  app.use(express.static(clientBuildPath));
+  // Cache PWA assets and static files with long max-age
+  app.use(express.static(clientBuildPath, {
+    maxAge: '1y',
+    setHeaders: (res, filePath) => {
+      // index.html should not be cached (so updates are picked up)
+      if (filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  }));
   app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(clientBuildPath, 'index.html'));
   });
 }
