@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal, Badge } from 'react-bootstrap';
 import { getRules, createRule, updateRule, deleteRule, getCategories } from '../../services/api';
+import CategorySelect from '../../components/CategorySelect';
 
 function Rules() {
   const [rules, setRules] = useState([]);
@@ -255,10 +256,12 @@ function Rules() {
                 </Form.Group>
                 <Form.Group className="mb-0">
                   <Form.Label>Category</Form.Label>
-                  <Form.Select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-                    <option value="">— None (don't change) —</option>
-                    {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </Form.Select>
+                  <CategorySelect
+                    categories={categories}
+                    value={form.category_id}
+                    onChange={(val) => setForm({ ...form, category_id: val })}
+                    placeholder="— None (don't change) —"
+                  />
                 </Form.Group>
               </>
             )}
@@ -285,14 +288,12 @@ function Rules() {
                     </div>
                     <Form.Group className="mb-2">
                       <Form.Label style={{ fontSize: '0.85em' }}>Category</Form.Label>
-                      <Form.Select
-                        size="sm"
-                        value={split.category_id || ''}
-                        onChange={(e) => updateSplit(i, 'category_id', e.target.value || null)}
-                      >
-                        <option value="">— None —</option>
-                        {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </Form.Select>
+                      <CategorySelect
+                        categories={categories}
+                        value={split.category_id}
+                        onChange={(val) => updateSplit(i, 'category_id', val || null)}
+                        placeholder="— None —"
+                      />
                     </Form.Group>
                     <Form.Group className="mb-2">
                       <Form.Label style={{ fontSize: '0.85em' }}>Notes</Form.Label>

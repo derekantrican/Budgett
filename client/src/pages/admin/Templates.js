@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal } from 'react-bootstrap';
 import { getTemplates, createTemplateApi, updateTemplateApi, deleteTemplateApi, getCategories, getItems } from '../../services/api';
+import CategorySelect from '../../components/CategorySelect';
 
 function Templates() {
   const [templates, setTemplates] = useState([]);
@@ -138,10 +139,12 @@ function Templates() {
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Category</Form.Label>
-            <Form.Select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-              <option value="">— None —</option>
-              {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Form.Select>
+            <CategorySelect
+              categories={categories}
+              value={form.category_id}
+              onChange={(val) => setForm({ ...form, category_id: val })}
+              placeholder="— None —"
+            />
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Account</Form.Label>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Form, Button, Badge, Modal, Spinner } from 'react-bootstrap';
 import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
+import CategorySelect from '../components/CategorySelect';
 
 const fmt = formatCurrency;
 
@@ -551,14 +552,11 @@ function Transactions() {
                   />
                 </div>
                 <div className="split-edit-bottom">
-                  <Form.Select
-                    value={split.category_id || ''}
-                    onChange={(e) => updateSplitField(idx, 'category_id', e.target.value)}
-                    style={{ flex: 1 }}
-                  >
-                    <option value="">— No category —</option>
-                    {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </Form.Select>
+                  <CategorySelect
+                    categories={categories}
+                    value={split.category_id}
+                    onChange={(val) => updateSplitField(idx, 'category_id', val)}
+                  />
                   <Form.Control
                     type="number"
                     step="0.01"

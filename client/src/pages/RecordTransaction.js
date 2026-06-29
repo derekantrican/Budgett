@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getCategories, getAccounts, createTransaction, updateSplits, getTemplates, createTemplateApi, getTransactionByPlaidId } from '../services/api';
+import CategorySelect from '../components/CategorySelect';
 
 const styles = {
   container: {
@@ -297,10 +298,13 @@ function RecordTransaction() {
 
         <div style={styles.row}>
           <label style={styles.label}>Category:</label>
-          <select value={form.category_id} onChange={handleInputChange('category_id')} style={styles.select}>
-            <option value=""></option>
-            {categories.filter(c => !c.is_hidden).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div style={{ flex: 1 }}>
+            <CategorySelect
+              categories={categories}
+              value={form.category_id}
+              onChange={(val) => setForm({ ...form, category_id: val })}
+            />
+          </div>
         </div>
 
         <div style={styles.row}>
