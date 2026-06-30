@@ -8,9 +8,13 @@ const darkStyles = {
     borderColor: state.isFocused ? '#86b7fe' : 'var(--border-color, #495057)',
     boxShadow: state.isFocused ? '0 0 0 0.25rem rgba(13,110,253,.25)' : 'none',
     minHeight: 38,
-    width: 207,
     flexWrap: 'nowrap',
     '&:hover': { borderColor: '#86b7fe' },
+  }),
+  container: (base) => ({
+    ...base,
+    flex: 1,
+    minWidth: 0,
   }),
   valueContainer: (base) => ({
     ...base,

@@ -289,7 +289,7 @@ function Transactions() {
             <Table striped hover responsive variant="dark" className="transaction-table" style={{ tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ width: 110 }}>Date</th>
+                  <th style={{ width: 125 }}>Date</th>
                   <th style={{ width: 300, textAlign: 'left' }}>Where</th>
                   <th style={{ textAlign: 'left' }}>Notes</th>
                   <th style={{ width: 200 }}>Category</th>
