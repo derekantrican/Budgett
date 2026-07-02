@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCategories, getAccounts, createTransaction, updateSplits, getTemplates, createTemplateApi, getTransactionByPlaidId } from '../services/api';
+import { getCategories, getAccounts, createTransaction, updateTransaction, updateSplits, getTemplates, createTemplateApi, getTransactionByPlaidId } from '../services/api';
 import CategorySelect from '../components/CategorySelect';
 
 const styles = {
@@ -206,6 +206,7 @@ function RecordTransaction() {
         : [];
 
       if (existingTxnId) {
+        await updateTransaction(existingTxnId, { merchant: form.merchant || null, notes: form.notes || null });
         await updateSplits(existingTxnId, splits);
       }
       else {
