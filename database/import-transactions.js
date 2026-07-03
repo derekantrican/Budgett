@@ -3,8 +3,9 @@
  * 
  * Imports transactions from .xlsx or .csv files into the Budgett database.
  * 
- * Usage:
- *   node database/import-transactions.js <file.xlsx|file.csv> [options]
+ * Usage: (run from project root)
+ *   npm install xlsx sql.js
+ *   node database\import-transactions.js <file.xlsx|file.csv> [options]
  * 
  * Options:
  *   --dry-run              Show what would be imported without writing to DB
