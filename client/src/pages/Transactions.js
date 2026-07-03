@@ -3,6 +3,7 @@ import { Table, Form, Button, Badge, Modal, Spinner } from 'react-bootstrap';
 import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 import CategorySelect from '../components/CategorySelect';
+import { renderNotes } from '../utils/notes';
 
 const fmt = formatCurrency;
 
@@ -313,7 +314,7 @@ function Transactions() {
                           {txn.merchant}
                           {txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
                         </td>
-                        <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{txn.splits?.[0]?.notes || ''}</td>
+                        <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{renderNotes(txn.splits?.[0]?.notes)}</td>
                         <td>{txn.splits?.[0]?.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
                         <td className="fit-width">{fmt(txn.amount)}</td>
                         <td>{txn.account_name || ''}</td>
@@ -336,7 +337,7 @@ function Transactions() {
                         {idx === 0 ? txn.merchant : ''}
                         {idx === 0 && txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
                       </td>
-                      <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{split.notes || ''}</td>
+                      <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{renderNotes(split.notes)}</td>
                       <td>{split.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
                       <td className="fit-width">{fmt(split.amount)}</td>
                       <td>{txn.account_name || ''}</td>
@@ -546,7 +547,7 @@ function Transactions() {
               <div key={idx} className="split-edit-row mb-2">
                 <div className="split-edit-notes">
                   <Form.Control
-                    placeholder="Notes"
+                    placeholder="Notes (supports **bold**, *italic*)"
                     value={split.notes || ''}
                     onChange={(e) => updateSplitField(idx, 'notes', e.target.value)}
                   />

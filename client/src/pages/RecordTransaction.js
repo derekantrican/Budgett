@@ -294,7 +294,12 @@ function RecordTransaction() {
 
         <div style={styles.row}>
           <label style={styles.label}>Notes:</label>
-          <textarea value={form.notes} onChange={handleInputChange('notes')} style={styles.textarea} />
+          <textarea
+            value={form.notes}
+            onChange={handleInputChange('notes')}
+            style={styles.textarea}
+            placeholder="Supports **bold**, *italic*"
+          />
         </div>
 
         <div style={styles.row}>

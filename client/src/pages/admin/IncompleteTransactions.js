@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Badge, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { getIncompleteTransactions, getCategories, getAccounts, updateTransaction, deleteTransaction, getPlaidCandidates, linkPlaidId, mergeAndLinkPlaid } from '../../services/api';
 import { formatCurrency } from '../../utils/currency';
+import { renderNotes } from '../../utils/notes';
 
 const fmt = formatCurrency;
 
@@ -182,7 +183,7 @@ function IncompleteTransactions() {
               </td>
               <td>{txn.date}</td>
               <td style={{ textAlign: 'left' }}>{txn.merchant || <span style={{ color: 'var(--text-secondary)' }}>(empty)</span>}</td>
-              <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{txn.notes || ''}</td>
+              <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{renderNotes(txn.notes)}</td>
               <td>{fmt(txn.amount)}</td>
               <td>{txn.account_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
               <td>{issues(txn)}</td>
@@ -227,7 +228,7 @@ function IncompleteTransactions() {
                 <Form.Control
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  placeholder="Optional notes"
+                  placeholder="Optional notes (supports **bold**, *italic*)"
                 />
               </Form.Group>
               <Form.Group className="mb-3">
@@ -287,7 +288,7 @@ function IncompleteTransactions() {
                 <div style={{ fontSize: '0.85em', color: 'var(--text-secondary)', marginTop: 4 }}>
                   Combined from {matchTxns.length} selected transactions:
                   {matchTxns.map((t, i) => (
-                    <span key={t.id}>{i > 0 ? ' + ' : ' '}{fmt(t.amount)}{t.notes ? ` (${t.notes})` : ''}</span>
+                    <span key={t.id}>{i > 0 ? ' + ' : ' '}{fmt(t.amount)}{t.notes ? <> ({renderNotes(t.notes)})</> : ''}</span>
                   ))}
                 </div>
               )}

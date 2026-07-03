@@ -6,9 +6,6 @@ When a transaction is fuzzy-matched, we discard the pending ID. But later, a "re
 ## Auto-rule creation from repeated user renames
 For some fields (starting with "where"/merchant), keep track of user actions to rename/override those fields. If a user does the same rename frequently (e.g. "Qfc" → "QFC"), automatically create a Rule for it so it happens automatically in the future. There should be the option to disable this rule if the user doesn't like it.
 
-## Basic markdown in notes
-Support basic markdown (probably just bold & italic) in "notes" fields.
-
 ## Hide/unhide checkbox in Edit Transaction dialog
 The "Edit transaction" dialog should expose a "hide" checkbox that allows the user to manually hide/unhide transactions.
 

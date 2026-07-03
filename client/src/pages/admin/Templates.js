@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal } from 'react-bootstrap';
 import { getTemplates, createTemplateApi, updateTemplateApi, deleteTemplateApi, getCategories, getItems } from '../../services/api';
 import CategorySelect from '../../components/CategorySelect';
+import { renderNotes } from '../../utils/notes';
 
 function Templates() {
   const [templates, setTemplates] = useState([]);
@@ -92,7 +93,7 @@ function Templates() {
             <tr key={tmpl.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(tmpl)}>
               <td style={{ textAlign: 'left' }}>{tmpl.name}</td>
               <td style={{ textAlign: 'left' }}>{tmpl.merchant || '—'}</td>
-              <td style={{ textAlign: 'left' }}>{tmpl.notes || '—'}</td>
+              <td style={{ textAlign: 'left' }}>{renderNotes(tmpl.notes) || '—'}</td>
               <td>{tmpl.category_name || '—'}</td>
               <td>{tmpl.amount || '—'}</td>
               <td className="fit-width">
@@ -134,7 +135,7 @@ function Templates() {
             <Form.Control
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Default notes"
+              placeholder="Default notes (supports **bold**, *italic*)"
             />
           </Form.Group>
           <Form.Group className="mb-3">

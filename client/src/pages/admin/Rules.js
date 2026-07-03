@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal, Badge } from 'react-bootstrap';
 import { getRules, createRule, updateRule, deleteRule, getCategories } from '../../services/api';
 import CategorySelect from '../../components/CategorySelect';
+import { renderNotes } from '../../utils/notes';
 
 function Rules() {
   const [rules, setRules] = useState([]);
@@ -176,7 +177,7 @@ function Rules() {
               <td style={{ textAlign: 'left' }}>
                 {rule.is_split
                   ? <Badge bg="primary">{getSplitSummary(rule)}</Badge>
-                  : (rule.notes_template || '—')}
+                  : (renderNotes(rule.notes_template) || '—')}
               </td>
               <td>{rule.is_split ? '—' : (rule.category_name || '—')}</td>
               <td className="fit-width">
@@ -251,7 +252,7 @@ function Rules() {
                   <Form.Control
                     value={form.notes_template}
                     onChange={(e) => setForm({ ...form, notes_template: e.target.value })}
-                    placeholder="Leave blank for no notes"
+                    placeholder="Leave blank for no notes (supports **bold**, *italic*)"
                   />
                 </Form.Group>
                 <Form.Group className="mb-0">
