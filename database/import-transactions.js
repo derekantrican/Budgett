@@ -7,10 +7,13 @@
  *   node database/import-transactions.js <file.xlsx|file.csv> [options]
  * 
  * Options:
- *   --dry-run       Show what would be imported without writing to DB
- *   --skip-dupes    Skip rows whose plaid_transaction_id already exists (default: true)
- *   --sheet <name>  Import only a specific sheet (xlsx only). Omit to import all monthly sheets.
- * 
+ *   --dry-run              Show what would be imported without writing to DB
+ *   --skip-dupes           Skip rows whose plaid_transaction_id already exists (default: true)
+ *   --sheet <name>         Import only a specific sheet (xlsx only). Omit to import all monthly sheets.
+ *   --snap-to-sheet-month  Snap transaction dates that fall after the end of their sheet's month
+ *                          (e.g. a 5/4 transaction on the "Apr" sheet) to the last day of that month,
+ *                          so it counts toward the sheet's month instead of the following one.
+ *
  * Expected spreadsheet format (per monthly sheet):
  *   Row 5 (0-indexed): Header row with columns:
  *     [Plaid Transaction ID(s), Date, Where?, Notes, Category, Amount, Payment Method]
@@ -33,9 +36,10 @@ const args = process.argv.slice(2);
 const filePath = args.find(a => !a.startsWith('--'));
 const dryRun = args.includes('--dry-run');
 const sheetFilter = args.includes('--sheet') ? args[args.indexOf('--sheet') + 1] : null;
+const snapToSheetMonth = args.includes('--snap-to-sheet-month');
 
 if (!filePath) {
-  console.error('Usage: node database/import-transactions.js <file.xlsx|file.csv> [--dry-run] [--sheet <name>]');
+  console.error('Usage: node database/import-transactions.js <file.xlsx|file.csv> [--dry-run] [--sheet <name>] [--snap-to-sheet-month]');
   process.exit(1);
 }
 
@@ -68,6 +72,40 @@ function parseAmount(val) {
     return isNaN(num) ? null : num;
   }
   return null;
+}
+
+// Snap dates that fall after the end of a sheet's month (e.g. a 5/4 transaction on the
+// "Apr" sheet) to the last day of that month, so it counts toward the sheet's own month.
+// The sheet's year is inferred from whichever rows already fall in the expected month.
+function snapOverflowDates(rows, sheetName) {
+  const expectedMonthIdx = MONTH_SHEETS.indexOf(sheetName);
+  if (expectedMonthIdx === -1) return;
+
+  const yearCounts = {};
+  for (const row of rows) {
+    const d = new Date(row.date + 'T00:00:00Z');
+    if (d.getUTCMonth() === expectedMonthIdx)
+      yearCounts[d.getUTCFullYear()] = (yearCounts[d.getUTCFullYear()] || 0) + 1;
+  }
+
+  const years = Object.keys(yearCounts);
+  if (years.length === 0) return; // Can't infer the sheet's year, leave dates untouched
+
+  const sheetYear = Number(years.reduce((a, b) => (yearCounts[a] >= yearCounts[b] ? a : b)));
+  const endOfMonth = new Date(Date.UTC(sheetYear, expectedMonthIdx + 1, 0));
+  const endOfMonthIso = endOfMonth.toISOString().split('T')[0];
+
+  let snapped = 0;
+  for (const row of rows) {
+    const d = new Date(row.date + 'T00:00:00Z');
+    if (d.getTime() > endOfMonth.getTime()) {
+      row.date = endOfMonthIso;
+      snapped++;
+    }
+  }
+
+  if (snapped > 0)
+    console.log(`  ${sheetName}: snapped ${snapped} transaction(s) past end of month to ${endOfMonthIso}`);
 }
 
 // --- Parse XLSX ---
@@ -115,6 +153,7 @@ function parseXlsx(filePath) {
     }
     
     // Parse data rows
+    const sheetTransactions = [];
     for (let i = headerIdx + 1; i < data.length; i++) {
       const row = data[i];
       if (!row || !row[1]) continue; // Skip rows without a date
@@ -148,7 +187,7 @@ function parseXlsx(filePath) {
         }
       }
       
-      transactions.push({
+      sheetTransactions.push({
         plaid_transaction_id: plaidId || null,
         date,
         merchant,
@@ -161,8 +200,13 @@ function parseXlsx(filePath) {
         source_sheet: sheetName
       });
     }
-    
-    console.log(`  ${sheetName}: ${transactions.filter(t => t.source_sheet === sheetName).length} transactions`);
+
+    if (snapToSheetMonth)
+      snapOverflowDates(sheetTransactions, sheetName);
+
+    transactions.push(...sheetTransactions);
+
+    console.log(`  ${sheetName}: ${sheetTransactions.length} transactions`);
   }
   
   return transactions;
