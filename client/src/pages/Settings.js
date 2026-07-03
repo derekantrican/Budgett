@@ -208,7 +208,9 @@ function Settings() {
       </div>
 
       {/* Edit Institution Modal */}
-      <Modal show={!!editItem} onHide={() => { setEditItem(null); setConfirmDelete(false); setDeleteOptions(false); setDeleteTxnAction('keep'); }} data-bs-theme="dark">
+      <Modal show={!!editItem} onHide={() => {
+        setEditItem(null); setConfirmDelete(false); setDeleteOptions(false); setDeleteTxnAction('keep'); 
+      }} data-bs-theme="dark">
         <Modal.Header closeButton>
           <Modal.Title>Edit Institution</Modal.Title>
         </Modal.Header>
@@ -291,7 +293,9 @@ function Settings() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-          <Button variant="danger" onClick={() => { setConfirmDelete(false); setDeleteOptions(true); }}>Yes, Delete</Button>
+          <Button variant="danger" onClick={() => {
+            setConfirmDelete(false); setDeleteOptions(true); 
+          }}>Yes, Delete</Button>
         </Modal.Footer>
       </Modal>
 
