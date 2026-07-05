@@ -33,6 +33,20 @@ function init() {
   return database;
 }
 
+// Periodically (once per day) flush the WAL into budgett.db so a plain copy of that one file
+// (without the -wal/-shm companions) doesn't miss recent writes for too long.
+function startPeriodicCheckpoint(intervalMs = 24 * 60 * 60 * 1000) {
+  const database = getDb();
+  setInterval(() => {
+    try {
+      database.pragma('wal_checkpoint(TRUNCATE)');
+    }
+    catch (err) {
+      console.error('WAL checkpoint failed:', err.message);
+    }
+  }, intervalMs).unref();
+}
+
 // Close DB on exit
 process.on('exit', () => {
   if (db) db.close();
@@ -47,5 +61,5 @@ if (require.main === module) {
   process.exit(0);
 }
 
-module.exports = { getDb, init };
+module.exports = { getDb, init, startPeriodicCheckpoint };
 

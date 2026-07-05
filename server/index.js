@@ -6,7 +6,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
-const { init: initDb } = require('./db/init');
+const { init: initDb, startPeriodicCheckpoint } = require('./db/init');
 const { initQueries } = require('./db/queries');
 const { errorHandler } = require('./middleware/errorHandler');
 
@@ -76,6 +76,7 @@ io.on('connection', (socket) => {
 function start() {
   initDb();
   initQueries();
+  startPeriodicCheckpoint();
 
   const PORT = process.env.PORT || 5000;
   server.listen(PORT, '0.0.0.0', () => {
