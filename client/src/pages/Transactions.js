@@ -168,6 +168,32 @@ function Transactions() {
     setEditSplits(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
+  // Distribute the remaining (unassigned) transaction amount evenly across splits with a $0 amount
+  const distributeRemaining = () => {
+    const zeroIndices = editSplits
+      .map((s, i) => ({ amount: parseFloat(s.amount) || 0, i }))
+      .filter(s => s.amount === 0)
+      .map(s => s.i);
+
+    if (zeroIndices.length === 0) {
+      alert('No split has an amount of $0. This feature distributes the remaining transaction amount evenly among splits with a $0 amount.');
+      return;
+    }
+
+    const totalAmount = isNewTxn ? (parseFloat(editAmount) || 0) : (editTxn?.amount || 0);
+    const assignedAmount = editSplits.reduce((sum, s, i) => zeroIndices.includes(i) ? sum : sum + (parseFloat(s.amount) || 0), 0);
+    const remaining = totalAmount - assignedAmount;
+
+    const shares = zeroIndices.map(() => Math.round((remaining / zeroIndices.length) * 100) / 100);
+    const roundingDiff = Math.round((remaining - shares.reduce((sum, s) => sum + s, 0)) * 100) / 100;
+    shares[shares.length - 1] = Math.round((shares[shares.length - 1] + roundingDiff) * 100) / 100;
+
+    setEditSplits(prev => prev.map((s, i) => {
+      const shareIdx = zeroIndices.indexOf(i);
+      return shareIdx === -1 ? s : { ...s, amount: shares[shareIdx].toFixed(2) };
+    }));
+  };
+
   const handleSave = async () => {
     if (!editTxn) 
       return;
@@ -282,6 +308,9 @@ function Transactions() {
 
     return { accounts, categories: cats };
   }, [transactions]);
+
+  const splitTotal = editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+  const splitMismatch = !isNewTxn && !!editTxn && Math.abs(splitTotal - editTxn.amount) > 0.005;
 
   if (!transactions) {
     return (
@@ -577,11 +606,12 @@ function Transactions() {
                     Total: {fmt(editTxn.amount)}
                   </span>
                 )}
-                {!isNewTxn && Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005 && (
+                {splitMismatch && (
                   <span style={{ color: '#ff4444', fontWeight: 'bold', fontSize: '0.85em' }}>
-                    (split total: {fmt(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0))})
+                    (split total: {fmt(splitTotal)})
                   </span>
                 )}
+                <Button variant={splitMismatch ? 'secondary' : 'outline-secondary'} size="sm" onClick={distributeRemaining}>Distribute</Button>
                 <Button variant="outline-primary" size="sm" onClick={addSplit}>+ Add Split</Button>
               </div>
             </div>
@@ -699,7 +729,7 @@ function Transactions() {
             variant="primary"
             tabIndex={2}
             onClick={handleSave}
-            disabled={saving || (!isNewTxn && editTxn && Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005)}
+            disabled={saving || splitMismatch}
           >
             {saving ? 'Saving...' : isNewTxn ? 'Add Transaction' : 'Save Changes'}
           </Button>
