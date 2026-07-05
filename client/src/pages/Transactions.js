@@ -1,11 +1,40 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Table, Form, Button, Badge, Modal, Spinner } from 'react-bootstrap';
-import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart } from '../services/api';
+import { Table, Form, Button, Badge, Modal, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart, getTransaction } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 import CategorySelect from '../components/CategorySelect';
 import { renderNotes } from '../utils/notes';
 
 const fmt = formatCurrency;
+
+// Bootstrap Icons "link-45deg" path, inlined (matches the pattern used in Settings.js)
+function LinkIcon({ size = 16 }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} fill="currentColor" viewBox="0 0 16 16">
+      <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.001 1.001 0 0 0-.264.264 2 2 0 0 1 .571 3.239l-1.828 1.829a2 2 0 1 1-2.829-2.83l.793-.792a4 4 0 0 1-.242-1.247z"/>
+      <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.143 1.286l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
+    </svg>
+  );
+}
+
+// LinkIcon with a small "x" badge overlaid, for the "remove link" action
+function UnlinkIcon({ size = 16 }) {
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', width: size, height: size }}>
+      <LinkIcon size={size} />
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size * 0.6}
+        height={size * 0.6}
+        fill="#ff6666"
+        viewBox="0 0 16 16"
+        style={{ position: 'absolute', bottom: -3, right: -4 }}
+      >
+        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+      </svg>
+    </span>
+  );
+}
 
 // Format a YYYY-MM-DD date string according to a format pattern
 function formatDate(dateStr, pattern) {
@@ -43,6 +72,10 @@ function Transactions() {
   const [showHidden, setShowHidden] = useState(false);
   const [counterpartCandidates, setCounterpartCandidates] = useState(null);
   const [counterpartLinkType, setCounterpartLinkType] = useState('auth');
+  const [selectedCounterpart, setSelectedCounterpart] = useState(null);
+  const [hideSelf, setHideSelf] = useState(true);
+  const [hideCounterpart, setHideCounterpart] = useState(true);
+  const [linkedTxnSummary, setLinkedTxnSummary] = useState(null);
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -70,6 +103,16 @@ function Transactions() {
     const hidden = await getHiddenTransactions(startDate, endDate);
     setHiddenTxns(hidden);
   };
+
+  // Fetch a summary of the linked transaction (for the tooltip) whenever the edited transaction's link changes
+  useEffect(() => {
+    if (editTxn?.linked_transaction_id) {
+      getTransaction(editTxn.linked_transaction_id).then(setLinkedTxnSummary);
+    }
+    else {
+      setLinkedTxnSummary(null);
+    }
+  }, [editTxn?.linked_transaction_id]);
 
   // Search-as-you-type with debounce
   useEffect(() => {
@@ -599,32 +642,62 @@ function Transactions() {
             {!isNewTxn && editTxn && !editTxn.linked_transaction_id && (
               <Button
                 variant="outline-info"
+                tabIndex={3}
+                title="Link counterpart"
                 onClick={async () => {
                   const candidates = await getCounterpartCandidates(editTxn.id);
                   setCounterpartCandidates(candidates);
                   setCounterpartLinkType('auth');
+                  setSelectedCounterpart(null);
+                  setHideSelf(true);
+                  setHideCounterpart(true);
                 }}
               >
-                Link counterpart
+                <LinkIcon />
               </Button>
             )}
             {!isNewTxn && editTxn && editTxn.linked_transaction_id && (
-              <Button
-                variant="outline-warning"
-                size="sm"
-                onClick={async () => {
-                  await unlinkCounterpart(editTxn.id);
-                  setEditTxn(null);
-                  loadTransactions();
-                }}
-              >
-                Unlink counterpart
-              </Button>
+              <>
+                <OverlayTrigger
+                  placement="top"
+                  overlay={
+                    <Tooltip>
+                      {linkedTxnSummary
+                        ? `Linked to: ${formatDate(linkedTxnSummary.date, dateFormat)} ${linkedTxnSummary.merchant || ''} ${fmt(linkedTxnSummary.amount)} ${linkedTxnSummary.account_name || ''}`
+                        : 'Loading…'}
+                    </Tooltip>
+                  }
+                >
+                  <Button
+                    variant="outline-info"
+                    tabIndex={3}
+                    onClick={async () => {
+                      const linked = await getTransaction(editTxn.linked_transaction_id);
+                      openEdit(linked);
+                    }}
+                  >
+                    <LinkIcon />
+                  </Button>
+                </OverlayTrigger>
+                <Button
+                  variant="outline-warning"
+                  tabIndex={4}
+                  title="Remove link"
+                  onClick={async () => {
+                    await unlinkCounterpart(editTxn.id);
+                    setEditTxn(null);
+                    loadTransactions();
+                  }}
+                >
+                  <UnlinkIcon />
+                </Button>
+              </>
             )}
           </div>
-          <Button variant="secondary" onClick={() => setEditTxn(null)}>Cancel</Button>
+          <Button variant="secondary" tabIndex={1} onClick={() => setEditTxn(null)}>Cancel</Button>
           <Button
             variant="primary"
+            tabIndex={2}
             onClick={handleSave}
             disabled={saving || (!isNewTxn && editTxn && Math.abs(editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0) - editTxn.amount) > 0.005)}
           >
@@ -634,7 +707,13 @@ function Transactions() {
       </Modal>
 
       {/* Counterpart candidates modal */}
-      <Modal show={counterpartCandidates !== null} onHide={() => setCounterpartCandidates(null)} data-bs-theme="dark">
+      <Modal
+        show={counterpartCandidates !== null}
+        onHide={() => {
+          setCounterpartCandidates(null); setSelectedCounterpart(null);
+        }}
+        data-bs-theme="dark"
+      >
         <Modal.Header closeButton>
           <Modal.Title>Link Counterpart</Modal.Title>
         </Modal.Header>
@@ -659,23 +738,23 @@ function Transactions() {
                 cursor: 'pointer',
                 borderRadius: 6,
                 marginBottom: 4,
-                border: '1px solid #444',
+                border: selectedCounterpart?.id === c.id ? '1px solid #58a6ff' : '1px solid #444',
+                backgroundColor: selectedCounterpart?.id === c.id ? '#2a3040' : '',
                 transition: 'background-color 0.15s, border-color 0.15s',
               }}
               onMouseEnter={e => {
+                if (selectedCounterpart?.id === c.id)
+                  return;
                 e.currentTarget.style.backgroundColor = '#2a3040';
                 e.currentTarget.style.borderColor = '#58a6ff';
               }}
               onMouseLeave={e => {
+                if (selectedCounterpart?.id === c.id)
+                  return;
                 e.currentTarget.style.backgroundColor = '';
                 e.currentTarget.style.borderColor = '#444';
               }}
-              onClick={async () => {
-                await linkCounterpart(editTxn.id, c.id, counterpartLinkType, true);
-                setCounterpartCandidates(null);
-                setEditTxn(null);
-                loadTransactions();
-              }}
+              onClick={() => setSelectedCounterpart(c)}
             >
               <div>
                 <div style={{ fontWeight: 500 }}>{c.merchant || '(no merchant)'}</div>
@@ -684,6 +763,55 @@ function Transactions() {
               <span style={{ fontWeight: 'bold', fontSize: '1.05em' }}>{fmt(c.amount)}</span>
             </div>
           ))}
+
+          {selectedCounterpart && (
+            <div className="mt-3 p-3" style={{ border: '1px solid #444', borderRadius: 6 }}>
+              <div className="d-flex justify-content-between align-items-center mb-3 pb-3" style={{ borderBottom: '1px solid #333' }}>
+                <div>
+                  <div style={{ fontWeight: 500 }}>
+                    {editTxn?.merchant || '(no merchant)'}
+                    <Badge bg="secondary" className="ms-2">This transaction</Badge>
+                  </div>
+                  <small style={{ color: 'var(--text-secondary)' }}>
+                    {formatDate(editTxn?.date, dateFormat)} · {fmt(editTxn?.amount)} · {editTxn?.account_name || '—'}
+                  </small>
+                </div>
+                <Form.Check
+                  type="switch"
+                  label="Hide"
+                  checked={hideSelf}
+                  onChange={e => setHideSelf(e.target.checked)}
+                />
+              </div>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <div style={{ fontWeight: 500 }}>{selectedCounterpart.merchant || '(no merchant)'}</div>
+                  <small style={{ color: 'var(--text-secondary)' }}>
+                    {formatDate(selectedCounterpart.date, dateFormat)} · {fmt(selectedCounterpart.amount)} · {selectedCounterpart.account_name || '—'}
+                  </small>
+                </div>
+                <Form.Check
+                  type="switch"
+                  label="Hide"
+                  checked={hideCounterpart}
+                  onChange={e => setHideCounterpart(e.target.checked)}
+                />
+              </div>
+              <Button
+                variant="primary"
+                className="w-100"
+                onClick={async () => {
+                  await linkCounterpart(editTxn.id, selectedCounterpart.id, counterpartLinkType, hideSelf, hideCounterpart);
+                  setCounterpartCandidates(null);
+                  setSelectedCounterpart(null);
+                  setEditTxn(null);
+                  loadTransactions();
+                }}
+              >
+                Link Transactions
+              </Button>
+            </div>
+          )}
         </Modal.Body>
       </Modal>
     </div>

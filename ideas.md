@@ -14,8 +14,3 @@ When using the "split transaction" feature, there should be some way to assign t
 
 ## Math expressions in split amount boxes
 Allow math expressions in the amount box, triggered by starting with `=` (like a spreadsheet). Examples: `=5*2`, `=CEILING(3*0.15, 2)`. Show a warning if the formula results in a sub-cent value (like 0.001) since that causes headaches for lining up transactions. Continue enforcing split validation: all splits must exactly total the Plaid transaction amount before the dialog can be saved.
-
-## Improved linking UI
-- Show the link and allow the user to click to navigate to the linked transaction.
-- In the "link counterpart" dialog, show both transactions and allow the user to decide which should be hidden (allowing linking two transactions while leaving one or both unhidden).
-- Add the ability to remove the link (which would remove it from both transactions).

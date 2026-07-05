@@ -142,6 +142,12 @@ const getTransactionsByDateRange = (startDate, endDate) =>
        WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0 AND t.is_hidden = 0
        AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
        ORDER BY t.date ASC`, [startDate, endDate]);
+const getTransactionRowsById = (id) =>
+  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
+       FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
+       LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
+       LEFT JOIN categories c ON ts.category_id = c.id
+       WHERE t.id = ?`, [id]);
 const getHiddenTransactionsByDateRange = (startDate, endDate) =>
   all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
        FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
@@ -327,7 +333,7 @@ module.exports = {
   createAccount, getAccountsByItem, getAllAccounts, getAccountByPlaidId, updateAccountBalance,
   // Transactions
   createTransaction, getTransactionByPlaidId, getTransactionByPendingId,
-  getTransactionsByDateRange, getHiddenTransactionsByDateRange,
+  getTransactionsByDateRange, getHiddenTransactionsByDateRange, getTransactionRowsById,
   softRemoveTransaction, restoreTransaction,
   getIncompleteTransactions, updateTransactionFromPending, updateTransactionPlaidData,
   findIncompleteMatch, linkIncompleteTransaction,

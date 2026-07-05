@@ -121,6 +121,28 @@ router.get('/by-plaid-id/:plaidId', (req, res) => {
   res.json({ ...txn, splits });
 });
 
+// GET /api/transactions/:id
+router.get('/:id', (req, res) => {
+  const { getTransactionRowsById } = require('../db/queries');
+  const rows = getTransactionRowsById(req.params.id);
+  if (rows.length === 0)
+    return res.status(404).json({ error: 'Transaction not found' });
+
+  const txn = { ...rows[0], splits: [] };
+  for (const row of rows) {
+    if (row.split_amount !== null) {
+      txn.splits.push({
+        category_id: row.category_id || null,
+        category_name: row.category_name || null,
+        amount: row.split_amount,
+        notes: row.split_notes,
+      });
+    }
+  }
+
+  res.json(txn);
+});
+
 // POST /api/transactions (manual transaction entry)
 router.post('/', (req, res) => {
   const { date, merchant, amount, account_id, plaid_transaction_id, splits } = req.body;
@@ -457,7 +479,7 @@ router.get('/:id/counterpart-candidates', (req, res) => {
 // POST /api/transactions/:id/link-counterpart
 router.post('/:id/link-counterpart', (req, res) => {
   const { id } = req.params;
-  const { counterpart_id, link_type, hide } = req.body; // link_type: 'auth' | 'transfer'
+  const { counterpart_id, link_type, hide_self, hide_counterpart } = req.body; // link_type: 'auth' | 'transfer'
   const { get, run } = require('../db/queries');
 
   if (!counterpart_id || !link_type) {
@@ -470,12 +492,11 @@ router.post('/:id/link-counterpart', (req, res) => {
 
   const isAuth = link_type === 'auth' ? 1 : 0;
   const isTransfer = link_type === 'transfer' ? 1 : 0;
-  const isHidden = hide ? 1 : 0;
 
   run(`UPDATE transactions SET linked_transaction_id = ?, is_auth = ?, is_transfer = ?, is_hidden = ?, updated_at = datetime('now') WHERE id = ?`,
-    [counterpart_id, isAuth, isTransfer, isHidden, id]);
+    [counterpart_id, isAuth, isTransfer, hide_self ? 1 : 0, id]);
   run(`UPDATE transactions SET linked_transaction_id = ?, is_auth = ?, is_transfer = ?, is_hidden = ?, updated_at = datetime('now') WHERE id = ?`,
-    [id, isAuth, isTransfer, isHidden, counterpart_id]);
+    [id, isAuth, isTransfer, hide_counterpart ? 1 : 0, counterpart_id]);
 
   res.json({ success: true });
 });
