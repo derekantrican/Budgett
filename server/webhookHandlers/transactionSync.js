@@ -297,6 +297,15 @@ async function processModifiedTransaction(txn, io) {
 async function processRemovedTransaction(txn, io) {
   const existing = getTransactionByPlaidId(txn.transaction_id);
   if (!existing) {
+    // The removed id may be a pending id that was already promoted to a posted
+    // transaction (exact or fuzzy match) — its pending_transaction_id is kept
+    // around for exactly this reconciliation, so check there before warning.
+    const promoted = getTransactionByPendingId(txn.transaction_id);
+    if (promoted) {
+      createLog('info', 'remove_already_promoted', `Remove for pending id ${txn.transaction_id} ignored — already promoted to posted transaction ${promoted.plaid_transaction_id} (${promoted.merchant})`);
+      return;
+    }
+
     createLog('warn', 'remove_not_found', `Attempted to remove transaction ${txn.transaction_id}, but could not find it in database`);
     return;
   }

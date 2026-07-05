@@ -186,8 +186,12 @@ const getIncompleteTransactions = () =>
        OR a.hide_from_transactions = 0
      )
      ORDER BY t.date DESC`);
+
+// Note: pending_transaction_id is intentionally kept (not nulled) after promotion, so a
+// delayed "remove" webhook for the old pending id can still be reconciled — see
+// getTransactionByPendingId's use in processRemovedTransaction.
 const updateTransactionFromPending = (plaidTxnId, amount, id) => {
-  run(`UPDATE transactions SET plaid_transaction_id = ?, pending_transaction_id = NULL, is_pending = 0,
+  run(`UPDATE transactions SET plaid_transaction_id = ?, is_pending = 0,
        amount = ?, updated_at = datetime('now') WHERE id = ?`,
   [plaidTxnId, amount, id]);
 };
@@ -220,10 +224,11 @@ const findFuzzyPendingMatch = (accountId, amount, date, merchantName) =>
        ORDER BY ABS(amount - ?) ASC LIMIT 1`,
   [accountId, date, date, amount, merchantName, merchantName, amount]);
 
-// Promote a pending transaction to posted: update plaid_id, amount, mark not pending
+// Promote a pending transaction to posted: update plaid_id, amount, mark not pending.
+// pending_transaction_id is kept (see note on updateTransactionFromPending above).
 const promotePendingToPosted = (newPlaidTxnId, amount, id) =>
   run(`UPDATE transactions SET plaid_transaction_id = ?, amount = ?, is_pending = 0,
-       pending_transaction_id = NULL, updated_at = datetime('now') WHERE id = ?`,
+       updated_at = datetime('now') WHERE id = ?`,
   [newPlaidTxnId, amount, id]);
 
 // Strip plaid_id from a transaction (demotes to incomplete, preserves user data)
