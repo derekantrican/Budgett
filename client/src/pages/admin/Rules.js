@@ -315,7 +315,7 @@ function Rules() {
                         style={{ fontFamily: 'monospace' }}
                       />
                       <Form.Text style={{ color: 'var(--text-secondary)', fontSize: '0.75em' }}>
-                        Use "amount" for the transaction total. Supports CEILING(x, step) and FLOOR(x, step). Leave blank for full amount.
+                        Use "amount" for the transaction total. Supports CEILING(x, step), FLOOR(x, step), and ROUND(x, step). Leave blank for full amount.
                       </Form.Text>
                     </Form.Group>
                   </div>

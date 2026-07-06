@@ -28,6 +28,7 @@ router.get('/', (req, res) => {
         category_id: row.category_id || null,
         category_name: row.category_name || null,
         amount: row.split_amount,
+        amount_formula: row.split_amount_formula || null,
         notes: row.split_notes,
       });
     }
@@ -45,7 +46,7 @@ router.get('/search', (req, res) => {
 
   const { all } = require('../db/queries');
   const rows = all(
-    `SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
+    `SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, ts.amount_formula as split_amount_formula, c.name as category_name
      FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
      LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
      LEFT JOIN categories c ON ts.category_id = c.id
@@ -70,6 +71,7 @@ router.get('/search', (req, res) => {
         category_id: row.category_id || null,
         category_name: row.category_name || null,
         amount: row.split_amount,
+        amount_formula: row.split_amount_formula || null,
         notes: row.split_notes,
       });
     }
@@ -104,6 +106,7 @@ router.get('/hidden', (req, res) => {
         category_id: row.category_id || null,
         category_name: row.category_name || null,
         amount: row.split_amount,
+        amount_formula: row.split_amount_formula || null,
         notes: row.split_notes,
       });
     }
@@ -135,6 +138,7 @@ router.get('/:id', (req, res) => {
         category_id: row.category_id || null,
         category_name: row.category_name || null,
         amount: row.split_amount,
+        amount_formula: row.split_amount_formula || null,
         notes: row.split_notes,
       });
     }
@@ -159,7 +163,7 @@ router.post('/', (req, res) => {
 
   if (splits && splits.length > 0) {
     for (const split of splits) {
-      createSplit(txnId, split.category_id || null, split.amount, split.notes || null);
+      createSplit(txnId, split.category_id || null, split.amount, split.notes || null, split.amount_formula || null);
     }
   }
 
@@ -233,7 +237,7 @@ router.put('/:id/splits', (req, res) => {
 
   deleteSplitsByTransaction(id);
   for (const split of splits) {
-    createSplit(id, split.category_id || null, split.amount, split.notes || null);
+    createSplit(id, split.category_id || null, split.amount, split.notes || null, split.amount_formula || null);
   }
 
   const updated = getSplitsByTransaction(id);

@@ -4,6 +4,7 @@ import { getTransactions, searchTransactions, getCategories, getAccounts, getSet
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 import CategorySelect from '../components/CategorySelect';
 import { renderNotes } from '../utils/notes';
+import { evaluateMathExpression } from '../helpers/mathExpression';
 
 const fmt = formatCurrency;
 
@@ -136,7 +137,7 @@ function Transactions() {
     setEditAmount(parseFloat(txn.amount).toFixed(2));
     setEditSplits(
       txn.splits?.length
-        ? txn.splits.map(s => ({ ...s, amount: parseFloat(s.amount).toFixed(2) }))
+        ? txn.splits.map(s => ({ ...s, amount: s.amount_formula || parseFloat(s.amount).toFixed(2) }))
         : [{ category_id: '', amount: parseFloat(txn.amount).toFixed(2), notes: '' }]
     );
     setConfirmDelete(false);
@@ -168,10 +169,47 @@ function Transactions() {
     setEditSplits(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
+  // Resolve a split's amount box text to a number: plain numbers parse as before, a
+  // value starting with "=" is evaluated as a math expression (+ - * /, CEILING/FLOOR/ROUND).
+  // Used everywhere a numeric total is needed (validation, distribute, save) — the box
+  // itself keeps showing the raw formula text so it can be edited again later.
+  const resolveAmount = (rawValue) => {
+    const raw = (rawValue || '').trim();
+    if (!raw.startsWith('='))
+      return parseFloat(raw) || 0;
+
+    const result = evaluateMathExpression(raw);
+    return result === null ? 0 : result;
+  };
+
+  // On blur: plain numbers get normalized to 2 decimals as before. A formula is
+  // evaluated (to warn on failure/sub-cent results) but the formula text itself is
+  // left in the box — not overwritten with the resolved number — so it stays editable.
+  const resolveSplitAmount = (idx, rawValue) => {
+    const raw = (rawValue || '').trim();
+    if (!raw.startsWith('=')) {
+      updateSplitField(idx, 'amount', parseFloat(raw || 0).toFixed(2));
+      return;
+    }
+
+    const result = evaluateMathExpression(raw);
+    if (result === null) {
+      alert(`Couldn't evaluate "${raw}". Check the formula and try again.`);
+      return;
+    }
+
+    const cents = result * 100;
+    if (Math.abs(cents - Math.round(cents)) > 0.001) {
+      alert(`"${raw}" evaluates to ${result}, which isn't a whole number of cents. Sub-cent amounts can cause splits to not line up exactly.`);
+    }
+
+    updateSplitField(idx, 'amount', raw);
+  };
+
   // Distribute the remaining (unassigned) transaction amount evenly across splits with a $0 amount
   const distributeRemaining = () => {
     const zeroIndices = editSplits
-      .map((s, i) => ({ amount: parseFloat(s.amount) || 0, i }))
+      .map((s, i) => ({ amount: resolveAmount(s.amount), i }))
       .filter(s => s.amount === 0)
       .map(s => s.i);
 
@@ -181,7 +219,7 @@ function Transactions() {
     }
 
     const totalAmount = isNewTxn ? (parseFloat(editAmount) || 0) : (editTxn?.amount || 0);
-    const assignedAmount = editSplits.reduce((sum, s, i) => zeroIndices.includes(i) ? sum : sum + (parseFloat(s.amount) || 0), 0);
+    const assignedAmount = editSplits.reduce((sum, s, i) => zeroIndices.includes(i) ? sum : sum + resolveAmount(s.amount), 0);
     const remaining = totalAmount - assignedAmount;
 
     const shares = zeroIndices.map(() => Math.round((remaining / zeroIndices.length) * 100) / 100);
@@ -208,7 +246,8 @@ function Transactions() {
           account_id: editAccountId || null,
           splits: editSplits.map(s => ({
             category_id: s.category_id || null,
-            amount: parseFloat(s.amount) || 0,
+            amount: resolveAmount(s.amount),
+            amount_formula: (s.amount || '').trim().startsWith('=') ? s.amount.trim() : null,
             notes: s.notes || null,
           })),
         });
@@ -216,7 +255,8 @@ function Transactions() {
         if (result?.id) {
           await updateSplits(result.id, editSplits.map(s => ({
             category_id: s.category_id || null,
-            amount: parseFloat(s.amount) || 0,
+            amount: resolveAmount(s.amount),
+            amount_formula: (s.amount || '').trim().startsWith('=') ? s.amount.trim() : null,
             notes: s.notes || null,
           })));
         }
@@ -225,7 +265,8 @@ function Transactions() {
         await updateTransaction(editTxn.id, { merchant: editMerchant, date: editDate });
         await updateSplits(editTxn.id, editSplits.map(s => ({
           category_id: s.category_id || null,
-          amount: parseFloat(s.amount) || 0,
+          amount: resolveAmount(s.amount),
+          amount_formula: (s.amount || '').trim().startsWith('=') ? s.amount.trim() : null,
           notes: s.notes || null,
         })));
       }
@@ -309,7 +350,7 @@ function Transactions() {
     return { accounts, categories: cats };
   }, [transactions]);
 
-  const splitTotal = editSplits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+  const splitTotal = editSplits.reduce((sum, s) => sum + resolveAmount(s.amount), 0);
   const splitMismatch = !isNewTxn && !!editTxn && Math.abs(splitTotal - editTxn.amount) > 0.005;
 
   if (!transactions) {
@@ -632,11 +673,12 @@ function Transactions() {
                     onChange={(val) => updateSplitField(idx, 'category_id', val)}
                   />
                   <Form.Control
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={split.amount}
                     onChange={(e) => updateSplitField(idx, 'amount', e.target.value)}
-                    onBlur={(e) => updateSplitField(idx, 'amount', parseFloat(e.target.value || 0).toFixed(2))}
+                    onBlur={(e) => resolveSplitAmount(idx, e.target.value)}
+                    title="Supports math expressions, e.g. =5*2, =CEILING(x, 0.01), =FLOOR(x, 0.01), =ROUND(x, 0.01)"
                     style={{ width: 125, flex: 'none' }}
                   />
                   {editSplits.length > 1 && (

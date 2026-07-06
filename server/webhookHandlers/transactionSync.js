@@ -9,6 +9,7 @@ const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByP
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications } = require('../helpers/notifications');
 const { formatAmount } = require('../helpers/format');
+const { evaluateMathExpression } = require('../helpers/mathExpression');
 
 async function syncTransactions(plaidItemId, accessToken, cursor, io) {
   let hasMore = true;
@@ -225,16 +226,9 @@ async function processAddedTransaction(txn, io) {
       for (const split of splits) {
         let splitAmount = -txn.amount;
         if (split.amount_expression) {
-          try {
-            const expr = split.amount_expression
-              .replace(/^=/, '')
-              .replace(/CEILING\(([^,]+),\s*([^)]+)\)/g, '(Math.ceil(($1)/($2))*($2))')
-              .replace(/FLOOR\(([^,]+),\s*([^)]+)\)/g, '(Math.floor(($1)/($2))*($2))')
-              .replace(/amount/g, String(-txn.amount));
-            const fn = new Function(`return (${expr});`);
-            splitAmount = fn();
-          }
-          catch (e) { /* fallback to full amount */ }
+          const result = evaluateMathExpression(split.amount_expression, { amount: -txn.amount });
+          if (result !== null)
+            splitAmount = result;
         }
 
         createSplit(txnId, split.category_id || null, splitAmount, split.notes || null);

@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS transaction_splits (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   transaction_id INTEGER NOT NULL REFERENCES transactions(id),
   category_id INTEGER REFERENCES categories(id),
-  amount REAL NOT NULL,
+  amount REAL NOT NULL, -- resolved numeric value; always kept in sync with amount_formula when one is set
+  amount_formula TEXT, -- raw formula text (e.g. "=CEILING(amount/2, 0.01)"), preserved so it can be edited again later
   notes TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))

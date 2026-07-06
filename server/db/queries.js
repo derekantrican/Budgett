@@ -47,6 +47,7 @@ function initQueries() {
     'ALTER TABLE transactions ADD COLUMN is_auth INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE transactions ADD COLUMN is_transfer INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE transactions ADD COLUMN linked_transaction_id INTEGER REFERENCES transactions(id)',
+    'ALTER TABLE transaction_splits ADD COLUMN amount_formula TEXT',
   ];
   for (const sql of migrations) {
     try {
@@ -135,7 +136,7 @@ const getTransactionByPlaidId = (plaidTxnId) =>
 const getTransactionByPendingId = (pendingId) =>
   get('SELECT * FROM transactions WHERE pending_transaction_id = ?', [pendingId]);
 const getTransactionsByDateRange = (startDate, endDate) =>
-  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
+  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, ts.amount_formula as split_amount_formula, c.name as category_name
        FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
        LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
        LEFT JOIN categories c ON ts.category_id = c.id
@@ -143,13 +144,13 @@ const getTransactionsByDateRange = (startDate, endDate) =>
        AND (a.hide_from_transactions = 0 OR a.hide_from_transactions IS NULL)
        ORDER BY t.date ASC`, [startDate, endDate]);
 const getTransactionRowsById = (id) =>
-  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
+  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, ts.amount_formula as split_amount_formula, c.name as category_name
        FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
        LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
        LEFT JOIN categories c ON ts.category_id = c.id
        WHERE t.id = ?`, [id]);
 const getHiddenTransactionsByDateRange = (startDate, endDate) =>
-  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, c.name as category_name
+  all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, ts.amount_formula as split_amount_formula, c.name as category_name
        FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
        LEFT JOIN transaction_splits ts ON t.id = ts.transaction_id
        LEFT JOIN categories c ON ts.category_id = c.id
@@ -237,9 +238,9 @@ const unlinkPlaidId = (id) =>
        is_pending = 0, updated_at = datetime('now') WHERE id = ?`, [id]);
 
 // Transaction Splits
-const createSplit = (txnId, categoryId, amount, notes) =>
-  run('INSERT INTO transaction_splits (transaction_id, category_id, amount, notes) VALUES (?, ?, ?, ?)',
-    [txnId, categoryId, amount, notes]);
+const createSplit = (txnId, categoryId, amount, notes, amountFormula = null) =>
+  run('INSERT INTO transaction_splits (transaction_id, category_id, amount, notes, amount_formula) VALUES (?, ?, ?, ?, ?)',
+    [txnId, categoryId, amount, notes, amountFormula]);
 const getSplitsByTransaction = (txnId) =>
   all(`SELECT ts.*, c.name as category_name, c.color as category_color
        FROM transaction_splits ts LEFT JOIN categories c ON ts.category_id = c.id WHERE ts.transaction_id = ?`, [txnId]);
