@@ -5,3 +5,6 @@ For some fields (starting with "where"/merchant), keep track of user actions to 
 
 ## Hide/unhide checkbox in Edit Transaction dialog
 The "Edit transaction" dialog should expose a "hide" checkbox that allows the user to manually hide/unhide transactions.
+
+## SimpleFIN support
+What would it take to support SimpleFIN accounts in addtion to Plaid accounts?
