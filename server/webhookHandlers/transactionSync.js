@@ -111,7 +111,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
 
   // Refresh account balances
   try {
-    const balanceResponse = await plaidClient.accountsBalanceGet({
+    const balanceResponse = await plaidClient.accountsGet({
       access_token: accessToken,
     });
 
