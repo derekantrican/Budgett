@@ -247,22 +247,26 @@ router.put('/:id/splits', (req, res) => {
 // PUT /api/transactions/:id (update transaction fields + optionally assign category)
 router.put('/:id', (req, res) => {
   const { id } = req.params;
-  const { merchant, notes, account_id, category_id, date } = req.body;
+  const { merchant, notes, account_id, category_id, date, is_hidden } = req.body;
   const { run, createSplit } = require('../db/queries');
 
   // Update transaction fields
   const updates = [];
   const params = [];
   if (merchant !== undefined) {
-    updates.push('merchant = ?'); params.push(merchant || null); 
+    updates.push('merchant = ?'); params.push(merchant || null);
   }
 
   if (date !== undefined) {
-    updates.push('date = ?'); params.push(date || null); 
+    updates.push('date = ?'); params.push(date || null);
   }
 
   if (account_id !== undefined) {
-    updates.push('account_id = ?'); params.push(account_id || null); 
+    updates.push('account_id = ?'); params.push(account_id || null);
+  }
+
+  if (is_hidden !== undefined) {
+    updates.push('is_hidden = ?'); params.push(is_hidden ? 1 : 0);
   }
   
   if (updates.length > 0) {
