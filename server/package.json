@@ -21,6 +21,10 @@
       "@stylistic"
     ],
     "rules": {
+      "curly": [
+        "warn",
+        "all"
+      ],
       "@stylistic/brace-style": [
         "warn",
         "stroustrup"

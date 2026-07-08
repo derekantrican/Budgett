@@ -15,19 +15,22 @@
 // need CRACO/ejecting to relax that, or converting the server to ESM — both too
 // heavy for a ~40-line helper, so keep both copies in sync by hand instead.
 export function evaluateMathExpression(expression, variables = {}) {
-  if (!expression || !expression.trim())
+  if (!expression || !expression.trim()) {
     return null;
+  }
 
   let expr = expression.trim().replace(/^=/, '');
 
-  for (const [name, value] of Object.entries(variables))
+  for (const [name, value] of Object.entries(variables)) {
     expr = expr.replace(new RegExp(`\\b${name}\\b`, 'gi'), `(${value})`);
+  }
 
   // Validate BEFORE substituting function names to Math.* calls — otherwise the
   // letters in "Math.ceil" etc. would fail this same check.
   const withoutFunctionNames = expr.replace(/CEILING|FLOOR|ROUND/gi, '');
-  if (!/^[\d\s+\-*/().,]*$/.test(withoutFunctionNames))
+  if (!/^[\d\s+\-*/().,]*$/.test(withoutFunctionNames)) {
     return null;
+  }
 
   expr = expr
     .replace(/CEILING\(([^,]+),\s*([^)]+)\)/gi, '(Math.ceil(($1)/($2))*($2))')

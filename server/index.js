@@ -99,7 +99,9 @@ process.on('uncaughtException', (err) => {
   try {
     logger.error('uncaughtException', err.stack || err.message); 
   }
-  catch (e) { console.error('Uncaught Exception:', err); }
+  catch (e) {
+    console.error('Uncaught Exception:', err); 
+  }
 
   process.exit(1);
 });
@@ -108,5 +110,7 @@ process.on('unhandledRejection', (reason) => {
   try {
     logger.error('unhandledRejection', reason?.stack || String(reason)); 
   }
-  catch (e) { console.error('Unhandled Rejection:', reason); }
+  catch (e) {
+    console.error('Unhandled Rejection:', reason); 
+  }
 });

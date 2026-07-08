@@ -37,8 +37,9 @@ function recordMerchantRename(transactionId, originalMerchant, newMerchant) {
   const original = (originalMerchant || '').trim();
   const updated = (newMerchant || '').trim();
 
-  if (!original || !updated || original === updated)
+  if (!original || !updated || original === updated) {
     return null;
+  }
 
   logMerchantRename(transactionId, original, updated);
 
@@ -49,13 +50,15 @@ function recordMerchantRename(transactionId, originalMerchant, newMerchant) {
   const cluster = allOriginals.filter(o => similarity(o, original) >= SIMILARITY_THRESHOLD);
 
   const eventCount = countRenameEvents(updated, cluster);
-  if (eventCount < THRESHOLD)
+  if (eventCount < THRESHOLD) {
     return null;
+  }
 
   const covering = findCoveringRule(cluster);
   if (covering) {
-    if (covering.rename_to === updated || covering.rename_to)
-      return null; // already covered (same value, or a different one we shouldn't clobber)
+    if (covering.rename_to === updated || covering.rename_to) {
+      return null;
+    } // already covered (same value, or a different one we shouldn't clobber)
 
     updateRule(covering.id, covering.pattern, covering.category_id, covering.notes_template,
       covering.amount_condition, updated, covering.is_split, covering.split_json);
@@ -67,8 +70,9 @@ function recordMerchantRename(transactionId, originalMerchant, newMerchant) {
   // everything after it, since future real merchant names will have actual digits
   // there, not the placeholder, and Rules match by substring anyway.
   const stem = textBeforeDigits(commonPrefix(cluster));
-  if (!stem || stem.length < MIN_PATTERN_LENGTH)
+  if (!stem || stem.length < MIN_PATTERN_LENGTH) {
     return null;
+  }
 
   const pattern = escapeRegex(stem);
 
@@ -83,8 +87,9 @@ function recordMerchantRename(transactionId, originalMerchant, newMerchant) {
 function recordMerchantCategorization(transactionId, merchant, categoryId, categoryName) {
   const merchantTrimmed = (merchant || '').trim();
 
-  if (!merchantTrimmed || !categoryId)
+  if (!merchantTrimmed || !categoryId) {
     return null;
+  }
 
   logMerchantCategorization(transactionId, merchantTrimmed, categoryId);
 
@@ -92,15 +97,17 @@ function recordMerchantCategorization(transactionId, merchant, categoryId, categ
   const cluster = allMerchants.filter(m => similarity(m, merchantTrimmed) >= SIMILARITY_THRESHOLD);
 
   const eventCount = countCategorizationEvents(categoryId, cluster);
-  if (eventCount < THRESHOLD)
+  if (eventCount < THRESHOLD) {
     return null;
+  }
 
   const covering = findCoveringRule(cluster);
   if (covering) {
     // Loose (non-strict) comparison: category_id may come back as a number from the
     // DB but as a string from the request body depending on the caller.
-    if (covering.category_id == categoryId || covering.category_id)
-      return null; // already covered (same category, or a different one we shouldn't clobber)
+    if (covering.category_id == categoryId || covering.category_id) {
+      return null;
+    } // already covered (same category, or a different one we shouldn't clobber)
 
     updateRule(covering.id, covering.pattern, categoryId, covering.notes_template,
       covering.amount_condition, covering.rename_to, covering.is_split, covering.split_json);
@@ -109,8 +116,9 @@ function recordMerchantCategorization(transactionId, merchant, categoryId, categ
   }
 
   const stem = textBeforeDigits(commonPrefix(cluster));
-  if (!stem || stem.length < MIN_PATTERN_LENGTH)
+  if (!stem || stem.length < MIN_PATTERN_LENGTH) {
     return null;
+  }
 
   const pattern = escapeRegex(stem);
 

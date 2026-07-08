@@ -24,10 +24,13 @@ function normalize(s) {
 // Standard Levenshtein edit distance (insert/delete/substitute) between two strings.
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
-  if (m === 0)
+  if (m === 0) {
     return n;
-  if (n === 0)
+  }
+
+  if (n === 0) {
     return m;
+  }
 
   const prevRow = Array.from({ length: n + 1 }, (_, j) => j);
   const currRow = new Array(n + 1);
@@ -43,8 +46,9 @@ function levenshtein(a, b) {
       );
     }
 
-    for (let j = 0; j <= n; j++)
+    for (let j = 0; j <= n; j++) {
       prevRow[j] = currRow[j];
+    }
   }
 
   return prevRow[n];
@@ -53,12 +57,14 @@ function levenshtein(a, b) {
 // 0..1 similarity ratio (1 = identical), based on normalized edit distance.
 function similarity(a, b) {
   const normA = normalize(a), normB = normalize(b);
-  if (!normA || !normB)
+  if (!normA || !normB) {
     return 0;
+  }
 
   const maxLen = Math.max(normA.length, normB.length);
-  if (maxLen === 0)
+  if (maxLen === 0) {
     return 1;
+  }
 
   return 1 - levenshtein(normA, normB) / maxLen;
 }
@@ -67,15 +73,18 @@ function similarity(a, b) {
 // Used to derive a rule pattern that generalizes across a cluster of fuzzy-matched
 // merchant name variants, e.g. ["qfc \x001234", "qfc \x005678"] -> "qfc \x00".
 function commonPrefix(strings) {
-  if (strings.length === 0)
+  if (strings.length === 0) {
     return '';
+  }
 
   let prefix = normalize(strings[0]);
   for (const s of strings.slice(1)) {
     const norm = normalize(s);
     let i = 0;
-    while (i < prefix.length && i < norm.length && prefix[i] === norm[i])
+    while (i < prefix.length && i < norm.length && prefix[i] === norm[i]) {
       i++;
+    }
+
     prefix = prefix.slice(0, i);
   }
 

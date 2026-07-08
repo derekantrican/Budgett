@@ -92,8 +92,10 @@ function Rules() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this rule?')) 
+    if (!window.confirm('Delete this rule?')) {
       return;
+    }
+
     await deleteRule(id);
     loadData();
   };
@@ -138,8 +140,9 @@ function Rules() {
   };
 
   const getSplitSummary = (rule) => {
-    if (!rule.is_split || !rule.split_json)
+    if (!rule.is_split || !rule.split_json) {
       return null;
+    }
 
     try {
       const splits = JSON.parse(rule.split_json);

@@ -58,8 +58,10 @@ function EyeSlashIcon({ size = 16 }) {
 
 // Format a YYYY-MM-DD date string according to a format pattern
 function formatDate(dateStr, pattern) {
-  if (!dateStr) 
+  if (!dateStr) {
     return '';
+  }
+
   const [y, m, d] = dateStr.split('-').map(Number);
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthsFull = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -112,8 +114,11 @@ function Transactions() {
     getCategories().then(setCategories);
     getAccounts().then(setAccounts);
     getSettings().then(s => {
-      if (s.date_format) 
-        setDateFormat(s.date_format); setCurrencySettings(s); 
+      if (s.date_format) {
+        setDateFormat(s.date_format);
+      }
+
+      setCurrencySettings(s); 
     });
   }, [startDate, endDate]);
 
@@ -194,8 +199,9 @@ function Transactions() {
   // itself keeps showing the raw formula text so it can be edited again later.
   const resolveAmount = (rawValue) => {
     const raw = (rawValue || '').trim();
-    if (!raw.startsWith('='))
+    if (!raw.startsWith('=')) {
       return parseFloat(raw) || 0;
+    }
 
     const result = evaluateMathExpression(raw);
     return result === null ? 0 : result;
@@ -254,8 +260,9 @@ function Transactions() {
   // Shows a single alert summarizing any rules that were just auto-created/extended
   // from repeated manual renames or categorizations (see server/helpers/autoRules.js).
   const notifyAutoRules = (autoRulesCreated) => {
-    if (!autoRulesCreated || autoRulesCreated.length === 0)
+    if (!autoRulesCreated || autoRulesCreated.length === 0) {
       return;
+    }
 
     const lines = autoRulesCreated.map(r => (
       r.rename_to ? `"${r.pattern}" → rename to "${r.rename_to}"` : `"${r.pattern}" → categorize as "${r.category_name}"`
@@ -265,8 +272,10 @@ function Transactions() {
   };
 
   const handleSave = async () => {
-    if (!editTxn) 
+    if (!editTxn) {
       return;
+    }
+
     setSaving(true);
     try {
       if (isNewTxn) {
@@ -316,8 +325,10 @@ function Transactions() {
   };
 
   const handleDelete = async () => {
-    if (!editTxn || !editTxn.id) 
+    if (!editTxn || !editTxn.id) {
       return;
+    }
+
     setSaving(true);
     try {
       await deleteTransaction(editTxn.id);
@@ -350,8 +361,9 @@ function Transactions() {
 
   // Compute summary totals from current transactions
   const summaryData = useMemo(() => {
-    if (!transactions || transactions.length === 0) 
+    if (!transactions || transactions.length === 0) {
       return { accounts: [], categories: [] };
+    }
 
     // Account totals
     const acctMap = {};
@@ -865,14 +877,18 @@ function Transactions() {
                 transition: 'background-color 0.15s, border-color 0.15s',
               }}
               onMouseEnter={e => {
-                if (selectedCounterpart?.id === c.id)
+                if (selectedCounterpart?.id === c.id) {
                   return;
+                }
+
                 e.currentTarget.style.backgroundColor = '#2a3040';
                 e.currentTarget.style.borderColor = '#58a6ff';
               }}
               onMouseLeave={e => {
-                if (selectedCounterpart?.id === c.id)
+                if (selectedCounterpart?.id === c.id) {
                   return;
+                }
+
                 e.currentTarget.style.backgroundColor = '';
                 e.currentTarget.style.borderColor = '#444';
               }}

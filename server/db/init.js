@@ -15,8 +15,9 @@ if (!fs.existsSync(dbDir)) {
 let db = null;
 
 function getDb() {
-  if (db)
+  if (db) {
     return db;
+  }
 
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
@@ -49,7 +50,9 @@ function startPeriodicCheckpoint(intervalMs = 24 * 60 * 60 * 1000) {
 
 // Close DB on exit
 process.on('exit', () => {
-  if (db) db.close();
+  if (db) {
+    db.close();
+  }
 });
 
 process.on('SIGINT', () => process.exit());

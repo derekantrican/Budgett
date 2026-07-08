@@ -101,6 +101,7 @@ router.get('/hidden', (req, res) => {
     if (!transactionsMap.has(row.id)) {
       transactionsMap.set(row.id, { ...row, splits: [] });
     }
+
     if (row.split_amount !== null) {
       transactionsMap.get(row.id).splits.push({
         category_id: row.category_id || null,
@@ -118,8 +119,10 @@ router.get('/hidden', (req, res) => {
 // GET /api/transactions/by-plaid-id/:plaidId
 router.get('/by-plaid-id/:plaidId', (req, res) => {
   const txn = getTransactionByPlaidId(req.params.plaidId);
-  if (!txn) 
+  if (!txn) {
     return res.status(404).json({ error: 'Transaction not found' });
+  }
+
   const splits = getSplitsByTransaction(txn.id);
   res.json({ ...txn, splits });
 });
@@ -128,8 +131,9 @@ router.get('/by-plaid-id/:plaidId', (req, res) => {
 router.get('/:id', (req, res) => {
   const { getTransactionRowsById } = require('../db/queries');
   const rows = getTransactionRowsById(req.params.id);
-  if (rows.length === 0)
+  if (rows.length === 0) {
     return res.status(404).json({ error: 'Transaction not found' });
+  }
 
   const txn = { ...rows[0], splits: [] };
   for (const row of rows) {
@@ -252,8 +256,9 @@ router.put('/:id/splits', (req, res) => {
     const category = getOne('SELECT name FROM categories WHERE id = ?', [splits[0].category_id]);
     if (txn?.merchant) {
       const result = recordMerchantCategorization(id, txn.merchant, splits[0].category_id, category?.name);
-      if (result)
+      if (result) {
         autoRulesCreated.push(result);
+      }
     }
   }
 
@@ -326,8 +331,9 @@ router.put('/:id', (req, res) => {
   if (merchant !== undefined && previousMerchant) {
     const { recordMerchantRename } = require('../helpers/autoRules');
     const result = recordMerchantRename(id, previousMerchant, merchant);
-    if (result)
+    if (result) {
       autoRulesCreated.push(result);
+    }
   }
 
   if (category_id !== undefined && category_id) {
@@ -336,8 +342,9 @@ router.put('/:id', (req, res) => {
     const category = getOne('SELECT name FROM categories WHERE id = ?', [category_id]);
     if (currentTxn?.merchant) {
       const result = recordMerchantCategorization(id, currentTxn.merchant, category_id, category?.name);
-      if (result)
+      if (result) {
         autoRulesCreated.push(result);
+      }
     }
   }
 
@@ -407,34 +414,43 @@ router.get('/:id/plaid-candidates', async (req, res) => {
     const candidates = plaidTxns.map(pt => {
       let score = 0;
       // Amount match (Plaid uses positive for debits, we use negative)
-      if (Math.abs((-pt.amount) - matchAmount) < 0.01) 
+      if (Math.abs((-pt.amount) - matchAmount) < 0.01) {
         score += 100;
-      else if (Math.abs((-pt.amount) - matchAmount) < 1.00) 
+      }
+      else if (Math.abs((-pt.amount) - matchAmount) < 1.00) {
         score += 50;
+      }
+
       // Date match
-      if (pt.date === txn.date) 
+      if (pt.date === txn.date) {
         score += 30;
+      }
       else {
         const dayDiff = Math.abs((new Date(pt.date) - txnDate) / 86400000);
-        if (dayDiff <= 1) 
+        if (dayDiff <= 1) {
           score += 20;
-        else if (dayDiff <= 3) 
+        }
+        else if (dayDiff <= 3) {
           score += 10;
+        }
       }
 
       // Fuzzy merchant match
       if (txn.merchant && pt.name) {
         const a = txn.merchant.toLowerCase();
         const b = pt.name.toLowerCase();
-        if (a === b) 
+        if (a === b) {
           score += 40;
-        else if (b.includes(a) || a.includes(b)) 
+        }
+        else if (b.includes(a) || a.includes(b)) {
           score += 25;
+        }
         else {
           const words = a.split(/\s+/);
           const matchedWords = words.filter(w => b.includes(w));
-          if (matchedWords.length > 0) 
+          if (matchedWords.length > 0) {
             score += Math.min(15, matchedWords.length * 5);
+          }
         }
       }
 
@@ -452,8 +468,10 @@ router.get('/:id/plaid-candidates', async (req, res) => {
 
     // Sort by score descending, unclaimed first
     candidates.sort((a, b) => {
-      if (a.is_claimed !== b.is_claimed) 
+      if (a.is_claimed !== b.is_claimed) {
         return a.is_claimed ? 1 : -1;
+      }
+
       return b.score - a.score;
     });
 
@@ -503,7 +521,9 @@ router.get('/:id/counterpart-candidates', (req, res) => {
   const { get, all } = require('../db/queries');
 
   const txn = get('SELECT * FROM transactions WHERE id = ?', [id]);
-  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+  if (!txn) {
+    return res.status(404).json({ error: 'Transaction not found' });
+  }
 
   const oppositeAmount = -txn.amount;
   // Find transactions with opposite amount within 7 days
@@ -533,7 +553,9 @@ router.post('/:id/link-counterpart', (req, res) => {
 
   const txn = get('SELECT * FROM transactions WHERE id = ?', [id]);
   const counterpart = get('SELECT * FROM transactions WHERE id = ?', [counterpart_id]);
-  if (!txn || !counterpart) return res.status(404).json({ error: 'Transaction not found' });
+  if (!txn || !counterpart) {
+    return res.status(404).json({ error: 'Transaction not found' });
+  }
 
   const isAuth = link_type === 'auth' ? 1 : 0;
   const isTransfer = link_type === 'transfer' ? 1 : 0;
@@ -552,12 +574,15 @@ router.post('/:id/unlink-counterpart', (req, res) => {
   const { id } = req.params;
 
   const txn = get('SELECT linked_transaction_id FROM transactions WHERE id = ?', [id]);
-  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+  if (!txn) {
+    return res.status(404).json({ error: 'Transaction not found' });
+  }
 
   if (txn.linked_transaction_id) {
     run(`UPDATE transactions SET linked_transaction_id = NULL, is_auth = 0, is_transfer = 0, is_hidden = 0, updated_at = datetime('now') WHERE id = ?`,
       [txn.linked_transaction_id]);
   }
+
   run(`UPDATE transactions SET linked_transaction_id = NULL, is_auth = 0, is_transfer = 0, is_hidden = 0, updated_at = datetime('now') WHERE id = ?`, [id]);
 
   res.json({ success: true });

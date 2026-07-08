@@ -12,8 +12,9 @@
  * @returns {number} Evaluated amount, or 0 if expression is invalid/empty
  */
 export function evaluateBudgetExpression(expression, year, month) {
-  if (!expression || !expression.trim()) 
+  if (!expression || !expression.trim()) {
     return 0;
+  }
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -44,8 +45,9 @@ export function evaluateBudgetExpression(expression, year, month) {
     }
 
     // Only allow numbers, operators, parens, whitespace, and decimal points
-    if (!/^[\d\s+\-*/().]+$/.test(expr)) 
+    if (!/^[\d\s+\-*/().]+$/.test(expr)) {
       return 0;
+    }
 
     // eslint-disable-next-line no-new-func
     const result = Function(`"use strict"; return (${expr})`)();

@@ -4,15 +4,18 @@
 const TOKEN_RE = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g;
 
 export function renderNotes(text) {
-  if (!text)
+  if (!text) {
     return text;
+  }
 
   return text.split(TOKEN_RE).map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**'))
+    if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
 
-    if (part.startsWith('*') && part.endsWith('*'))
+    if (part.startsWith('*') && part.endsWith('*')) {
       return <em key={i}>{part.slice(1, -1)}</em>;
+    }
 
     return part;
   });

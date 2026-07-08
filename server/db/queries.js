@@ -306,8 +306,9 @@ const logMerchantRename = (transactionId, originalMerchant, newMerchant) =>
 const getDistinctRenameOriginals = (newMerchant) =>
   all('SELECT DISTINCT original_merchant FROM merchant_rename_log WHERE new_merchant = ?', [newMerchant]).map(r => r.original_merchant);
 const countRenameEvents = (newMerchant, originals) => {
-  if (originals.length === 0)
+  if (originals.length === 0) {
     return 0;
+  }
 
   const placeholders = originals.map(() => '?').join(',');
   return all(`SELECT COUNT(*) as c FROM merchant_rename_log WHERE new_merchant = ? AND original_merchant IN (${placeholders})`,
@@ -321,8 +322,9 @@ const logMerchantCategorization = (transactionId, merchant, categoryId) =>
 const getDistinctCategorizationMerchants = (categoryId) =>
   all('SELECT DISTINCT merchant FROM merchant_category_log WHERE category_id = ?', [categoryId]).map(r => r.merchant);
 const countCategorizationEvents = (categoryId, merchants) => {
-  if (merchants.length === 0)
+  if (merchants.length === 0) {
     return 0;
+  }
 
   const placeholders = merchants.map(() => '?').join(',');
   return all(`SELECT COUNT(*) as c FROM merchant_category_log WHERE category_id = ? AND merchant IN (${placeholders})`,

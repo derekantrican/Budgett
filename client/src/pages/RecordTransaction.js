@@ -133,20 +133,31 @@ function RecordTransaction() {
 
     const params = new URLSearchParams(window.location.search);
     const prefill = {};
-    if (params.get('date')) 
+    if (params.get('date')) {
       prefill.date = params.get('date');
-    if (params.get('merchant') || params.get('where')) 
+    }
+
+    if (params.get('merchant') || params.get('where')) {
       prefill.merchant = params.get('merchant') || params.get('where');
-    if (params.get('notes')) 
+    }
+
+    if (params.get('notes')) {
       prefill.notes = params.get('notes');
-    if (params.get('amount')) 
+    }
+
+    if (params.get('amount')) {
       prefill.amount = params.get('amount');
-    if (params.get('plaidid')) 
+    }
+
+    if (params.get('plaidid')) {
       prefill.plaidid = params.get('plaidid');
+    }
+
     if (params.get('category')) {
       const match = cats.find(c => c.name.toLowerCase() === params.get('category').toLowerCase());
-      if (match) 
+      if (match) {
         prefill.category_id = match.id;
+      }
     }
 
     if (params.get('account') || params.get('paymentmethod')) {
@@ -155,8 +166,9 @@ function RecordTransaction() {
         (a.display_name || a.name).toLowerCase() === name.toLowerCase() ||
         a.name.toLowerCase() === name.toLowerCase()
       );
-      if (match) 
+      if (match) {
         prefill.account_id = match.id;
+      }
     }
 
     if (Object.keys(prefill).length > 0) {
@@ -196,8 +208,10 @@ function RecordTransaction() {
   };
 
   const handleRecord = async () => {
-    if (!form.amount) 
+    if (!form.amount) {
       return;
+    }
+
     setSaving(true);
     try {
       const amount = parseFloat(form.amount);
@@ -271,8 +285,9 @@ function RecordTransaction() {
               }}
               onClick={() => {
                 const sel = document.getElementById('templateSelect');
-                if (sel.value) 
+                if (sel.value) {
                   applyTemplate({ target: { value: sel.value } });
+                }
               }}
             >Apply</button>
           </div>
@@ -346,8 +361,9 @@ function RecordTransaction() {
             disabled={saving || !form.amount}
             onClick={handleRecord}
             onMouseOver={e => {
-              if (!saving) 
-                e.target.style.backgroundColor = '#3a6de5'; 
+              if (!saving) {
+                e.target.style.backgroundColor = '#3a6de5';
+              } 
             }}
             onMouseOut={e => {
               e.target.style.backgroundColor = '#4e89ff'; 

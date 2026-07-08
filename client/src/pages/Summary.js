@@ -46,8 +46,10 @@ function Summary() {
   // Uncategorized
   const uncategorized = transactions
     .reduce((sum, t) => {
-      if (!t.splits || t.splits.length === 0) 
+      if (!t.splits || t.splits.length === 0) {
         return sum + t.amount;
+      }
+
       const uncatSplits = t.splits.filter(s => !s.category_id);
       return sum + uncatSplits.reduce((s, split) => s + split.amount, 0);
     }, 0);

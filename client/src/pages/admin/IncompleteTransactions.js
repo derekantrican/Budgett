@@ -37,10 +37,13 @@ function IncompleteTransactions() {
   const toggleCheck = (id) => {
     setChecked(prev => {
       const next = new Set(prev);
-      if (next.has(id)) 
+      if (next.has(id)) {
         next.delete(id);
-      else 
+      }
+      else {
         next.add(id);
+      }
+
       return next;
     });
   };
@@ -63,8 +66,10 @@ function IncompleteTransactions() {
   };
 
   const handleDeleteIncomplete = async () => {
-    if (!editTxn) 
+    if (!editTxn) {
       return;
+    }
+
     await deleteTransaction(editTxn.id);
     setEditTxn(null);
     setConfirmDelete(false);
@@ -136,14 +141,22 @@ function IncompleteTransactions() {
 
   const issues = (txn) => {
     const badges = [];
-    if (txn.missing_category) 
+    if (txn.missing_category) {
       badges.push(<Badge key="cat" bg="danger" className="me-1">No category</Badge>);
-    if (txn.missing_merchant) 
+    }
+
+    if (txn.missing_merchant) {
       badges.push(<Badge key="mer" bg="warning" className="me-1">No merchant</Badge>);
-    if (txn.missing_account) 
+    }
+
+    if (txn.missing_account) {
       badges.push(<Badge key="acc" bg="info" className="me-1">No account</Badge>);
-    if (txn.missing_plaid_id) 
+    }
+
+    if (txn.missing_plaid_id) {
       badges.push(<Badge key="pid" bg="secondary" className="me-1">No Plaid ID</Badge>);
+    }
+
     return badges;
   };
 

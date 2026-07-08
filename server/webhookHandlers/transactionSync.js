@@ -227,8 +227,9 @@ async function processAddedTransaction(txn, io) {
         let splitAmount = -txn.amount;
         if (split.amount_expression) {
           const result = evaluateMathExpression(split.amount_expression, { amount: -txn.amount });
-          if (result !== null)
+          if (result !== null) {
             splitAmount = result;
+          }
         }
 
         createSplit(txnId, split.category_id || null, splitAmount, split.notes || null);

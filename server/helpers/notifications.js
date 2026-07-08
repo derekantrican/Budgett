@@ -3,8 +3,9 @@ const { formatAmount } = require('./format');
 
 async function sendNotifications(eventType, variables) {
   const webhookUrl = getSetting('webhook_url');
-  if (!webhookUrl) 
+  if (!webhookUrl) {
     return;
+  }
 
   const content = formatMessage(eventType, variables);
 

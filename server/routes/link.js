@@ -36,8 +36,11 @@ router.get('/token', async (req, res) => {
       // Re-authentication mode — look up access_token from DB
       const { get } = require('../db/queries');
       const item = get('SELECT plaid_access_token FROM items WHERE id = ?', [itemId]);
-      if (!item) return res.status(404).json({ error: 'Item not found' });
-            linkParams.access_token = item.plaid_access_token;
+      if (!item) {
+        return res.status(404).json({ error: 'Item not found' });
+      }
+
+      linkParams.access_token = item.plaid_access_token;
     }
     else {
       // New connection mode

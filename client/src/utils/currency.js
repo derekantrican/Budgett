@@ -4,10 +4,13 @@ let currencySettings = {
 };
 
 export function setCurrencySettings(settings) {
-  if (settings.currency_symbol != null) 
+  if (settings.currency_symbol != null) {
     currencySettings.currency_symbol = settings.currency_symbol;
-  if (settings.number_format != null) 
+  }
+
+  if (settings.number_format != null) {
     currencySettings.number_format = settings.number_format;
+  }
 }
 
 export function formatCurrency(amount) {

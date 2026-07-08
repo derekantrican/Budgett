@@ -64,8 +64,10 @@ function Templates() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this template?')) 
+    if (!window.confirm('Delete this template?')) {
       return;
+    }
+
     await deleteTemplateApi(id);
     loadData();
   };

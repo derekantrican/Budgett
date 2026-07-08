@@ -34,8 +34,10 @@ router.post('/', (req, res) => {
 // PUT /api/rules/:id
 router.put('/:id', (req, res) => {
   const { pattern, category_id, notes_template, amount_condition, rename_to, is_split, split_json } = req.body;
-  if (!pattern) 
+  if (!pattern) {
     return res.status(400).json({ error: 'pattern required' });
+  }
+
   try {
     new RegExp(pattern); 
   }
