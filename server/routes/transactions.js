@@ -241,14 +241,32 @@ router.put('/:id/splits', (req, res) => {
   }
 
   const updated = getSplitsByTransaction(id);
-  res.json(updated);
+
+  // Only track categorization for single-category transactions — a split transaction's
+  // categories are per-split by definition, so there's no one merchant->category signal.
+  const autoRulesCreated = [];
+  if (splits.length === 1 && splits[0].category_id) {
+    const { get: getOne } = require('../db/queries');
+    const { recordMerchantCategorization } = require('../helpers/autoRules');
+    const txn = getOne('SELECT merchant FROM transactions WHERE id = ?', [id]);
+    const category = getOne('SELECT name FROM categories WHERE id = ?', [splits[0].category_id]);
+    if (txn?.merchant) {
+      const result = recordMerchantCategorization(id, txn.merchant, splits[0].category_id, category?.name);
+      if (result)
+        autoRulesCreated.push(result);
+    }
+  }
+
+  res.json({ splits: updated, auto_rules_created: autoRulesCreated });
 });
 
 // PUT /api/transactions/:id (update transaction fields + optionally assign category)
 router.put('/:id', (req, res) => {
   const { id } = req.params;
   const { merchant, notes, account_id, category_id, date, is_hidden } = req.body;
-  const { run, createSplit } = require('../db/queries');
+  const { run, createSplit, get: getOne } = require('../db/queries');
+
+  const previousMerchant = merchant !== undefined ? getOne('SELECT merchant FROM transactions WHERE id = ?', [id])?.merchant : null;
 
   // Update transaction fields
   const updates = [];
@@ -304,7 +322,26 @@ router.put('/:id', (req, res) => {
     }
   }
 
-  res.json({ success: true });
+  const autoRulesCreated = [];
+  if (merchant !== undefined && previousMerchant) {
+    const { recordMerchantRename } = require('../helpers/autoRules');
+    const result = recordMerchantRename(id, previousMerchant, merchant);
+    if (result)
+      autoRulesCreated.push(result);
+  }
+
+  if (category_id !== undefined && category_id) {
+    const { recordMerchantCategorization } = require('../helpers/autoRules');
+    const currentTxn = getOne('SELECT merchant FROM transactions WHERE id = ?', [id]);
+    const category = getOne('SELECT name FROM categories WHERE id = ?', [category_id]);
+    if (currentTxn?.merchant) {
+      const result = recordMerchantCategorization(id, currentTxn.merchant, category_id, category?.name);
+      if (result)
+        autoRulesCreated.push(result);
+    }
+  }
+
+  res.json({ success: true, auto_rules_created: autoRulesCreated });
 });
 
 // GET /api/transactions/:id/plaid-candidates

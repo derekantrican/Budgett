@@ -48,6 +48,22 @@ function initQueries() {
     'ALTER TABLE transactions ADD COLUMN is_transfer INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE transactions ADD COLUMN linked_transaction_id INTEGER REFERENCES transactions(id)',
     'ALTER TABLE transaction_splits ADD COLUMN amount_formula TEXT',
+    'ALTER TABLE rules ADD COLUMN is_auto_created INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE rules ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0',
+    `CREATE TABLE IF NOT EXISTS merchant_rename_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_id INTEGER REFERENCES transactions(id),
+      original_merchant TEXT NOT NULL,
+      new_merchant TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE TABLE IF NOT EXISTS merchant_category_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_id INTEGER REFERENCES transactions(id),
+      merchant TEXT NOT NULL,
+      category_id INTEGER NOT NULL REFERENCES categories(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
   ];
   for (const sql of migrations) {
     try {
@@ -272,13 +288,46 @@ const toggleCategoryHidden = (id, isHidden) => {
 const getAllRules = () =>
   all(`SELECT r.*, c.name as category_name FROM rules r LEFT JOIN categories c ON r.category_id = c.id
       ORDER BY r.created_at DESC`);
-const createRule = (pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit, splitJson) =>
-  run('INSERT INTO rules (pattern, category_id, notes_template, amount_condition, rename_to, is_split, split_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit ? 1 : 0, splitJson]);
+const createRule = (pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit, splitJson, isAutoCreated = false) =>
+  run('INSERT INTO rules (pattern, category_id, notes_template, amount_condition, rename_to, is_split, split_json, is_auto_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit ? 1 : 0, splitJson, isAutoCreated ? 1 : 0]);
 const updateRule = (id, pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit, splitJson) =>
   run('UPDATE rules SET pattern = ?, category_id = ?, notes_template = ?, amount_condition = ?, rename_to = ?, is_split = ?, split_json = ? WHERE id = ?',
     [pattern, categoryId, notesTemplate, amountCondition, renameTo, isSplit ? 1 : 0, splitJson, id]);
 const deleteRule = (id) => run('DELETE FROM rules WHERE id = ?', [id]);
+const toggleRuleDisabled = (id, isDisabled) => {
+  run("UPDATE rules SET is_disabled = ?, updated_at = datetime('now') WHERE id = ?", [isDisabled ? 1 : 0, id]);
+};
+
+// Merchant rename tracking (for auto-rule creation from repeated manual renames)
+const logMerchantRename = (transactionId, originalMerchant, newMerchant) =>
+  run('INSERT INTO merchant_rename_log (transaction_id, original_merchant, new_merchant) VALUES (?, ?, ?)',
+    [transactionId, originalMerchant, newMerchant]);
+const getDistinctRenameOriginals = (newMerchant) =>
+  all('SELECT DISTINCT original_merchant FROM merchant_rename_log WHERE new_merchant = ?', [newMerchant]).map(r => r.original_merchant);
+const countRenameEvents = (newMerchant, originals) => {
+  if (originals.length === 0)
+    return 0;
+
+  const placeholders = originals.map(() => '?').join(',');
+  return all(`SELECT COUNT(*) as c FROM merchant_rename_log WHERE new_merchant = ? AND original_merchant IN (${placeholders})`,
+    [newMerchant, ...originals])[0].c;
+};
+
+// Merchant categorization tracking (for auto-rule creation from repeated manual categorizations)
+const logMerchantCategorization = (transactionId, merchant, categoryId) =>
+  run('INSERT INTO merchant_category_log (transaction_id, merchant, category_id) VALUES (?, ?, ?)',
+    [transactionId, merchant, categoryId]);
+const getDistinctCategorizationMerchants = (categoryId) =>
+  all('SELECT DISTINCT merchant FROM merchant_category_log WHERE category_id = ?', [categoryId]).map(r => r.merchant);
+const countCategorizationEvents = (categoryId, merchants) => {
+  if (merchants.length === 0)
+    return 0;
+
+  const placeholders = merchants.map(() => '?').join(',');
+  return all(`SELECT COUNT(*) as c FROM merchant_category_log WHERE category_id = ? AND merchant IN (${placeholders})`,
+    [categoryId, ...merchants])[0].c;
+};
 
 // Logs
 const createLog = (level, action, detail) =>
@@ -349,7 +398,9 @@ module.exports = {
   // Categories
   getAllCategories, createCategory, updateCategory, toggleCategoryHidden,
   // Rules
-  getAllRules, createRule, updateRule, deleteRule,
+  getAllRules, createRule, updateRule, deleteRule, toggleRuleDisabled,
+  logMerchantRename, getDistinctRenameOriginals, countRenameEvents,
+  logMerchantCategorization, getDistinctCategorizationMerchants, countCategorizationEvents,
   // Logs
   createLog, getRecentLogs,
   // Webhooks

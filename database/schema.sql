@@ -115,8 +115,30 @@ CREATE TABLE IF NOT EXISTS rules (
   is_split INTEGER NOT NULL DEFAULT 0, -- if true, this rule produces multiple splits
   split_json TEXT, -- JSON array of split definitions
   expires_at TEXT, -- nullable, self-destruct date
+  is_auto_created INTEGER NOT NULL DEFAULT 0, -- created automatically from repeated manual renames, not by the user
+  is_disabled INTEGER NOT NULL DEFAULT 0, -- turned off without deleting; also prevents an auto-created rule from being re-created
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Log of manual merchant renames (old -> new), used to detect repeated renames
+-- and auto-create a Rule once the same fuzzy-matched rename happens often enough.
+CREATE TABLE IF NOT EXISTS merchant_rename_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  transaction_id INTEGER REFERENCES transactions(id),
+  original_merchant TEXT NOT NULL,
+  new_merchant TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Log of manual merchant -> category assignments, used the same way as
+-- merchant_rename_log but for auto-creating (or extending) a Rule's category_id.
+CREATE TABLE IF NOT EXISTS merchant_category_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  transaction_id INTEGER REFERENCES transactions(id),
+  merchant TEXT NOT NULL,
+  category_id INTEGER NOT NULL REFERENCES categories(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Notification Endpoints (generalized webhooks)

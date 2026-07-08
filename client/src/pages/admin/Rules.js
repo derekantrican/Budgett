@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal, Badge } from 'react-bootstrap';
-import { getRules, createRule, updateRule, deleteRule, getCategories } from '../../services/api';
+import { getRules, createRule, updateRule, deleteRule, toggleRuleDisabled, getCategories } from '../../services/api';
 import CategorySelect from '../../components/CategorySelect';
 import { renderNotes } from '../../utils/notes';
 
@@ -150,6 +150,27 @@ function Rules() {
     }
   };
 
+  const manualRules = rules.filter(r => !r.is_auto_created);
+  const autoCreatedRules = rules.filter(r => r.is_auto_created);
+
+  const enabledToggle = (rule) => (
+    <Form.Check
+      type="switch"
+      checked={!rule.is_disabled}
+      onChange={async (e) => {
+        await toggleRuleDisabled(rule.id, !e.target.checked);
+        loadData();
+      }}
+    />
+  );
+
+  const deleteButton = (rule) => (
+    <Button variant="outline-danger" size="sm" onClick={(e) => {
+      e.stopPropagation();
+      handleDelete(rule.id);
+    }}>✕</Button>
+  );
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -157,20 +178,21 @@ function Rules() {
         <Button variant="primary" size="sm" onClick={openNew}>+ Add Rule</Button>
       </div>
 
-      <Table striped hover responsive variant="dark">
+      <Table striped hover responsive variant="dark" size="sm" className="rules-table">
         <thead>
           <tr>
             <th style={{ textAlign: 'left' }}>Pattern</th>
             <th style={{ textAlign: 'left' }}>Amount Condition</th>
             <th style={{ textAlign: 'left' }}>Rename To</th>
             <th style={{ textAlign: 'left' }}>Notes / Splits</th>
-            <th>Category</th>
+            <th className="fit-width">Category</th>
+            <th className="fit-width">Enabled</th>
             <th className="fit-width"></th>
           </tr>
         </thead>
         <tbody>
-          {rules.map(rule => (
-            <tr key={rule.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(rule)}>
+          {manualRules.map(rule => (
+            <tr key={rule.id} style={{ cursor: 'pointer', opacity: rule.is_disabled ? 0.5 : 1 }} onClick={() => openEdit(rule)}>
               <td style={{ textAlign: 'left', fontFamily: 'monospace' }}>{rule.pattern}</td>
               <td style={{ textAlign: 'left', fontFamily: 'monospace' }}>{rule.amount_condition || '—'}</td>
               <td style={{ textAlign: 'left' }}>{rule.rename_to || '—'}</td>
@@ -179,19 +201,45 @@ function Rules() {
                   ? <Badge bg="primary">{getSplitSummary(rule)}</Badge>
                   : (renderNotes(rule.notes_template) || '—')}
               </td>
-              <td>{rule.is_split ? '—' : (rule.category_name || '—')}</td>
-              <td className="fit-width">
-                <Button variant="outline-danger" size="sm" onClick={(e) => {
-                  e.stopPropagation(); handleDelete(rule.id); 
-                }}>✕</Button>
-              </td>
+              <td className="fit-width">{rule.is_split ? '—' : (rule.category_name || '—')}</td>
+              <td className="fit-width" onClick={(e) => e.stopPropagation()}>{enabledToggle(rule)}</td>
+              <td className="fit-width">{deleteButton(rule)}</td>
             </tr>
           ))}
-          {rules.length === 0 && (
-            <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No rules configured</td></tr>
+          {manualRules.length === 0 && (
+            <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No rules configured</td></tr>
           )}
         </tbody>
       </Table>
+
+      {autoCreatedRules.length > 0 && (
+        <>
+          <h5 className="mt-4 mb-2">Auto-Created Rules</h5>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85em', marginTop: -4 }}>
+            Created automatically after you repeatedly rename or categorize a merchant in the same way. Disable or delete any you don't want.
+          </p>
+          <Table striped hover responsive variant="dark" size="sm" className="rules-table">
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Pattern</th>
+                <th style={{ textAlign: 'left' }}>Rename To</th>
+                <th className="fit-width">Enabled</th>
+                <th className="fit-width"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {autoCreatedRules.map(rule => (
+                <tr key={rule.id} style={{ cursor: 'pointer', opacity: rule.is_disabled ? 0.5 : 1 }} onClick={() => openEdit(rule)}>
+                  <td style={{ textAlign: 'left', fontFamily: 'monospace' }}>{rule.pattern}</td>
+                  <td style={{ textAlign: 'left' }}>{rule.rename_to || '—'}</td>
+                  <td className="fit-width" onClick={(e) => e.stopPropagation()}>{enabledToggle(rule)}</td>
+                  <td className="fit-width">{deleteButton(rule)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </>
+      )}
 
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" data-bs-theme="dark">
         <Modal.Header closeButton>

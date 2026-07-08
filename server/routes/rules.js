@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getAllRules, createRule, updateRule, deleteRule } = require('../db/queries');
+const { getAllRules, createRule, updateRule, deleteRule, toggleRuleDisabled } = require('../db/queries');
 
 // GET /api/rules
 router.get('/', (req, res) => {
@@ -54,6 +54,13 @@ router.put('/:id', (req, res) => {
 // DELETE /api/rules/:id
 router.delete('/:id', (req, res) => {
   deleteRule(req.params.id);
+  res.json({ success: true });
+});
+
+// PATCH /api/rules/:id/toggle-disabled
+router.patch('/:id/toggle-disabled', (req, res) => {
+  const { is_disabled } = req.body;
+  toggleRuleDisabled(req.params.id, is_disabled);
   res.json({ success: true });
 });
 

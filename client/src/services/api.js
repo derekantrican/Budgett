@@ -89,6 +89,8 @@ export const updateRule = (id, data) =>
   request(`/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteRule = (id) =>
   request(`/rules/${id}`, { method: 'DELETE' });
+export const toggleRuleDisabled = (id, isDisabled) =>
+  request(`/rules/${id}/toggle-disabled`, { method: 'PATCH', body: JSON.stringify({ is_disabled: isDisabled }) });
 
 // Admin
 export const getLogs = (limit = 100) => request(`/admin/logs?limit=${limit}`);

@@ -251,6 +251,19 @@ function Transactions() {
     }));
   };
 
+  // Shows a single alert summarizing any rules that were just auto-created/extended
+  // from repeated manual renames or categorizations (see server/helpers/autoRules.js).
+  const notifyAutoRules = (autoRulesCreated) => {
+    if (!autoRulesCreated || autoRulesCreated.length === 0)
+      return;
+
+    const lines = autoRulesCreated.map(r => (
+      r.rename_to ? `"${r.pattern}" → rename to "${r.rename_to}"` : `"${r.pattern}" → categorize as "${r.category_name}"`
+    ));
+
+    alert(`A pattern of rename or categorization was found, so a rule was created/updated automatically:\n\n${lines.join('\n')}\n\nYou can edit or delete it from Settings → Rules if you don't want it.`);
+  };
+
   const handleSave = async () => {
     if (!editTxn) 
       return;
@@ -272,22 +285,26 @@ function Transactions() {
         });
 
         if (result?.id) {
-          await updateSplits(result.id, editSplits.map(s => ({
+          const splitsResult = await updateSplits(result.id, editSplits.map(s => ({
             category_id: s.category_id || null,
             amount: resolveAmount(s.amount),
             amount_formula: (s.amount || '').trim().startsWith('=') ? s.amount.trim() : null,
             notes: s.notes || null,
           })));
+          notifyAutoRules(splitsResult?.auto_rules_created);
         }
       }
       else {
-        await updateTransaction(editTxn.id, { merchant: editMerchant, date: editDate });
-        await updateSplits(editTxn.id, editSplits.map(s => ({
+        const result = await updateTransaction(editTxn.id, { merchant: editMerchant, date: editDate });
+        notifyAutoRules(result?.auto_rules_created);
+
+        const splitsResult = await updateSplits(editTxn.id, editSplits.map(s => ({
           category_id: s.category_id || null,
           amount: resolveAmount(s.amount),
           amount_formula: (s.amount || '').trim().startsWith('=') ? s.amount.trim() : null,
           notes: s.notes || null,
         })));
+        notifyAutoRules(splitsResult?.auto_rules_created);
       }
 
       setEditTxn(null);

@@ -379,6 +379,12 @@ th.fit-width, td.fit-width {
   white-space: nowrap;
 }
 
+/* Rules page: tighter cell padding than the app-wide default */
+.rules-table th, .rules-table td {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
 th, td {
   padding-left: 20px !important;
   padding-right: 20px !important;

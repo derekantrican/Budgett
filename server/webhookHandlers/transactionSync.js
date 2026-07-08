@@ -199,8 +199,8 @@ async function processAddedTransaction(txn, io) {
     }
   }
 
-  // Try to match a rule
-  const rules = getAllRules();
+  // Try to match a rule (disabled rules still exist for display/re-enabling, just don't apply)
+  const rules = getAllRules().filter(r => !r.is_disabled);
   const merchantName = txn.merchant_name || txn.name;
   const matchedRule = matchRule(rules, merchantName, -txn.amount);
   const displayName = (matchedRule && matchedRule.rename_to) ? matchedRule.rename_to : merchantName;
