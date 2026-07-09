@@ -204,7 +204,9 @@ function Transactions() {
     }
 
     const result = evaluateMathExpression(raw);
-    return result === null ? 0 : result;
+    // Round to the nearest cent: e.g. "=-12.99-17.49" is exact in decimal (-30.48) but not in
+    // IEEE-754 double math (-30.479999999999997), and that noise would otherwise get saved as-is.
+    return result === null ? 0 : Math.round(result * 100) / 100;
   };
 
   // On blur: plain numbers get normalized to 2 decimals as before. A formula is

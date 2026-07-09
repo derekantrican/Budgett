@@ -227,8 +227,10 @@ async function processAddedTransaction(txn, io) {
         let splitAmount = -txn.amount;
         if (split.amount_expression) {
           const result = evaluateMathExpression(split.amount_expression, { amount: -txn.amount });
+          // Round to the nearest cent: e.g. "amount-12.99-17.49" is exact in decimal but not in
+          // IEEE-754 double math, and that noise would otherwise get saved as-is.
           if (result !== null) {
-            splitAmount = result;
+            splitAmount = Math.round(result * 100) / 100;
           }
         }
 
