@@ -154,10 +154,13 @@ async function processAddedTransaction(txn, io) {
     return;
   }
 
-  // Check if this matches a pending transaction
+  // Check if this matches a pending transaction. Plaid's pending_transaction_id points
+  // at the ORIGINAL pending transaction's own plaid_transaction_id, so look it up there
+  // (that row's pending_transaction_id column is unrelated — it's always null for a
+  // pending transaction, since it doesn't reference a prior pending version of itself).
   let matchedPending = null;
   if (txn.pending_transaction_id) {
-    matchedPending = getTransactionByPendingId(txn.pending_transaction_id);
+    matchedPending = getTransactionByPlaidId(txn.pending_transaction_id);
   }
 
   if (matchedPending) {
@@ -179,7 +182,7 @@ async function processAddedTransaction(txn, io) {
   // Check for incomplete transactions (no plaid_id, within 7 days, same amount)
   const incompleteMatch = findIncompleteMatch(-txn.amount);
   if (incompleteMatch) {
-    linkIncompleteTransaction(txn.transaction_id, incompleteMatch.id);
+    linkIncompleteTransaction(txn.transaction_id, txn.pending ? 1 : 0, incompleteMatch.id);
     createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
     await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${txn.merchant_name || txn.name}` });
     return;

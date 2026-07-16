@@ -226,10 +226,13 @@ const findIncompleteMatch = (amount) =>
        AND ABS(amount - ?) < 0.005
        ORDER BY date DESC LIMIT 1`, [amount]);
 
-// Link an incomplete transaction to the incoming plaid transaction
-const linkIncompleteTransaction = (plaidTxnId, id) =>
-  run(`UPDATE transactions SET plaid_transaction_id = ?, updated_at = datetime('now') WHERE id = ?`,
-    [plaidTxnId, id]);
+// Link an incomplete transaction to the incoming plaid transaction. Also restores
+// is_pending from the incoming transaction — a prior unlink (see unlinkPlaidId) always
+// zeroes it, so without this a re-linked transaction would stay permanently invisible
+// to findFuzzyPendingMatch even when Plaid still considers it pending.
+const linkIncompleteTransaction = (plaidTxnId, isPending, id) =>
+  run(`UPDATE transactions SET plaid_transaction_id = ?, is_pending = ?, updated_at = datetime('now') WHERE id = ?`,
+    [plaidTxnId, isPending, id]);
 
 // Find a pending transaction that likely matches a posted one
 // Matches on: same account, recent date, AND (exact amount OR similar merchant name)
