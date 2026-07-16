@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Table, Form, Button, Badge, Modal, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Table, Form, Button, Badge, Modal, Spinner, OverlayTrigger, Tooltip, CloseButton } from 'react-bootstrap';
 import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart, getTransaction } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 import CategorySelect from '../components/CategorySelect';
@@ -645,19 +645,20 @@ function Transactions() {
 
       {/* Edit/Add Modal */}
       <Modal show={!!editTxn} onHide={() => setEditTxn(null)} size="lg" data-bs-theme="dark">
-        <Modal.Header closeButton>
+        <Modal.Header>
           <Modal.Title>{isNewTxn ? 'Add Transaction' : 'Edit Transaction'}</Modal.Title>
+          <CloseButton tabIndex={1} onClick={() => setEditTxn(null)} />
         </Modal.Header>
         {editTxn && (
           <Modal.Body>
             <div className="d-flex gap-3 mb-3">
               <Form.Group style={{ flex: 1 }}>
                 <Form.Label>Date</Form.Label>
-                <Form.Control type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                <Form.Control type="date" tabIndex={2} value={editDate} onChange={(e) => setEditDate(e.target.value)} />
               </Form.Group>
               <Form.Group style={{ flex: 2 }}>
                 <Form.Label>Where (Merchant)</Form.Label>
-                <Form.Control value={editMerchant} onChange={(e) => setEditMerchant(e.target.value)} />
+                <Form.Control tabIndex={3} value={editMerchant} onChange={(e) => setEditMerchant(e.target.value)} />
               </Form.Group>
               {isNewTxn && (
                 <Form.Group style={{ flex: 1 }}>
@@ -665,6 +666,7 @@ function Transactions() {
                   <Form.Control
                     type="number"
                     step="0.01"
+                    tabIndex={4}
                     value={editAmount}
                     onChange={(e) => {
                       setEditAmount(e.target.value);
@@ -680,7 +682,7 @@ function Transactions() {
             {isNewTxn && (
               <Form.Group className="mb-3">
                 <Form.Label>Account</Form.Label>
-                <Form.Select value={editAccountId} onChange={(e) => setEditAccountId(e.target.value)}>
+                <Form.Select tabIndex={5} value={editAccountId} onChange={(e) => setEditAccountId(e.target.value)}>
                   <option value="">— No account —</option>
                   {accounts.filter(a => !a.is_deleted && !a.hide_from_transactions).map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
@@ -702,8 +704,8 @@ function Transactions() {
                     (split total: {fmt(splitTotal)})
                   </span>
                 )}
-                <Button variant={splitMismatch ? 'secondary' : 'outline-secondary'} size="sm" onClick={distributeRemaining}>Distribute</Button>
-                <Button variant="outline-primary" size="sm" onClick={addSplit}>+ Add Split</Button>
+                <Button variant={splitMismatch ? 'secondary' : 'outline-secondary'} size="sm" tabIndex={6} onClick={distributeRemaining}>Distribute</Button>
+                <Button variant="outline-primary" size="sm" tabIndex={7} onClick={addSplit}>+ Add Split</Button>
               </div>
             </div>
 
@@ -712,6 +714,7 @@ function Transactions() {
                 <div className="split-edit-notes">
                   <Form.Control
                     placeholder="Notes (supports **bold**, *italic*)"
+                    tabIndex={8}
                     value={split.notes || ''}
                     onChange={(e) => updateSplitField(idx, 'notes', e.target.value)}
                   />
@@ -721,10 +724,12 @@ function Transactions() {
                     categories={categories}
                     value={split.category_id}
                     onChange={(val) => updateSplitField(idx, 'category_id', val)}
+                    tabIndex={9}
                   />
                   <Form.Control
                     type="text"
                     inputMode="decimal"
+                    tabIndex={10}
                     value={split.amount}
                     onChange={(e) => updateSplitField(idx, 'amount', e.target.value)}
                     onBlur={(e) => resolveSplitAmount(idx, e.target.value)}
@@ -732,7 +737,7 @@ function Transactions() {
                     style={{ width: 125, flex: 'none' }}
                   />
                   {editSplits.length > 1 && (
-                    <Button variant="outline-danger" size="sm" onClick={() => removeSplit(idx)}>×</Button>
+                    <Button variant="outline-danger" size="sm" tabIndex={11} onClick={() => removeSplit(idx)}>×</Button>
                   )}
                 </div>
               </div>
@@ -754,17 +759,17 @@ function Transactions() {
               confirmDelete ? (
                 <>
                   <span style={{ color: '#ff4444', fontSize: '0.9em' }}>Are you sure?</span>
-                  <Button variant="danger" size="sm" onClick={handleDelete} disabled={saving}>Yes, Delete</Button>
-                  <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                  <Button variant="danger" size="sm" tabIndex={12} onClick={handleDelete} disabled={saving}>Yes, Delete</Button>
+                  <Button variant="secondary" size="sm" tabIndex={12} onClick={() => setConfirmDelete(false)}>Cancel</Button>
                 </>
               ) : (
-                <Button variant="outline-danger" onClick={() => setConfirmDelete(true)}>Delete</Button>
+                <Button variant="outline-danger" tabIndex={12} onClick={() => setConfirmDelete(true)}>Delete</Button>
               )
             )}
             {!isNewTxn && editTxn && !editTxn.linked_transaction_id && (
               <Button
                 variant="outline-info"
-                tabIndex={3}
+                tabIndex={15}
                 title="Link counterpart"
                 onClick={async () => {
                   const candidates = await getCounterpartCandidates(editTxn.id);
@@ -792,7 +797,7 @@ function Transactions() {
                 >
                   <Button
                     variant="outline-info"
-                    tabIndex={3}
+                    tabIndex={15}
                     onClick={async () => {
                       const linked = await getTransaction(editTxn.linked_transaction_id);
                       openEdit(linked);
@@ -803,7 +808,7 @@ function Transactions() {
                 </OverlayTrigger>
                 <Button
                   variant="outline-warning"
-                  tabIndex={4}
+                  tabIndex={16}
                   title="Remove link"
                   onClick={async () => {
                     await unlinkCounterpart(editTxn.id);
@@ -818,7 +823,7 @@ function Transactions() {
             {!isNewTxn && editTxn && (
               <Button
                 variant="outline-secondary"
-                tabIndex={5}
+                tabIndex={17}
                 title={editTxn.is_hidden ? 'Unhide transaction' : 'Hide transaction'}
                 onClick={async () => {
                   await updateTransaction(editTxn.id, { is_hidden: !editTxn.is_hidden });
@@ -830,10 +835,10 @@ function Transactions() {
               </Button>
             )}
           </div>
-          <Button variant="secondary" tabIndex={1} onClick={() => setEditTxn(null)}>Cancel</Button>
+          <Button variant="secondary" tabIndex={13} onClick={() => setEditTxn(null)}>Cancel</Button>
           <Button
             variant="primary"
-            tabIndex={2}
+            tabIndex={14}
             onClick={handleSave}
             disabled={saving || splitMismatch}
           >

@@ -55,7 +55,7 @@ const darkStyles = {
   }),
 };
 
-function CategorySelect({ categories, value, onChange, placeholder = '— No category —' }) {
+function CategorySelect({ categories, value, onChange, placeholder = '— No category —', tabIndex }) {
   const options = [
     { value: '', label: placeholder },
     ...categories.filter(c => !c.is_hidden).map(c => ({ value: String(c.id), label: c.name })),
@@ -72,6 +72,7 @@ function CategorySelect({ categories, value, onChange, placeholder = '— No cat
       isSearchable
       menuPlacement="auto"
       placeholder={placeholder}
+      tabIndex={tabIndex}
     />
   );
 }
