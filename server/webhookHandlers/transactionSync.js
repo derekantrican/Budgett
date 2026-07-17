@@ -3,7 +3,7 @@ const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByP
   getTransactionByPendingId, softRemoveTransaction, restoreTransaction,
   createLog, createSplit, getAllRules, updateTransactionFromPending,
   updateTransactionPlaidData, getAccountByPlaidId, getSetting,
-  findIncompleteMatch, linkIncompleteTransaction,
+  findIncompleteMatches, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
   updateAccountBalance, updateItemStatus, get, deleteTransaction } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
@@ -179,13 +179,23 @@ async function processAddedTransaction(txn, io) {
   const account = getAccountByPlaidId(txn.account_id);
   const accountId = account ? account.id : null;
 
-  // Check for incomplete transactions (no plaid_id, within 7 days, same amount)
-  const incompleteMatch = findIncompleteMatch(-txn.amount);
-  if (incompleteMatch) {
+  // Check for incomplete transactions (no plaid_id, same amount, date/merchant proximity)
+  const incompleteMatches = findIncompleteMatches(-txn.amount, txn.date, txn.merchant_name || txn.name);
+  if (incompleteMatches.length === 1) {
+    const incompleteMatch = incompleteMatches[0];
     linkIncompleteTransaction(txn.transaction_id, txn.pending ? 1 : 0, incompleteMatch.id);
     createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
     await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${txn.merchant_name || txn.name}` });
     return;
+  }
+  else if (incompleteMatches.length > 1) {
+    // Ambiguous: multiple incomplete transactions could plausibly be this one (e.g. two
+    // same-amount manual entries with no merchant set). Guessing wrong would silently
+    // attach this transaction's data to the wrong entry — refuse and fall through to
+    // creating a new transaction instead. Worst case is a visible duplicate the user can
+    // clean up, which beats an invisible wrong merge.
+    createLog('warn', 'incomplete_match_ambiguous',
+      `Skipped auto-linking for ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)}) — ${incompleteMatches.length} incomplete candidates matched (ids: ${incompleteMatches.map(m => m.id).join(', ')}), creating new transaction to avoid a wrong merge`);
   }
 
   // Fuzzy match: posted transaction without pending_transaction_id link

@@ -218,13 +218,25 @@ const updateTransactionPlaidData = (amount, merchant, plaidCategory, rawJson, pl
        WHERE plaid_transaction_id = ?`, [amount, merchant, plaidCategory, rawJson, plaidTxnId]);
 };
 
-// Find an incomplete transaction (no plaid_id, within 7 days) matching the given amount
-const findIncompleteMatch = (amount) =>
-  get(`SELECT * FROM transactions
+// Find incomplete transactions (no plaid_id) matching the given amount, within a
+// generous window anchored to the incoming transaction's own date — NOT "now", since
+// during a backlogged catch-up sync "now" can be days removed from every transaction
+// in the batch, not just delayed ones. Loosely cross-checks merchant name (an
+// incomplete entry with no merchant set is treated as a wildcard) to offset the
+// false-positive risk the wider window introduces. Returns every match, not just the
+// best one — a same-amount collision (e.g. two blank-merchant manual entries) is
+// ambiguous, and the caller should refuse to auto-link rather than silently guess.
+const findIncompleteMatches = (amount, date, merchantName) =>
+  all(`SELECT * FROM transactions
        WHERE plaid_transaction_id IS NULL AND is_removed = 0
-       AND date >= date('now', '-7 days')
+       AND date >= date(?, '-45 days') AND date <= date(?, '+5 days')
        AND ABS(amount - ?) < 0.005
-       ORDER BY date DESC LIMIT 1`, [amount]);
+       AND (
+         merchant IS NULL OR merchant = ''
+         OR INSTR(LOWER(?), LOWER(merchant)) > 0
+         OR INSTR(LOWER(merchant), LOWER(?)) > 0
+       )
+       ORDER BY date DESC`, [date, date, amount, merchantName, merchantName]);
 
 // Link an incomplete transaction to the incoming plaid transaction. Also restores
 // is_pending from the incoming transaction — a prior unlink (see unlinkPlaidId) always
@@ -396,7 +408,7 @@ module.exports = {
   getTransactionsByDateRange, getHiddenTransactionsByDateRange, getTransactionRowsById,
   softRemoveTransaction, restoreTransaction,
   getIncompleteTransactions, updateTransactionFromPending, updateTransactionPlaidData,
-  findIncompleteMatch, linkIncompleteTransaction,
+  findIncompleteMatches, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
   // Splits
   createSplit, getSplitsByTransaction, deleteSplitsByTransaction, deleteTransaction,
