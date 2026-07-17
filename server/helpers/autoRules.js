@@ -5,13 +5,17 @@
 const {
   logMerchantRename, getDistinctRenameOriginals, countRenameEvents,
   logMerchantCategorization, getDistinctCategorizationMerchants, countCategorizationEvents,
-  getAllRules, createRule, updateRule, createLog,
+  getAllRules, createRule, updateRule, createLog, getSetting,
 } = require('../db/queries');
 const { similarity, commonPrefix, textBeforeDigits } = require('./fuzzyMatch');
 
 const THRESHOLD = 3; // how many times the same rename/categorization must happen before acting on it
 const SIMILARITY_THRESHOLD = 0.7; // how similar two merchant strings must be to count as "the same" merchant
 const MIN_PATTERN_LENGTH = 3; // reject overly broad patterns (e.g. a single shared letter)
+
+// Defaults to enabled — absence of the setting (e.g. on an existing install that
+// predates this toggle) shouldn't silently turn the feature off.
+const isAutoRuleCreationEnabled = () => getSetting('auto_rule_creation_enabled') !== '0';
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -34,6 +38,10 @@ function findCoveringRule(cluster) {
 // if a rule already covers this merchant but has no rename_to yet, fills that in
 // rather than creating a redundant second rule.
 function recordMerchantRename(transactionId, originalMerchant, newMerchant) {
+  if (!isAutoRuleCreationEnabled()) {
+    return null;
+  }
+
   const original = (originalMerchant || '').trim();
   const updated = (newMerchant || '').trim();
 
@@ -85,6 +93,10 @@ function recordMerchantRename(transactionId, originalMerchant, newMerchant) {
 // Same idea as recordMerchantRename, but for repeated manual category assignments
 // (e.g. transactions with merchant "QFC" consistently get categorized as "Groceries").
 function recordMerchantCategorization(transactionId, merchant, categoryId, categoryName) {
+  if (!isAutoRuleCreationEnabled()) {
+    return null;
+  }
+
   const merchantTrimmed = (merchant || '').trim();
 
   if (!merchantTrimmed || !categoryId) {

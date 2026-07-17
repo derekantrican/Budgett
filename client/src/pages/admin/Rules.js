@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal, Badge } from 'react-bootstrap';
-import { getRules, createRule, updateRule, deleteRule, toggleRuleDisabled, getCategories } from '../../services/api';
+import { getRules, createRule, updateRule, deleteRule, toggleRuleDisabled, getCategories, getSettings, updateSettings } from '../../services/api';
 import CategorySelect from '../../components/CategorySelect';
 import { renderNotes } from '../../utils/notes';
 
@@ -9,6 +9,7 @@ function Rules() {
   const [categories, setCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [autoRuleCreationEnabled, setAutoRuleCreationEnabled] = useState(true);
   const [form, setForm] = useState({
     pattern: '', category_id: '', notes_template: '',
     amount_condition: '', rename_to: '', is_split: false, splits: [],
@@ -19,9 +20,15 @@ function Rules() {
   }, []);
 
   const loadData = async () => {
-    const [r, c] = await Promise.all([getRules(), getCategories()]);
+    const [r, c, s] = await Promise.all([getRules(), getCategories(), getSettings()]);
     setRules(r);
     setCategories(c);
+    setAutoRuleCreationEnabled(s.auto_rule_creation_enabled !== '0');
+  };
+
+  const handleToggleAutoRuleCreation = async (enabled) => {
+    setAutoRuleCreationEnabled(enabled);
+    await updateSettings({ auto_rule_creation_enabled: enabled ? '1' : '0' });
   };
 
   const emptySplit = () => ({ category_id: '', notes: '', amount_expression: '' });
@@ -215,33 +222,45 @@ function Rules() {
         </tbody>
       </Table>
 
+      <div className="d-flex align-items-center gap-2 mt-4 mb-2">
+        <h5 className="mb-0">Auto-Created Rules</h5>
+        <Form.Check
+          type="switch"
+          id="auto-rule-creation-switch"
+          checked={autoRuleCreationEnabled}
+          onChange={(e) => handleToggleAutoRuleCreation(e.target.checked)}
+          className="mb-0"
+        />
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
+          {autoRuleCreationEnabled ? 'Enabled' : 'Disabled'}
+        </span>
+      </div>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85em', marginTop: -4 }}>
+        {autoRuleCreationEnabled
+          ? "Created automatically after you repeatedly rename or categorize a merchant in the same way. Disable or delete any you don't want."
+          : 'Auto-creation is off — repeated renames/categorizations will no longer create rules automatically.'}
+      </p>
       {autoCreatedRules.length > 0 && (
-        <>
-          <h5 className="mt-4 mb-2">Auto-Created Rules</h5>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85em', marginTop: -4 }}>
-            Created automatically after you repeatedly rename or categorize a merchant in the same way. Disable or delete any you don't want.
-          </p>
-          <Table striped hover responsive variant="dark" size="sm" className="rules-table">
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Pattern</th>
-                <th style={{ textAlign: 'left' }}>Rename To</th>
-                <th className="fit-width">Enabled</th>
-                <th className="fit-width"></th>
+        <Table striped hover responsive variant="dark" size="sm" className="rules-table">
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Pattern</th>
+              <th style={{ textAlign: 'left' }}>Rename To</th>
+              <th className="fit-width">Enabled</th>
+              <th className="fit-width"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {autoCreatedRules.map(rule => (
+              <tr key={rule.id} style={{ cursor: 'pointer', opacity: rule.is_disabled ? 0.5 : 1 }} onClick={() => openEdit(rule)}>
+                <td style={{ textAlign: 'left', fontFamily: 'monospace' }}>{rule.pattern}</td>
+                <td style={{ textAlign: 'left' }}>{rule.rename_to || '—'}</td>
+                <td className="fit-width" onClick={(e) => e.stopPropagation()}>{enabledToggle(rule)}</td>
+                <td className="fit-width">{deleteButton(rule)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {autoCreatedRules.map(rule => (
-                <tr key={rule.id} style={{ cursor: 'pointer', opacity: rule.is_disabled ? 0.5 : 1 }} onClick={() => openEdit(rule)}>
-                  <td style={{ textAlign: 'left', fontFamily: 'monospace' }}>{rule.pattern}</td>
-                  <td style={{ textAlign: 'left' }}>{rule.rename_to || '—'}</td>
-                  <td className="fit-width" onClick={(e) => e.stopPropagation()}>{enabledToggle(rule)}</td>
-                  <td className="fit-width">{deleteButton(rule)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </>
+            ))}
+          </tbody>
+        </Table>
       )}
 
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" data-bs-theme="dark">
