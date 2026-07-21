@@ -286,6 +286,13 @@ const deleteSplitsByTransaction = (txnId) => {
 
 const deleteTransaction = (txnId) => {
   run('DELETE FROM transaction_splits WHERE transaction_id = ?', [txnId]);
+  run('DELETE FROM merchant_rename_log WHERE transaction_id = ?', [txnId]);
+  run('DELETE FROM merchant_category_log WHERE transaction_id = ?', [txnId]);
+  // Clear any self-referencing FKs from OTHER transactions pointing at this one
+  // (e.g. a linked counterpart), so deleting a linked manual transaction doesn't
+  // also hit a foreign key violation.
+  run('UPDATE transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?', [txnId]);
+  run('UPDATE transactions SET matched_manual_id = NULL WHERE matched_manual_id = ?', [txnId]);
   run('DELETE FROM transactions WHERE id = ?', [txnId]);
 };
 
