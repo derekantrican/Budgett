@@ -223,9 +223,14 @@ const updateTransactionPlaidData = (amount, merchant, plaidCategory, rawJson, pl
 // during a backlogged catch-up sync "now" can be days removed from every transaction
 // in the batch, not just delayed ones. Loosely cross-checks merchant name (an
 // incomplete entry with no merchant set is treated as a wildcard) to offset the
-// false-positive risk the wider window introduces. Returns every match, not just the
-// best one — a same-amount collision (e.g. two blank-merchant manual entries) is
-// ambiguous, and the caller should refuse to auto-link rather than silently guess.
+// false-positive risk the wider window introduces. Spaces are stripped from both
+// sides before comparing, since Plaid's raw merchant names often mash words together
+// (e.g. "Wsferries") while a manually-typed name naturally has one (e.g. "WS Ferries")
+// — without this, an otherwise-perfect amount/date match silently fails to link at
+// all, with nothing logged, because the merchant check alone doesn't even try. Returns
+// every match, not just the best one — a same-amount collision (e.g. two blank-merchant
+// manual entries) is ambiguous, and the caller should refuse to auto-link rather than
+// silently guess.
 const findIncompleteMatches = (amount, date, merchantName) =>
   all(`SELECT * FROM transactions
        WHERE plaid_transaction_id IS NULL AND is_removed = 0
@@ -233,8 +238,8 @@ const findIncompleteMatches = (amount, date, merchantName) =>
        AND ABS(amount - ?) < 0.005
        AND (
          merchant IS NULL OR merchant = ''
-         OR INSTR(LOWER(?), LOWER(merchant)) > 0
-         OR INSTR(LOWER(merchant), LOWER(?)) > 0
+         OR INSTR(REPLACE(LOWER(?), ' ', ''), REPLACE(LOWER(merchant), ' ', '')) > 0
+         OR INSTR(REPLACE(LOWER(merchant), ' ', ''), REPLACE(LOWER(?), ' ', '')) > 0
        )
        ORDER BY date DESC`, [date, date, amount, merchantName, merchantName]);
 
