@@ -403,6 +403,16 @@ function Transactions() {
   const splitTotal = editSplits.reduce((sum, s) => sum + resolveAmount(s.amount), 0);
   const splitMismatch = !isNewTxn && !!editTxn && Math.abs(splitTotal - editTxn.amount) > 0.005;
 
+  // Edit Transaction dialog tab order: each split row reserves 4 sequential tabIndex
+  // slots (Notes, Category, Amount, Remove) so tabbing goes row-by-row (Note 1,
+  // Category 1, Amount 1, Note 2, ...) instead of column-by-column. The footer's
+  // tabIndex values shift dynamically to start right after however many splits
+  // currently exist, since that count can change as splits are added/removed.
+  const SPLIT_TAB_BASE = 8;
+  const SPLIT_TAB_FIELDS = 4; // Notes, Category, Amount, Remove
+  const splitTabIndex = (idx, fieldOffset) => SPLIT_TAB_BASE + idx * SPLIT_TAB_FIELDS + fieldOffset;
+  const afterSplitsTabIndex = SPLIT_TAB_BASE + editSplits.length * SPLIT_TAB_FIELDS;
+
   if (!transactions) {
     return (
       <div className="loading-container">
@@ -714,7 +724,7 @@ function Transactions() {
                 <div className="split-edit-notes">
                   <Form.Control
                     placeholder="Notes (supports **bold**, *italic*)"
-                    tabIndex={8}
+                    tabIndex={splitTabIndex(idx, 0)}
                     value={split.notes || ''}
                     onChange={(e) => updateSplitField(idx, 'notes', e.target.value)}
                   />
@@ -724,12 +734,12 @@ function Transactions() {
                     categories={categories}
                     value={split.category_id}
                     onChange={(val) => updateSplitField(idx, 'category_id', val)}
-                    tabIndex={9}
+                    tabIndex={splitTabIndex(idx, 1)}
                   />
                   <Form.Control
                     type="text"
                     inputMode="decimal"
-                    tabIndex={10}
+                    tabIndex={splitTabIndex(idx, 2)}
                     value={split.amount}
                     onChange={(e) => updateSplitField(idx, 'amount', e.target.value)}
                     onBlur={(e) => resolveSplitAmount(idx, e.target.value)}
@@ -737,7 +747,7 @@ function Transactions() {
                     style={{ width: 125, flex: 'none' }}
                   />
                   {editSplits.length > 1 && (
-                    <Button variant="outline-danger" size="sm" tabIndex={11} onClick={() => removeSplit(idx)}>×</Button>
+                    <Button variant="outline-danger" size="sm" tabIndex={splitTabIndex(idx, 3)} onClick={() => removeSplit(idx)}>×</Button>
                   )}
                 </div>
               </div>
@@ -759,17 +769,17 @@ function Transactions() {
               confirmDelete ? (
                 <>
                   <span style={{ color: '#ff4444', fontSize: '0.9em' }}>Are you sure?</span>
-                  <Button variant="danger" size="sm" tabIndex={12} onClick={handleDelete} disabled={saving}>Yes, Delete</Button>
-                  <Button variant="secondary" size="sm" tabIndex={12} onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                  <Button variant="danger" size="sm" tabIndex={afterSplitsTabIndex} onClick={handleDelete} disabled={saving}>Yes, Delete</Button>
+                  <Button variant="secondary" size="sm" tabIndex={afterSplitsTabIndex} onClick={() => setConfirmDelete(false)}>Cancel</Button>
                 </>
               ) : (
-                <Button variant="outline-danger" tabIndex={12} onClick={() => setConfirmDelete(true)}>Delete</Button>
+                <Button variant="outline-danger" tabIndex={afterSplitsTabIndex} onClick={() => setConfirmDelete(true)}>Delete</Button>
               )
             )}
             {!isNewTxn && editTxn && !editTxn.linked_transaction_id && (
               <Button
                 variant="outline-info"
-                tabIndex={15}
+                tabIndex={afterSplitsTabIndex + 3}
                 title="Link counterpart"
                 onClick={async () => {
                   const candidates = await getCounterpartCandidates(editTxn.id);
@@ -797,7 +807,7 @@ function Transactions() {
                 >
                   <Button
                     variant="outline-info"
-                    tabIndex={15}
+                    tabIndex={afterSplitsTabIndex + 3}
                     onClick={async () => {
                       const linked = await getTransaction(editTxn.linked_transaction_id);
                       openEdit(linked);
@@ -808,7 +818,7 @@ function Transactions() {
                 </OverlayTrigger>
                 <Button
                   variant="outline-warning"
-                  tabIndex={16}
+                  tabIndex={afterSplitsTabIndex + 4}
                   title="Remove link"
                   onClick={async () => {
                     await unlinkCounterpart(editTxn.id);
@@ -823,7 +833,7 @@ function Transactions() {
             {!isNewTxn && editTxn && (
               <Button
                 variant="outline-secondary"
-                tabIndex={17}
+                tabIndex={afterSplitsTabIndex + 5}
                 title={editTxn.is_hidden ? 'Unhide transaction' : 'Hide transaction'}
                 onClick={async () => {
                   await updateTransaction(editTxn.id, { is_hidden: !editTxn.is_hidden });
@@ -835,10 +845,10 @@ function Transactions() {
               </Button>
             )}
           </div>
-          <Button variant="secondary" tabIndex={13} onClick={() => setEditTxn(null)}>Cancel</Button>
+          <Button variant="secondary" tabIndex={afterSplitsTabIndex + 1} onClick={() => setEditTxn(null)}>Cancel</Button>
           <Button
             variant="primary"
-            tabIndex={14}
+            tabIndex={afterSplitsTabIndex + 2}
             onClick={handleSave}
             disabled={saving || splitMismatch}
           >
