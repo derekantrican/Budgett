@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { getAllCategories, createCategory, updateCategory, toggleCategoryHidden } = require('../db/queries');
+const { getAllCategories, createCategory, updateCategory, toggleCategoryHidden, reorderCategory } = require('../db/queries');
 
 // GET /api/categories
 router.get('/', (req, res) => {
@@ -44,7 +44,16 @@ router.put('/:id', (req, res) => {
   const { id } = req.params;
   const { name, color, budgeted_amount_expression, reset_on_new_month, sort_order } = req.body;
 
-  updateCategory(name, color || null, budgeted_amount_expression || null, reset_on_new_month ? 1 : 0, sort_order || 0, id);
+  // reset_on_new_month/sort_order are only overwritten when explicitly present in the body,
+  // so a save from a form that doesn't know about one of these fields can't clobber it
+  updateCategory(
+    name,
+    color || null,
+    budgeted_amount_expression || null,
+    reset_on_new_month === undefined ? null : (reset_on_new_month ? 1 : 0),
+    sort_order === undefined ? null : sort_order,
+    id
+  );
 
   res.json({ id: Number(id), name, color, budgeted_amount_expression, reset_on_new_month, sort_order });
 });
@@ -54,6 +63,14 @@ router.patch('/:id/toggle-hidden', (req, res) => {
   const { id } = req.params;
   const { is_hidden } = req.body;
   toggleCategoryHidden(id, is_hidden);
+  res.json({ success: true });
+});
+
+// PATCH /api/categories/:id/reorder
+router.patch('/:id/reorder', (req, res) => {
+  const { id } = req.params;
+  const { position } = req.body;
+  reorderCategory(id, Number(position));
   res.json({ success: true });
 });
 

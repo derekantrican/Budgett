@@ -299,17 +299,43 @@ const deleteTransaction = (txnId) => {
 
 // Categories
 const getAllCategories = () =>
-  all('SELECT * FROM categories ORDER BY is_hidden ASC, sort_order ASC');
+  all('SELECT * FROM categories ORDER BY sort_order ASC');
 const createCategory = (name, color, expr, resetOnNew, sortOrder) =>
   run('INSERT INTO categories (name, color, budgeted_amount_expression, reset_on_new_month, sort_order) VALUES (?, ?, ?, ?, ?)',
     [name, color, expr, resetOnNew, sortOrder]);
+// resetOnNew/sortOrder may be null to leave the existing value untouched (e.g. when the
+// client's edit form doesn't send them, so it doesn't clobber a value set elsewhere, like reordering)
 const updateCategory = (name, color, expr, resetOnNew, sortOrder, id) => {
-  run("UPDATE categories SET name = ?, color = ?, budgeted_amount_expression = ?, reset_on_new_month = ?, sort_order = ?, updated_at = datetime('now') WHERE id = ?",
+  run(`UPDATE categories SET name = ?, color = ?, budgeted_amount_expression = ?,
+       reset_on_new_month = COALESCE(?, reset_on_new_month),
+       sort_order = COALESCE(?, sort_order),
+       updated_at = datetime('now') WHERE id = ?`,
     [name, color, expr, resetOnNew, sortOrder, id]);
 };
 
 const toggleCategoryHidden = (id, isHidden) => {
   run("UPDATE categories SET is_hidden = ?, updated_at = datetime('now') WHERE id = ?", [isHidden ? 1 : 0, id]);
+};
+
+// Move category `id` to 1-indexed `position` among all categories, shifting others to make
+// room. A position beyond the end of the list is clamped to the last slot.
+const reorderCategory = (id, position) => {
+  const db = getDb();
+  const reorder = db.transaction(() => {
+    const cats = db.prepare('SELECT id FROM categories ORDER BY sort_order ASC').all();
+    const fromIndex = cats.findIndex(c => c.id === Number(id));
+    if (fromIndex === -1) {
+      return;
+    }
+
+    const [moved] = cats.splice(fromIndex, 1);
+    const toIndex = Math.max(0, Math.min(position - 1, cats.length));
+    cats.splice(toIndex, 0, moved);
+
+    const update = db.prepare("UPDATE categories SET sort_order = ?, updated_at = datetime('now') WHERE id = ?");
+    cats.forEach((c, i) => update.run(i, c.id));
+  });
+  reorder();
 };
 
 // Rules
@@ -426,7 +452,7 @@ module.exports = {
   // Splits
   createSplit, getSplitsByTransaction, deleteSplitsByTransaction, deleteTransaction,
   // Categories
-  getAllCategories, createCategory, updateCategory, toggleCategoryHidden,
+  getAllCategories, createCategory, updateCategory, toggleCategoryHidden, reorderCategory,
   // Rules
   getAllRules, createRule, updateRule, deleteRule, toggleRuleDisabled,
   logMerchantRename, getDistinctRenameOriginals, countRenameEvents,

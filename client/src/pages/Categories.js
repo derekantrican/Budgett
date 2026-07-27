@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal, Spinner, Badge } from 'react-bootstrap';
 import { PieChart, Pie, Cell } from 'recharts';
-import { getCategories, getTransactions, createCategory, updateCategoryApi, toggleCategoryHidden } from '../services/api';
+import { getCategories, getTransactions, createCategory, updateCategoryApi, toggleCategoryHidden, reorderCategory } from '../services/api';
 import { evaluateBudgetExpression, randomVibrantColor } from '../helpers/budgetFormula';
 import { formatCurrency } from '../utils/currency';
 
@@ -16,7 +16,7 @@ function Categories() {
 
   // Edit modal state
   const [editCat, setEditCat] = useState(null);
-  const [editForm, setEditForm] = useState({ color: '', budgeted_amount_expression: '', is_hidden: false });
+  const [editForm, setEditForm] = useState({ color: '', budgeted_amount_expression: '', is_hidden: false, order: 1 });
 
   // Period selector
   const now = new Date();
@@ -60,6 +60,7 @@ function Categories() {
       color: cat.color || '#4e89ff',
       budgeted_amount_expression: cat.budgeted_amount_expression || '',
       is_hidden: !!cat.is_hidden,
+      order: categories.findIndex(c => c.id === cat.id) + 1,
     });
   };
 
@@ -75,6 +76,11 @@ function Categories() {
     });
     if (editForm.is_hidden !== !!editCat.is_hidden) {
       await toggleCategoryHidden(editCat.id, editForm.is_hidden);
+    }
+
+    const originalOrder = categories.findIndex(c => c.id === editCat.id) + 1;
+    if (editForm.order && editForm.order !== originalOrder) {
+      await reorderCategory(editCat.id, editForm.order);
     }
 
     setEditCat(null);
@@ -390,6 +396,18 @@ function Categories() {
                   {editForm.budgeted_amount_expression && (
                     <span> — evaluates to <strong>{formatCurrency(evaluateBudgetExpression(editForm.budgeted_amount_expression, viewYear, viewMonth))}</strong> for {MONTHS[viewMonth]}</span>
                   )}
+                </Form.Text>
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Order</Form.Label>
+                <Form.Control
+                  type="number"
+                  min={1}
+                  value={editForm.order}
+                  onChange={(e) => setEditForm({ ...editForm, order: Number(e.target.value) })}
+                />
+                <Form.Text style={{ color: 'var(--text-secondary)' }}>
+                  Position among all {categories.length} categories. Values beyond the end are moved to the last position.
                 </Form.Text>
               </Form.Group>
               <Form.Check

@@ -70,6 +70,8 @@ export const updateCategoryApi = (id, data) =>
   request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const toggleCategoryHidden = (id, isHidden) =>
   request(`/categories/${id}/toggle-hidden`, { method: 'PATCH', body: JSON.stringify({ is_hidden: isHidden }) });
+export const reorderCategory = (id, position) =>
+  request(`/categories/${id}/reorder`, { method: 'PATCH', body: JSON.stringify({ position }) });
 
 // Items / Accounts
 export const getItems = () => request('/items');
