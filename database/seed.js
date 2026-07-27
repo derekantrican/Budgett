@@ -154,10 +154,9 @@ async function seed() {
     for (let i = 0; i < data.categories.length; i++) {
       const cat = data.categories[i];
       const budgetExpr = cat.budgetedAmount !== undefined ? String(cat.budgetedAmount) : null;
-      const includeInSummary = cat.includeInSummary === false ? 0 : 1;
       db.run(
-        "INSERT INTO categories (name, budgeted_amount_expression, include_in_summary, sort_order) VALUES (?, ?, ?, ?)",
-        [cat.name, budgetExpr, includeInSummary, i]
+        "INSERT INTO categories (name, budgeted_amount_expression, sort_order) VALUES (?, ?, ?)",
+        [cat.name, budgetExpr, i]
       );
     }
     console.log(`  Imported ${data.categories.length} categories`);

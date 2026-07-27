@@ -47,7 +47,6 @@ CREATE TABLE IF NOT EXISTS categories (
   color TEXT,
   budgeted_amount_expression TEXT, -- formula like "125 * sundays" or plain number
   reset_on_new_month INTEGER NOT NULL DEFAULT 1,
-  include_in_summary INTEGER NOT NULL DEFAULT 1,
   is_hidden INTEGER NOT NULL DEFAULT 0,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),

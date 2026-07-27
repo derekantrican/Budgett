@@ -64,6 +64,7 @@ function initQueries() {
       category_id INTEGER NOT NULL REFERENCES categories(id),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
+    'ALTER TABLE categories DROP COLUMN include_in_summary',
   ];
   for (const sql of migrations) {
     try {

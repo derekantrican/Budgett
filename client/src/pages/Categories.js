@@ -280,7 +280,7 @@ function Categories() {
               </tr>
             </thead>
             <tbody>
-              {catData.filter(c => c.include_in_summary !== 0).map(cat => {
+              {catData.map(cat => {
                 const diff = Math.abs(cat.budgeted) - Math.abs(cat.spent);
                 return (
                   <tr key={cat.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(cat)}>
