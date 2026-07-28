@@ -72,6 +72,12 @@ export const toggleCategoryHidden = (id, isHidden) =>
   request(`/categories/${id}/toggle-hidden`, { method: 'PATCH', body: JSON.stringify({ is_hidden: isHidden }) });
 export const reorderCategory = (id, position) =>
   request(`/categories/${id}/reorder`, { method: 'PATCH', body: JSON.stringify({ position }) });
+export const getCategoryUsage = (id) => request(`/categories/${id}/usage`);
+export const deleteCategoryApi = (id) => request(`/categories/${id}`, { method: 'DELETE' });
+export const mergeCategoryApi = (id, targetId) =>
+  request(`/categories/${id}/merge`, { method: 'POST', body: JSON.stringify({ targetId }) });
+export const disassociateCategoryApi = (id) =>
+  request(`/categories/${id}/disassociate`, { method: 'POST' });
 
 // Items / Accounts
 export const getItems = () => request('/items');

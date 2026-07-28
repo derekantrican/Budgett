@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal, Spinner, Badge } from 'react-bootstrap';
 import { PieChart, Pie, Cell } from 'recharts';
-import { getCategories, getTransactions, createCategory, updateCategoryApi, toggleCategoryHidden, reorderCategory } from '../services/api';
+import {
+  getCategories, getTransactions, createCategory, updateCategoryApi, toggleCategoryHidden, reorderCategory,
+  getCategoryUsage, deleteCategoryApi, mergeCategoryApi, disassociateCategoryApi,
+} from '../services/api';
 import { evaluateBudgetExpression, randomVibrantColor } from '../helpers/budgetFormula';
 import { formatCurrency } from '../utils/currency';
 
@@ -17,6 +20,10 @@ function Categories() {
   // Edit modal state
   const [editCat, setEditCat] = useState(null);
   const [editForm, setEditForm] = useState({ color: '', budgeted_amount_expression: '', is_hidden: false, order: 1 });
+
+  // Delete flow state (within the edit modal)
+  const [deleteInfo, setDeleteInfo] = useState(null); // null, or { transactionCount }
+  const [mergeTargetId, setMergeTargetId] = useState('');
 
   // Period selector
   const now = new Date();
@@ -62,6 +69,14 @@ function Categories() {
       is_hidden: !!cat.is_hidden,
       order: categories.findIndex(c => c.id === cat.id) + 1,
     });
+    setDeleteInfo(null);
+    setMergeTargetId('');
+  };
+
+  const closeEditModal = () => {
+    setEditCat(null);
+    setDeleteInfo(null);
+    setMergeTargetId('');
   };
 
   const handleEditSave = async () => {
@@ -83,7 +98,45 @@ function Categories() {
       await reorderCategory(editCat.id, editForm.order);
     }
 
-    setEditCat(null);
+    closeEditModal();
+    loadData();
+  };
+
+  const startDelete = async () => {
+    if (!editCat) {
+      return;
+    }
+
+    const usage = await getCategoryUsage(editCat.id);
+    setMergeTargetId('');
+    setDeleteInfo(usage);
+  };
+
+  const confirmDeleteEmpty = async () => {
+    await deleteCategoryApi(editCat.id);
+    closeEditModal();
+    loadData();
+  };
+
+  const confirmMerge = async () => {
+    if (!mergeTargetId) {
+      return;
+    }
+
+    await mergeCategoryApi(editCat.id, mergeTargetId);
+    closeEditModal();
+    loadData();
+  };
+
+  const confirmDisassociate = async () => {
+    await disassociateCategoryApi(editCat.id);
+    closeEditModal();
+    loadData();
+  };
+
+  const chooseHideInstead = async () => {
+    await toggleCategoryHidden(editCat.id, true);
+    closeEditModal();
     loadData();
   };
 
@@ -373,12 +426,12 @@ function Categories() {
       </Modal>
 
       {/* Edit Category Modal */}
-      <Modal show={!!editCat} onHide={() => setEditCat(null)} data-bs-theme="dark">
+      <Modal show={!!editCat} onHide={closeEditModal} data-bs-theme="dark">
         <Modal.Header closeButton>
-          <Modal.Title>Edit: {editCat?.name}</Modal.Title>
+          <Modal.Title>{deleteInfo ? `Delete: ${editCat?.name}` : `Edit: ${editCat?.name}`}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {editCat && (
+          {editCat && !deleteInfo && (
             <>
               <Form.Group className="mb-3">
                 <Form.Label>Color</Form.Label>
@@ -418,10 +471,61 @@ function Categories() {
               />
             </>
           )}
+          {editCat && deleteInfo && (
+            deleteInfo.transactionCount === 0 ? (
+              <p>Delete <strong>{editCat.name}</strong>? This cannot be undone.</p>
+            ) : (
+              <>
+                <p>
+                  <strong>{editCat.name}</strong> has {deleteInfo.transactionCount} associated transaction{deleteInfo.transactionCount === 1 ? '' : 's'}.
+                  Choose how to handle {deleteInfo.transactionCount === 1 ? 'it' : 'them'}:
+                </p>
+                <Form.Group className="mb-3">
+                  <Form.Label>Merge into another category</Form.Label>
+                  <div className="d-flex gap-2">
+                    <Form.Select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)}>
+                      <option value="">— Choose category —</option>
+                      {categories.filter(c => c.id !== editCat.id).map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </Form.Select>
+                    <Button variant="primary" disabled={!mergeTargetId} onClick={confirmMerge}>Merge</Button>
+                  </div>
+                  <Form.Text style={{ color: 'var(--text-secondary)' }}>
+                    Moves those transactions onto the chosen category, then deletes this one.
+                  </Form.Text>
+                </Form.Group>
+                <div className="d-flex justify-content-between align-items-center mb-3" style={{ gap: 12 }}>
+                  <span style={{ fontSize: '0.9em' }}>
+                    Remove the category from those transactions instead — they'll show up in Incomplete Transactions.
+                  </span>
+                  <Button variant="warning" onClick={confirmDisassociate} style={{ whiteSpace: 'nowrap' }}>Disassociate</Button>
+                </div>
+                <div className="d-flex justify-content-between align-items-center" style={{ gap: 12 }}>
+                  <span style={{ fontSize: '0.9em' }}>
+                    Or keep its history intact and just hide it instead of deleting.
+                  </span>
+                  <Button variant="secondary" onClick={chooseHideInstead} style={{ whiteSpace: 'nowrap' }}>Hide Instead</Button>
+                </div>
+              </>
+            )
+          )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setEditCat(null)}>Cancel</Button>
-          <Button variant="primary" onClick={handleEditSave}>Save Changes</Button>
+          {deleteInfo ? (
+            <>
+              <Button variant="secondary" onClick={() => setDeleteInfo(null)}>Back</Button>
+              {deleteInfo.transactionCount === 0 && (
+                <Button variant="danger" onClick={confirmDeleteEmpty}>Delete</Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button variant="danger" className="me-auto" onClick={startDelete}>Delete</Button>
+              <Button variant="secondary" onClick={closeEditModal}>Cancel</Button>
+              <Button variant="primary" onClick={handleEditSave}>Save Changes</Button>
+            </>
+          )}
         </Modal.Footer>
       </Modal>
     </div>

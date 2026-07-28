@@ -182,21 +182,31 @@ const restoreTransaction = (plaidTxnId) => {
   run("UPDATE transactions SET is_removed = 0, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
 };
 
+// A transaction counts as missing a category if it has no splits at all, or if any of its
+// splits has a null category_id (e.g. after a category is deleted via the "disassociate"
+// option). The display subqueries below prefer that null-category split, when one exists,
+// over an already-categorized sibling split, so "Fix" shows/edits the actual problem split.
 const getIncompleteTransactions = () =>
   all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name,
-       (SELECT ts2.category_id FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id LIMIT 1) as split_category_id,
-       (SELECT c.name FROM transaction_splits ts2 JOIN categories c ON ts2.category_id = c.id WHERE ts2.transaction_id = t.id LIMIT 1) as category_name,
-       (SELECT ts2.notes FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id LIMIT 1) as notes,
+       (SELECT ts2.category_id FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id
+          ORDER BY (ts2.category_id IS NULL) DESC LIMIT 1) as split_category_id,
+       (SELECT c.name FROM transaction_splits ts2 LEFT JOIN categories c ON ts2.category_id = c.id
+          WHERE ts2.transaction_id = t.id ORDER BY (ts2.category_id IS NULL) DESC LIMIT 1) as category_name,
+       (SELECT ts2.notes FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id
+          ORDER BY (ts2.category_id IS NULL) DESC LIMIT 1) as notes,
        CASE WHEN t.plaid_transaction_id IS NULL THEN 1 ELSE 0 END as missing_plaid_id,
        CASE WHEN t.merchant IS NULL OR t.merchant = '' THEN 1 ELSE 0 END as missing_merchant,
        CASE WHEN t.account_id IS NULL THEN 1 ELSE 0 END as missing_account,
-       CASE WHEN NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id) THEN 1 ELSE 0 END as missing_category
+       CASE WHEN NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)
+              OR EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id AND ts.category_id IS NULL)
+            THEN 1 ELSE 0 END as missing_category
      FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
      WHERE t.is_removed = 0 AND t.is_hidden = 0 AND (
        t.plaid_transaction_id IS NULL
        OR t.merchant IS NULL OR t.merchant = ''
        OR t.account_id IS NULL
        OR NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)
+       OR EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id AND ts.category_id IS NULL)
      )
      AND (
        t.plaid_transaction_id IS NULL
@@ -315,6 +325,65 @@ const updateCategory = (name, color, expr, resetOnNew, sortOrder, id) => {
 
 const toggleCategoryHidden = (id, isHidden) => {
   run("UPDATE categories SET is_hidden = ?, updated_at = datetime('now') WHERE id = ?", [isHidden ? 1 : 0, id]);
+};
+
+// Count of non-removed transactions currently split into this category, used to decide
+// whether deleting it needs the merge/disassociate flow or can happen outright.
+const getCategoryTransactionCount = (id) =>
+  get(`SELECT COUNT(DISTINCT ts.transaction_id) as count
+       FROM transaction_splits ts JOIN transactions t ON t.id = ts.transaction_id
+       WHERE ts.category_id = ? AND t.is_removed = 0`, [id]).count;
+
+// Clear a category out of rules/templates/logs that aren't "transactions" but still hold an
+// FK to it, so the category row itself can be deleted. Rules/templates just lose the
+// reference (category_id is nullable there); the log is purely an internal signal so its
+// rows for this category are no longer meaningful once the category is gone.
+const clearCategoryReferences = (db, id) => {
+  db.prepare('DELETE FROM merchant_category_log WHERE category_id = ?').run(id);
+  db.prepare('UPDATE rules SET category_id = NULL WHERE category_id = ?').run(id);
+  db.prepare('UPDATE record_templates SET category_id = NULL WHERE category_id = ?').run(id);
+};
+
+// Only safe to call once no transaction_splits reference this category (see the two
+// functions below, which clear that out first via merge or disassociate).
+const deleteCategory = (id) => {
+  if (getCategoryTransactionCount(id) > 0) {
+    throw new Error('Category still has associated transactions');
+  }
+
+  const db = getDb();
+  const del = db.transaction(() => {
+    clearCategoryReferences(db, id);
+    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  });
+  del();
+};
+
+// Reassign everything referencing `fromId` (splits, rules, templates, log) over to `toId`,
+// then delete `fromId`.
+const mergeCategory = (fromId, toId) => {
+  const db = getDb();
+  const merge = db.transaction(() => {
+    db.prepare('UPDATE transaction_splits SET category_id = ? WHERE category_id = ?').run(toId, fromId);
+    db.prepare('UPDATE rules SET category_id = ? WHERE category_id = ?').run(toId, fromId);
+    db.prepare('UPDATE record_templates SET category_id = ? WHERE category_id = ?').run(toId, fromId);
+    db.prepare('UPDATE merchant_category_log SET category_id = ? WHERE category_id = ?').run(toId, fromId);
+    db.prepare('DELETE FROM categories WHERE id = ?').run(fromId);
+  });
+  merge();
+};
+
+// Strip this category off its transactions by nulling category_id on the affected splits
+// (getIncompleteTransactions treats a null-category split the same as a transaction with no
+// splits at all, so this surfaces them in Incomplete Transactions), then delete the category.
+const disassociateCategory = (id) => {
+  const db = getDb();
+  const disassociate = db.transaction(() => {
+    db.prepare("UPDATE transaction_splits SET category_id = NULL, updated_at = datetime('now') WHERE category_id = ?").run(id);
+    clearCategoryReferences(db, id);
+    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  });
+  disassociate();
 };
 
 // Move category `id` to 1-indexed `position` among all categories, shifting others to make
@@ -453,6 +522,7 @@ module.exports = {
   createSplit, getSplitsByTransaction, deleteSplitsByTransaction, deleteTransaction,
   // Categories
   getAllCategories, createCategory, updateCategory, toggleCategoryHidden, reorderCategory,
+  getCategoryTransactionCount, deleteCategory, mergeCategory, disassociateCategory,
   // Rules
   getAllRules, createRule, updateRule, deleteRule, toggleRuleDisabled,
   logMerchantRename, getDistinctRenameOriginals, countRenameEvents,

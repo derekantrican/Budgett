@@ -1,5 +1,8 @@
 const router = require('express').Router();
-const { getAllCategories, createCategory, updateCategory, toggleCategoryHidden, reorderCategory } = require('../db/queries');
+const {
+  getAllCategories, createCategory, updateCategory, toggleCategoryHidden, reorderCategory,
+  getCategoryTransactionCount, deleteCategory, mergeCategory, disassociateCategory,
+} = require('../db/queries');
 
 // GET /api/categories
 router.get('/', (req, res) => {
@@ -71,6 +74,44 @@ router.patch('/:id/reorder', (req, res) => {
   const { id } = req.params;
   const { position } = req.body;
   reorderCategory(id, Number(position));
+  res.json({ success: true });
+});
+
+// GET /api/categories/:id/usage
+router.get('/:id/usage', (req, res) => {
+  const { id } = req.params;
+  res.json({ transactionCount: getCategoryTransactionCount(id) });
+});
+
+// DELETE /api/categories/:id
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    deleteCategory(id);
+    res.json({ success: true });
+  }
+  catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/categories/:id/merge
+router.post('/:id/merge', (req, res) => {
+  const { id } = req.params;
+  const { targetId } = req.body;
+
+  if (!targetId || Number(targetId) === Number(id)) {
+    return res.status(400).json({ error: 'A different target category is required' });
+  }
+
+  mergeCategory(id, targetId);
+  res.json({ success: true });
+});
+
+// POST /api/categories/:id/disassociate
+router.post('/:id/disassociate', (req, res) => {
+  const { id } = req.params;
+  disassociateCategory(id);
   res.json({ success: true });
 });
 
