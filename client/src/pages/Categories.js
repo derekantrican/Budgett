@@ -24,6 +24,7 @@ function Categories() {
   // Delete flow state (within the edit modal)
   const [deleteInfo, setDeleteInfo] = useState(null); // null, or { transactionCount }
   const [mergeTargetId, setMergeTargetId] = useState('');
+  const [showTxns, setShowTxns] = useState(false);
 
   // Period selector
   const now = new Date();
@@ -71,12 +72,14 @@ function Categories() {
     });
     setDeleteInfo(null);
     setMergeTargetId('');
+    setShowTxns(false);
   };
 
   const closeEditModal = () => {
     setEditCat(null);
     setDeleteInfo(null);
     setMergeTargetId('');
+    setShowTxns(false);
   };
 
   const handleEditSave = async () => {
@@ -216,6 +219,17 @@ function Categories() {
   const totalBudgeted = catData.reduce((sum, c) => sum + c.budgeted, 0);
   const totalSpent = catData.reduce((sum, c) => sum + c.spent, 0);
   const totalDiff = totalSpent - totalBudgeted;
+
+  // Transactions for the category currently open in the edit modal, for this same period
+  const editCatTransactions = editCat
+    ? transactions
+      .filter(t => t.splits?.some(s => s.category_id === editCat.id))
+      .map(t => ({
+        ...t,
+        categoryAmount: t.splits.filter(s => s.category_id === editCat.id).reduce((sum, s) => sum + s.amount, 0),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date))
+    : [];
 
   const uncategorizedSpent = transactions
     .reduce((sum, t) => {
@@ -442,7 +456,7 @@ function Categories() {
       </Modal>
 
       {/* Edit Category Modal */}
-      <Modal show={!!editCat} onHide={closeEditModal} data-bs-theme="dark">
+      <Modal show={!!editCat} onHide={closeEditModal} data-bs-theme="dark" contentClassName="compact-modal-content">
         <Modal.Header closeButton>
           <Modal.Title>{deleteInfo ? `Delete: ${editCat?.name}` : `Edit: ${editCat?.name}`}</Modal.Title>
         </Modal.Header>
@@ -485,6 +499,43 @@ function Categories() {
                 checked={editForm.is_hidden}
                 onChange={(e) => setEditForm({ ...editForm, is_hidden: e.target.checked })}
               />
+              <div className="mt-3">
+                <Button
+                  variant="link"
+                  style={{ color: 'var(--text-secondary)', padding: 0, fontSize: '0.9em' }}
+                  onClick={() => setShowTxns(!showTxns)}
+                >
+                  {showTxns ? '▾' : '▸'} Show Transactions ({editCatTransactions.length})
+                </Button>
+                {showTxns && (
+                  <div
+                    className="mt-2"
+                    style={{
+                      maxHeight: 220,
+                      overflowY: 'auto',
+                      border: '1px solid var(--border-color, #495057)',
+                      borderRadius: 6,
+                      padding: 8,
+                    }}
+                  >
+                    {editCatTransactions.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>No transactions this period.</div>
+                    ) : (
+                      editCatTransactions.map(t => (
+                        <div
+                          key={t.id}
+                          className="d-flex justify-content-between align-items-center"
+                          style={{ fontSize: '0.85em', padding: '4px 0', borderBottom: '1px solid var(--border-color, #495057)', gap: 8 }}
+                        >
+                          <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t.date}</span>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.merchant}</span>
+                          <span style={{ whiteSpace: 'nowrap' }}>{formatCurrency(t.categoryAmount)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           )}
           {editCat && deleteInfo && (

@@ -93,6 +93,11 @@ a {
   color: var(--text-primary);
 }
 
+.compact-modal-content {
+  --bs-modal-padding: 0.5rem;
+  --bs-modal-header-padding: 0.75rem 0.75rem;
+}
+
 .form-control {
   background-color: var(--bg-primary);
   color: var(--text-primary);
