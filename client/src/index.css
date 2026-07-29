@@ -162,7 +162,7 @@ a {
   flex-wrap: wrap;
   flex-shrink: 0;
   background: var(--bg-primary);
-  padding: 12px 0;
+  padding: 0 0 12px;
 }
 
 .transactions-body {
@@ -173,7 +173,7 @@ a {
 }
 
 .transactions-search {
-  width: 220px;
+  width: 100%;
   border: 1px solid rgba(13, 110, 253, 0.6);
   border-radius: 6px;
 }
@@ -189,11 +189,7 @@ a {
 
 @media (max-width: 767.98px) {
   .transactions-header {
-    padding: 12px 4px;
-  }
-  .transactions-search {
-    width: 100%;
-    flex: 1;
+    padding: 0 4px 12px;
   }
   .transactions-page {
     height: auto;

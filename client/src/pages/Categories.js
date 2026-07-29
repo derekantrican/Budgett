@@ -248,30 +248,27 @@ function Categories() {
 
   return (
     <div style={{ overflowX: 'hidden' }}>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4>Categories</h4>
+      <div className="d-flex justify-content-between align-items-center mb-3" style={{ flexWrap: 'wrap', gap: 12 }}>
+        <div className="d-flex align-items-center gap-2" style={{ flexWrap: 'wrap' }}>
+          <Button size="sm" variant="outline-light" onClick={prevPeriod}>◀</Button>
+          <span style={{ fontWeight: 'bold', fontSize: '1.1em', minWidth: 140, textAlign: 'center' }}>{periodLabel}</span>
+          <Button size="sm" variant="outline-light" onClick={nextPeriod}>▶</Button>
+          <Button
+            size="sm"
+            variant={viewMode === 'month' ? 'primary' : 'outline-secondary'}
+            onClick={() => setViewMode('month')}
+          >
+            Month
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === 'year' ? 'primary' : 'outline-secondary'}
+            onClick={() => setViewMode('year')}
+          >
+            Year
+          </Button>
+        </div>
         <Button variant="primary" onClick={() => setShowModal(true)}>+ Add Category</Button>
-      </div>
-
-      {/* Period Selector */}
-      <div className="d-flex align-items-center gap-2 mb-3" style={{ flexWrap: 'wrap' }}>
-        <Button size="sm" variant="outline-light" onClick={prevPeriod}>◀</Button>
-        <span style={{ fontWeight: 'bold', fontSize: '1.1em', minWidth: 140, textAlign: 'center' }}>{periodLabel}</span>
-        <Button size="sm" variant="outline-light" onClick={nextPeriod}>▶</Button>
-        <Button
-          size="sm"
-          variant={viewMode === 'month' ? 'primary' : 'outline-secondary'}
-          onClick={() => setViewMode('month')}
-        >
-          Month
-        </Button>
-        <Button
-          size="sm"
-          variant={viewMode === 'year' ? 'primary' : 'outline-secondary'}
-          onClick={() => setViewMode('year')}
-        >
-          Year
-        </Button>
       </div>
 
       <div className="categories-layout" style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', alignItems: 'flex-start', overflow: 'hidden' }}>

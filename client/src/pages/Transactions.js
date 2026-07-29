@@ -56,6 +56,15 @@ function EyeSlashIcon({ size = 16 }) {
   );
 }
 
+// Bootstrap Icons "search", inlined (same pattern as LinkIcon)
+function SearchIcon({ size = 16 }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} fill="currentColor" viewBox="0 0 16 16">
+      <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+    </svg>
+  );
+}
+
 // Format a YYYY-MM-DD date string according to a format pattern
 function formatDate(dateStr, pattern) {
   if (!dateStr) {
@@ -81,6 +90,7 @@ function Transactions() {
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [search, setSearch] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   const [editTxn, setEditTxn] = useState(null);
   const [isNewTxn, setIsNewTxn] = useState(false);
   const [editSplits, setEditSplits] = useState([]);
@@ -423,10 +433,22 @@ function Transactions() {
 
   return (
     <div className="transactions-page">
-      <div className="d-flex justify-content-between align-items-center">
-        <h4>Transactions</h4>
-        <div className="d-flex gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-3" style={{ flexWrap: 'wrap', gap: 12 }}>
+        <div className="d-flex align-items-center gap-2" style={{ flexWrap: 'wrap' }}>
+          <Button variant="outline-light" size="sm" onClick={() => navigateMonth(-1)}>&lt;</Button>
+          <span style={{ minWidth: 150, textAlign: 'center', fontWeight: 'bold' }}>{monthLabel()}</span>
+          <Button variant="outline-light" size="sm" onClick={() => navigateMonth(1)}>&gt;</Button>
+        </div>
+        <div className="d-flex align-items-center gap-2" style={{ flexWrap: 'wrap' }}>
           <Button variant="success" size="sm" onClick={openNew}>+ Add Transaction</Button>
+          <Button
+            variant={showSearch ? 'primary' : 'outline-primary'}
+            size="sm"
+            onClick={() => setShowSearch(!showSearch)}
+            title="Search"
+          >
+            <SearchIcon />
+          </Button>
           <Button
             className="d-none d-md-inline-block"
             variant={showSummary ? 'primary' : 'outline-primary'}
@@ -439,20 +461,18 @@ function Transactions() {
         </div>
       </div>
 
-      {/* Month navigation + search */}
-      <div className="transactions-header">
-        <Button variant="outline-light" size="sm" onClick={() => navigateMonth(-1)}>&lt;</Button>
-        <span style={{ minWidth: 150, textAlign: 'center', fontWeight: 'bold' }}>{monthLabel()}</span>
-        <Button variant="outline-light" size="sm" onClick={() => navigateMonth(1)}>&gt;</Button>
-        <div className="d-none d-md-block" style={{ flex: 1 }}></div>
-        <Form.Control
-          type="text"
-          placeholder="Search transactions..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="transactions-search"
-        />
-      </div>
+      {showSearch && (
+        <div className="transactions-header">
+          <Form.Control
+            type="text"
+            placeholder="Search transactions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="transactions-search"
+            autoFocus
+          />
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Main content */}
