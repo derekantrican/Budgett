@@ -213,6 +213,10 @@ function Categories() {
     return { ...cat, spent, budgeted: evaluateBudget(cat) };
   });
 
+  const totalBudgeted = catData.reduce((sum, c) => sum + c.budgeted, 0);
+  const totalSpent = catData.reduce((sum, c) => sum + c.spent, 0);
+  const totalDiff = totalSpent - totalBudgeted;
+
   const uncategorizedSpent = transactions
     .reduce((sum, t) => {
       if (!t.splits || t.splits.length === 0) {
@@ -339,8 +343,20 @@ function Categories() {
               </tr>
             </thead>
             <tbody>
+              <tr style={{ fontWeight: 'bold', borderBottom: '2px solid var(--border-color, #495057)' }}>
+                <td style={{ textAlign: 'left' }}>Subtotal</td>
+                <td className="fit-width" style={{ color: totalBudgeted >= 0 ? '#4fa94d' : '#dc3545' }}>
+                  {totalBudgeted ? formatCurrency(totalBudgeted) : '—'}
+                </td>
+                <td className="fit-width" style={{ color: totalSpent >= 0 ? '#4fa94d' : '#dc3545' }}>
+                  {formatCurrency(totalSpent)}
+                </td>
+                <td className="fit-width" style={{ color: totalDiff >= 0 ? '#4fa94d' : '#dc3545' }}>
+                  {formatCurrency(totalDiff)}
+                </td>
+              </tr>
               {catData.map(cat => {
-                const diff = Math.abs(cat.budgeted) - Math.abs(cat.spent);
+                const diff = cat.spent - cat.budgeted;
                 return (
                   <tr key={cat.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(cat)}>
                     <td style={{ textAlign: 'left' }}>
@@ -350,7 +366,7 @@ function Categories() {
                     <td className="fit-width">{cat.budgeted ? formatCurrency(cat.budgeted) : '—'}</td>
                     <td className="fit-width">{formatCurrency(cat.spent)}</td>
                     <td className="fit-width" style={{ color: diff >= 0 ? '#4fa94d' : '#dc3545' }}>
-                      {cat.budgeted !== 0 ? formatCurrency(diff) : '—'}
+                      {formatCurrency(diff)}
                     </td>
                   </tr>
                 );
