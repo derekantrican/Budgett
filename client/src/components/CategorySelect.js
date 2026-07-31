@@ -56,9 +56,15 @@ const darkStyles = {
 };
 
 function CategorySelect({ categories, value, onChange, placeholder = '— No category —', tabIndex }) {
+  const selectedId = value ? String(value) : '';
   const options = [
     { value: '', label: placeholder },
-    ...categories.filter(c => !c.is_hidden).map(c => ({ value: String(c.id), label: c.name })),
+    // A hidden category stays selectable only if it's the value already assigned here, so an
+    // existing assignment still displays correctly instead of silently reading as "no category" —
+    // but it can't be newly picked for a split that isn't already set to it.
+    ...categories
+      .filter(c => !c.is_hidden || String(c.id) === selectedId)
+      .map(c => ({ value: String(c.id), label: c.is_hidden ? `${c.name} (hidden)` : c.name })),
   ];
 
   const selected = options.find(o => o.value === String(value || '')) || options[0];
