@@ -5,6 +5,7 @@ import { formatCurrency, setCurrencySettings } from '../utils/currency';
 import CategorySelect from '../components/CategorySelect';
 import { renderNotes } from '../utils/notes';
 import { evaluateMathExpression } from '../helpers/mathExpression';
+import { formatDate } from '../utils/date';
 
 const fmt = formatCurrency;
 
@@ -63,26 +64,6 @@ function SearchIcon({ size = 16 }) {
       <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
     </svg>
   );
-}
-
-// Format a YYYY-MM-DD date string according to a format pattern
-function formatDate(dateStr, pattern) {
-  if (!dateStr) {
-    return '';
-  }
-
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const monthsFull = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-  return pattern
-    .replace('YYYY', y)
-    .replace('YY', String(y).slice(-2))
-    .replace('MMMM', monthsFull[m - 1])
-    .replace('MMM', months[m - 1])
-    .replace('MM', String(m).padStart(2, '0'))
-    .replace('DD', String(d).padStart(2, '0'))
-    .replace(/\bD\b/, d);
 }
 
 function Transactions() {

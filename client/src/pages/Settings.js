@@ -435,6 +435,9 @@ function Settings() {
         <NavLink to="/settings/incomplete" style={{ textDecoration: 'none' }}>
           <Button variant="outline-light">Incomplete Transactions</Button>
         </NavLink>
+        <NavLink to="/settings/money-movement" style={{ textDecoration: 'none' }}>
+          <Button variant="outline-light">Money Movement</Button>
+        </NavLink>
       </div>
     </div>
   );

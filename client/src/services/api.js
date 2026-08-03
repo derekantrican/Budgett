@@ -110,6 +110,7 @@ export const toggleRuleDisabled = (id, isDisabled) =>
 export const getLogs = (limit = 100) => request(`/admin/logs?limit=${limit}`);
 export const getWebhooks = (limit = 50) => request(`/admin/webhooks?limit=${limit}`);
 export const getIncompleteTransactions = () => request('/admin/incomplete-transactions');
+export const getMoneyMovement = (days = 30) => request(`/admin/money-movement?days=${days}`);
 
 // Settings
 export const getSettings = () => request('/settings');

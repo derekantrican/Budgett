@@ -215,6 +215,29 @@ const getIncompleteTransactions = () =>
      )
      ORDER BY t.date DESC`);
 
+// Transfer pairs (is_transfer=1, linked_transaction_id set on both sides) within the last
+// `days` days. The link is bidirectional — both rows point at each other — so anchor on the
+// negative (outgoing) leg only, to avoid returning each pair twice. Deliberately does NOT
+// filter is_hidden: transfer legs are commonly hidden from the main Transactions view by
+// design, and this view exists specifically to surface them anyway.
+const getMoneyMovement = (days = 30) =>
+  all(`SELECT
+      t.id, t.date, t.amount,
+      COALESCE(fa.display_name, fa.name) as from_name, fa.mask as from_mask,
+      fi.display_icon_url as from_icon_url, fi.institution_logo as from_logo, fi.institution_color as from_color,
+      lt.id as to_id,
+      COALESCE(ta.display_name, ta.name) as to_name, ta.mask as to_mask,
+      ti.display_icon_url as to_icon_url, ti.institution_logo as to_logo, ti.institution_color as to_color
+    FROM transactions t
+    JOIN transactions lt ON t.linked_transaction_id = lt.id
+    LEFT JOIN accounts fa ON t.account_id = fa.id
+    LEFT JOIN items fi ON fa.item_id = fi.id
+    LEFT JOIN accounts ta ON lt.account_id = ta.id
+    LEFT JOIN items ti ON ta.item_id = ti.id
+    WHERE t.is_transfer = 1 AND t.amount < 0 AND t.is_removed = 0 AND lt.is_removed = 0
+      AND t.date >= date('now', ?)
+    ORDER BY t.date DESC`, [`-${days} days`]);
+
 // Note: pending_transaction_id is intentionally kept (not nulled) after promotion, so a
 // delayed "remove" webhook for the old pending id can still be reconciled — see
 // getTransactionByPendingId's use in processRemovedTransaction.
@@ -515,7 +538,7 @@ module.exports = {
   createTransaction, getTransactionByPlaidId, getTransactionByPendingId,
   getTransactionsByDateRange, getHiddenTransactionsByDateRange, getTransactionRowsById,
   softRemoveTransaction, restoreTransaction,
-  getIncompleteTransactions, updateTransactionFromPending, updateTransactionPlaidData,
+  getIncompleteTransactions, getMoneyMovement, updateTransactionFromPending, updateTransactionPlaidData,
   findIncompleteMatches, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
   // Splits
