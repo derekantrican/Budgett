@@ -7,7 +7,7 @@ const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByP
   findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
   updateAccountBalance, updateItemStatus, get, deleteTransaction } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
-const { sendNotifications } = require('../helpers/notifications');
+const { sendNotifications, escapeDiscordMarkdown } = require('../helpers/notifications');
 const { formatAmount } = require('../helpers/format');
 const { evaluateMathExpression } = require('../helpers/mathExpression');
 
@@ -62,7 +62,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     if (allAdded.length > 0) {
       details += 'Added transactions:\n\n';
       details += allAdded.map(t => {
-        return `- ${formatAmount(-t.amount)} ${t.merchant_name || t.name}`;
+        return `- ${formatAmount(-t.amount)} ${escapeDiscordMarkdown(t.merchant_name || t.name)}`;
       }).join('\n');
       details += '\n\n';
     }
@@ -70,7 +70,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
     if (allModified.length > 0) {
       details += 'Modified transactions:\n\n';
       details += allModified.map(t => {
-        return `- ${formatAmount(-t.amount)} ${t.merchant_name || t.name}`;
+        return `- ${formatAmount(-t.amount)} ${escapeDiscordMarkdown(t.merchant_name || t.name)}`;
       }).join('\n');
       details += '\n\n';
     }
@@ -81,7 +81,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
         // Check if removed txn matches a pending_transaction_id in added (pending→posted)
         const match = allAdded.find(a => a.pending_transaction_id === r.transaction_id);
         if (match) {
-          return `- ${r.transaction_id} (was: ${formatAmount(-match.amount)} ${match.merchant_name || match.name})`;
+          return `- ${r.transaction_id} (was: ${formatAmount(-match.amount)} ${escapeDiscordMarkdown(match.merchant_name || match.name)})`;
         }
 
         return `- ${r.transaction_id}`;
@@ -171,7 +171,7 @@ async function processAddedTransaction(txn, io) {
       matchedPending.id
     );
     createLog('info', 'pending_matched', `Pending→Posted: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
-    await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${txn.merchant_name || txn.name}` });
+    await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${escapeDiscordMarkdown(txn.merchant_name || txn.name)}` });
     return;
   }
 
@@ -185,7 +185,7 @@ async function processAddedTransaction(txn, io) {
     const incompleteMatch = incompleteMatches[0];
     linkIncompleteTransaction(txn.transaction_id, txn.pending ? 1 : 0, incompleteMatch.id);
     createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
-    await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${txn.merchant_name || txn.name}` });
+    await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${escapeDiscordMarkdown(txn.merchant_name || txn.name)}` });
     return;
   }
   else if (incompleteMatches.length > 1) {
@@ -207,7 +207,7 @@ async function processAddedTransaction(txn, io) {
       promotePendingToPosted(txn.transaction_id, -txn.amount, fuzzyMatch.id);
       createLog('info', 'fuzzy_pending_matched',
         `Posted txn matched pending #${fuzzyMatch.id} (${fuzzyMatch.merchant}): plaid_id ${fuzzyMatch.plaid_transaction_id} → ${txn.transaction_id}, amount ${fuzzyMatch.amount} → ${-txn.amount}`);
-      await sendNotifications('sync_update', { message: `UPDATED (fuzzy matched pending): ${txn.merchant_name || txn.name} → ${fuzzyMatch.merchant}` });
+      await sendNotifications('sync_update', { message: `UPDATED (fuzzy matched pending): ${escapeDiscordMarkdown(txn.merchant_name || txn.name)} → ${escapeDiscordMarkdown(fuzzyMatch.merchant)}` });
       return;
     }
   }
@@ -267,7 +267,10 @@ async function processAddedTransaction(txn, io) {
     ...(account ? { paymentmethod: account.display_name || account.name } : {}),
     ...(matchedRule && matchedRule.category_name ? { category: matchedRule.category_name } : {}),
   });
-  const recordLink = `${baseUrl}/recordTransaction?${recordParams.toString()}`;
+  // URLSearchParams leaves "*" unescaped (it's unreserved in application/x-www-form-urlencoded),
+  // but a raw "*" inside the <...>-wrapped link can still combine with markdown elsewhere in a
+  // Discord message and corrupt it — percent-encode it explicitly so the link is fully inert.
+  const recordLink = `${baseUrl}/recordTransaction?${recordParams.toString().replace(/\*/g, '%2A')}`;
 
   // Send notifications
   await sendNotifications('transaction_found', {
