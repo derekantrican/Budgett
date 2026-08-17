@@ -287,7 +287,19 @@ function Settings() {
           )}
         </Modal.Body>
         <Modal.Footer className="d-flex justify-content-between">
-          <Button variant="outline-danger" onClick={() => setConfirmDelete(true)}>Delete</Button>
+          <div>
+            <Button variant="outline-danger" className="me-2" onClick={() => setConfirmDelete(true)}>Delete</Button>
+            <Button
+              variant="outline-warning"
+              onClick={() => {
+                const itemId = editItem.id;
+                setEditItem(null);
+                handleGetLinkToken(itemId);
+              }}
+            >
+              Reconnect
+            </Button>
+          </div>
           <div>
             <Button variant="secondary" className="me-2" onClick={() => setEditItem(null)}>Cancel</Button>
             <Button variant="primary" onClick={handleEditSave}>Save</Button>
