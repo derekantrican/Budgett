@@ -41,6 +41,11 @@ router.get('/token', async (req, res) => {
       }
 
       linkParams.access_token = item.plaid_access_token;
+      // Without this, update mode only lets the user fix credentials/MFA — deselecting
+      // accounts in the Link UI won't actually change the Item's authorized account set
+      // for non-OAuth institutions (OAuth institutions with their own picker ignore this
+      // and always allow account selection).
+      linkParams.update = { account_selection_enabled: true };
     }
     else {
       // New connection mode
