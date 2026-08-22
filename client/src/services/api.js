@@ -87,6 +87,9 @@ export const deleteItem = (id, deleteTransactions) =>
   request(`/items/${id}?delete_transactions=${deleteTransactions}`, { method: 'DELETE' });
 export const exchangeToken = (publicToken, institution) =>
   request('/items', { method: 'POST', body: JSON.stringify({ public_token: publicToken, institution }) });
+export const getAccountDiff = (itemId) => request(`/items/${itemId}/account-diff`);
+export const removeAccountsApi = (itemId, accountIds, deleteTransactions) =>
+  request(`/items/${itemId}/remove-accounts`, { method: 'POST', body: JSON.stringify({ account_ids: accountIds, delete_transactions: deleteTransactions }) });
 export const getAccounts = () => request('/accounts');
 export const updateAccount = (id, data) =>
   request(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(data) });

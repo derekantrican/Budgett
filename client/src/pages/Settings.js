@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Form, Modal } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
-import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount, deleteItem } from '../services/api';
+import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount, deleteItem, getAccountDiff, removeAccountsApi } from '../services/api';
 
 function Settings() {
   const [items, setItems] = useState([]);
@@ -22,6 +22,11 @@ function Settings() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteOptions, setDeleteOptions] = useState(false);
   const [deleteTxnAction, setDeleteTxnAction] = useState('keep');
+
+  // Accounts deselected during a reconnect (Link update mode)
+  const [removedAccounts, setRemovedAccounts] = useState([]);
+  const [removeAccountsItemId, setRemoveAccountsItemId] = useState(null);
+  const [removeAccountsTxnAction, setRemoveAccountsTxnAction] = useState('keep');
 
   useEffect(() => {
     loadItems();
@@ -67,6 +72,19 @@ function Settings() {
   const onSuccess = useCallback(async (publicToken, metadata) => {
     if (reauthItemId) {
       await updateItem(reauthItemId, { status: 'ok' });
+
+      // Account selection may have changed during update mode — check whether any
+      // previously-linked accounts were deselected so we can ask what to do with them.
+      try {
+        const diff = await getAccountDiff(reauthItemId);
+        if (diff.removed && diff.removed.length > 0) {
+          setRemovedAccounts(diff.removed);
+          setRemoveAccountsItemId(reauthItemId);
+        }
+      }
+      catch (err) {
+        // Non-fatal — the reconnect itself already succeeded
+      }
     }
     else {
       await exchangeToken(publicToken, metadata.institution);
@@ -76,6 +94,18 @@ function Settings() {
     setReauthItemId(null);
     loadItems();
   }, [reauthItemId]);
+
+  const handleResolveRemovedAccounts = async () => {
+    await removeAccountsApi(
+      removeAccountsItemId,
+      removedAccounts.map(a => a.id),
+      removeAccountsTxnAction === 'delete'
+    );
+    setRemovedAccounts([]);
+    setRemoveAccountsItemId(null);
+    setRemoveAccountsTxnAction('keep');
+    loadItems();
+  };
 
   const { open, ready } = usePlaidLink({
     token: linkToken,
@@ -348,6 +378,43 @@ function Settings() {
             setEditItem(null);
             loadItems();
           }}>Continue</Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Removed Accounts Modal */}
+      <Modal show={removedAccounts.length > 0} onHide={() => {
+        setRemovedAccounts([]); setRemoveAccountsItemId(null); setRemoveAccountsTxnAction('keep');
+      }} data-bs-theme="dark" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Accounts Removed</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            The following account{removedAccounts.length > 1 ? 's are' : ' is'} no longer selected for this institution:
+          </p>
+          <ul>
+            {removedAccounts.map((a) => (
+              <li key={a.id}>
+                {a.name}{a.mask ? ` (*${a.mask})` : ''} — {a.transaction_count} transaction{a.transaction_count === 1 ? '' : 's'}
+              </li>
+            ))}
+          </ul>
+          <Form.Group>
+            <Form.Label>Their transactions in the database should be</Form.Label>
+            <Form.Select
+              value={removeAccountsTxnAction}
+              onChange={(e) => setRemoveAccountsTxnAction(e.target.value)}
+            >
+              <option value="keep">Kept</option>
+              <option value="delete">Deleted</option>
+            </Form.Select>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => {
+            setRemovedAccounts([]); setRemoveAccountsItemId(null); setRemoveAccountsTxnAction('keep');
+          }}>Decide Later</Button>
+          <Button variant="danger" onClick={handleResolveRemovedAccounts}>Continue</Button>
         </Modal.Footer>
       </Modal>
 

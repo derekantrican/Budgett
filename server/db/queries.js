@@ -143,6 +143,27 @@ const getAccountByPlaidId = (plaidAccountId) =>
 const updateAccountBalance = (currentBal, availBal, id) => {
   run("UPDATE accounts SET current_balance = ?, available_balance = ?, updated_at = datetime('now') WHERE id = ?", [currentBal, availBal, id]);
 };
+const getAccountTransactionCount = (accountId) =>
+  get('SELECT COUNT(*) as count FROM transactions WHERE account_id = ? AND is_removed = 0', [accountId]).count;
+
+// Called when an account is deselected via Plaid Link update mode (account is no longer
+// accessible, so there's nothing to re-sync — only local cleanup is needed).
+const removeAccounts = (accountIds, deleteTransactions) => {
+  if (accountIds.length === 0) {
+    return;
+  }
+
+  const placeholders = accountIds.map(() => '?').join(',');
+  if (deleteTransactions) {
+    run(`DELETE FROM transaction_splits WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id IN (${placeholders}))`, accountIds);
+    run(`DELETE FROM transactions WHERE account_id IN (${placeholders})`, accountIds);
+    run(`DELETE FROM accounts WHERE id IN (${placeholders})`, accountIds);
+  }
+  else {
+    // Soft delete — keeps transactions and their account reference intact for historical display.
+    run(`UPDATE accounts SET is_deleted = 1, updated_at = datetime('now') WHERE id IN (${placeholders})`, accountIds);
+  }
+};
 
 // Transactions
 const createTransaction = (plaidTxnId, pendingTxnId, accountId, date, merchant, amount, isPending, plaidCategory, rawJson) =>
@@ -534,6 +555,7 @@ module.exports = {
   createItem, getAllItems, getItemByPlaidId, updateItemCursor, updateItemStatus, deleteItem,
   // Accounts
   createAccount, getAccountsByItem, getAllAccounts, getAccountByPlaidId, updateAccountBalance,
+  getAccountTransactionCount, removeAccounts,
   // Transactions
   createTransaction, getTransactionByPlaidId, getTransactionByPendingId,
   getTransactionsByDateRange, getHiddenTransactionsByDateRange, getTransactionRowsById,

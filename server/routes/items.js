@@ -1,5 +1,8 @@
 const router = require('express').Router();
-const { createItem, createAccount, getAccountsByItem, deleteItem, run } = require('../db/queries');
+const {
+  createItem, createAccount, getAccountsByItem, deleteItem, run, get,
+  getAccountTransactionCount, removeAccounts,
+} = require('../db/queries');
 const { plaidClient } = require('./link');
 const { syncTransactions } = require('../webhookHandlers/transactionSync');
 
@@ -39,6 +42,69 @@ router.patch('/:id', (req, res) => {
   }
 
   res.json({ success: true });
+});
+
+// GET /api/items/:id/account-diff - compare Plaid's currently-selected accounts against
+// what's stored locally (used after reconnecting via Link update mode, where the user may
+// have deselected accounts). Newly-selected accounts are added automatically; removed
+// accounts are only reported here so the caller can decide what to do with their transactions.
+router.get('/:id/account-diff', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const item = get('SELECT * FROM items WHERE id = ?', [id]);
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    const plaidRes = await plaidClient.accountsGet({ access_token: item.plaid_access_token });
+    const plaidAccounts = plaidRes.data.accounts;
+    const plaidAccountIds = new Set(plaidAccounts.map(a => a.account_id));
+
+    const dbAccounts = getAccountsByItem(item.id);
+    const dbPlaidIds = new Set(dbAccounts.map(a => a.plaid_account_id));
+
+    const removed = dbAccounts.filter(a => !plaidAccountIds.has(a.plaid_account_id));
+    const added = plaidAccounts.filter(a => !dbPlaidIds.has(a.account_id));
+
+    for (const acct of added) {
+      createAccount(
+        item.id, acct.account_id, acct.name, acct.official_name,
+        acct.type, acct.subtype, acct.mask,
+        acct.balances.current, acct.balances.available
+      );
+    }
+
+    res.json({
+      removed: removed.map(a => ({
+        id: a.id,
+        name: a.display_name || a.name,
+        mask: a.mask,
+        transaction_count: getAccountTransactionCount(a.id),
+      })),
+      added_count: added.length,
+    });
+  }
+  catch (err) {
+    const logger = require('../helpers/logger');
+    logger.error('account_diff_failed', err.response?.data?.error_message || err.message);
+    res.status(500).json({ error: 'Failed to check account changes' });
+  }
+});
+
+// POST /api/items/:id/remove-accounts - resolve accounts reported by account-diff as removed
+router.post('/:id/remove-accounts', (req, res) => {
+  const { account_ids, delete_transactions } = req.body;
+
+  try {
+    removeAccounts(account_ids || [], !!delete_transactions);
+    res.json({ success: true });
+  }
+  catch (err) {
+    const logger = require('../helpers/logger');
+    logger.error('remove_accounts_failed', err.message);
+    res.status(500).json({ error: 'Failed to remove accounts' });
+  }
 });
 
 // DELETE /api/items/:id
