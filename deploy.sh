@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-cd /home/derek/Budgett
+REPO_DIR="$(dirname "$(readlink -f "$0")")"
+cd "$REPO_DIR"
 
 MODE="${1:-tmux}"
 
@@ -33,7 +34,7 @@ echo "Stopping existing server..."
 tmux kill-session -t budgett 2>/dev/null || true
 
 echo "Starting server in tmux..."
-tmux new-session -d -s budgett "cd /home/derek/Budgett/server && NODE_ENV=production node index.js"
+tmux new-session -d -s budgett "cd $REPO_DIR/server && NODE_ENV=production node index.js"
 
 echo "Done! Server is running in tmux session 'budgett'"
 echo "  Attach with: tmux attach -t budgett"

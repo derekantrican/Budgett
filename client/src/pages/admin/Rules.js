@@ -372,7 +372,7 @@ function Rules() {
                         size="sm"
                         value={split.notes || ''}
                         onChange={(e) => updateSplit(i, 'notes', e.target.value)}
-                        placeholder="e.g. Half to Derek"
+                        placeholder="e.g. Half"
                       />
                     </Form.Group>
                     <Form.Group className="mb-0">
