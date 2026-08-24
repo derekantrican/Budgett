@@ -62,6 +62,10 @@ function formatMessage(eventType, vars) {
       return `⚠️ ${escapeDiscordMarkdown(vars.institution)} needs to be re-authorized. Please visit: [[RE-AUTH]](<${vars.settings_link}>) to reauthorize it`;
     case 'item_login_repaired':
       return `✅ ${escapeDiscordMarkdown(vars.institution)} login repaired`;
+    case 'rule_matched':
+      return `📋 Rule "${escapeDiscordMarkdown(vars.pattern)}" matched for ${escapeDiscordMarkdown(vars.merchant)}`
+        + `${vars.rename_to ? ` → renamed to ${escapeDiscordMarkdown(vars.rename_to)}` : ''}`
+        + `${vars.category_name ? `, categorized as ${escapeDiscordMarkdown(vars.category_name)}` : ''}`;
     default:
       return `[${eventType}] ${JSON.stringify(vars)}`;
   }
