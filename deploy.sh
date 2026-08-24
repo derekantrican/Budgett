@@ -3,6 +3,23 @@ set -e
 
 cd /home/derek/Budgett
 
+MODE="${1:-tmux}"
+
+if [ "$MODE" = "docker" ]; then
+  echo "Stopping existing Docker container (if running)..."
+  docker compose down
+
+  echo "Pulling latest from GitHub..."
+  git pull
+
+  echo "Building image and starting container..."
+  docker compose up --build -d
+
+  echo "Done! Container is running."
+  echo "  View logs with: docker compose logs -f"
+  exit 0
+fi
+
 echo "Pulling latest from GitHub..."
 git pull
 
