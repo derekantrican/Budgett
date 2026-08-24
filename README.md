@@ -1,4 +1,6 @@
-# Budgett
+<p align="center">
+  <img src="client/public/banner.png" alt="Budgett" height="80">
+</p>
 
 A self-hosted budget management app powered by Plaid.
 
@@ -74,13 +76,6 @@ This serves the built React app and the `/api/*` routes from a single Express pr
 
 A `Dockerfile` and `docker-compose.yml` are also provided if you'd rather run it in a container.
 
-### Other scripts
-
-| Command | What it does |
-|---|---|
-| `npm run db:seed` | One-off/legacy data seeding (see `database/seed.js`) |
-| `npm run db:import` | Bulk-import transactions from an `.xlsx`/`.csv` file — see `database/import-transactions.js` for the expected format |
-
 ## Project Structure
 
 ```
@@ -97,8 +92,9 @@ Budgett/
 │   ├── services/        # External integrations (e.g. SimpleFIN)
 │   ├── middleware/      # Error handling
 │   ├── routes/          # API routes
+│   ├── scripts/         # One-off/maintenance scripts (transaction import, webhook migration)
 │   └── webhookHandlers/ # Plaid webhook processing
-├── database/            # SQLite schema, seed & import scripts
+├── database/            # SQLite schema
 ├── docs/                # Additional docs
 ├── Dockerfile / docker-compose.yml
 ├── .env.template        # Environment config template
