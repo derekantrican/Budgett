@@ -255,6 +255,12 @@ async function processAddedTransaction(txn, io) {
     }
 
     createLog('info', 'rule_matched', `Rule "${matchedRule.pattern}" matched for ${merchantName}${matchedRule.rename_to ? ' → ' + matchedRule.rename_to : ''}`);
+    await sendNotifications('rule_matched', {
+      merchant: merchantName,
+      pattern: matchedRule.pattern,
+      rename_to: matchedRule.rename_to || null,
+      category_name: matchedRule.category_name || null,
+    });
   }
 
   // Build record link
