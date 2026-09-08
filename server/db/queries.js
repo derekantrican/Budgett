@@ -259,13 +259,14 @@ const getMoneyMovement = (days = 30) =>
       AND t.date >= date('now', ?)
     ORDER BY t.date DESC`, [`-${days} days`]);
 
-// Note: pending_transaction_id is intentionally kept (not nulled) after promotion, so a
-// delayed "remove" webhook for the old pending id can still be reconciled — see
-// getTransactionByPendingId's use in processRemovedTransaction.
-const updateTransactionFromPending = (plaidTxnId, amount, id) => {
-  run(`UPDATE transactions SET plaid_transaction_id = ?, is_pending = 0,
+// The pre-post ("pending") plaid id is recorded in pending_transaction_id when the row is
+// promoted, for two reasons: a delayed "remove" webhook for the old id can still be
+// reconciled via getTransactionByPendingId (see processRemovedTransaction), and downstream
+// consumers that keyed off the old id can still find the row.
+const updateTransactionFromPending = (plaidTxnId, amount, id, previousPlaidTxnId) => {
+  run(`UPDATE transactions SET plaid_transaction_id = ?, pending_transaction_id = ?, is_pending = 0,
        amount = ?, updated_at = datetime('now') WHERE id = ?`,
-  [plaidTxnId, amount, id]);
+  [plaidTxnId, previousPlaidTxnId, amount, id]);
 };
 
 const updateTransactionPlaidData = (amount, merchant, plaidCategory, rawJson, plaidTxnId) => {
@@ -316,12 +317,13 @@ const findFuzzyPendingMatch = (accountId, amount, date, merchantName) =>
        ORDER BY ABS(amount - ?) ASC LIMIT 1`,
   [accountId, date, date, amount, merchantName, merchantName, amount]);
 
-// Promote a pending transaction to posted: update plaid_id, amount, mark not pending.
-// pending_transaction_id is kept (see note on updateTransactionFromPending above).
-const promotePendingToPosted = (newPlaidTxnId, amount, id) =>
-  run(`UPDATE transactions SET plaid_transaction_id = ?, amount = ?, is_pending = 0,
+// Promote a pending transaction to posted: swap in the posted plaid id, update amount, mark
+// not pending, and stash the old plaid id in pending_transaction_id (see note on
+// updateTransactionFromPending above).
+const promotePendingToPosted = (newPlaidTxnId, amount, id, previousPlaidTxnId) =>
+  run(`UPDATE transactions SET plaid_transaction_id = ?, pending_transaction_id = ?, amount = ?, is_pending = 0,
        updated_at = datetime('now') WHERE id = ?`,
-  [newPlaidTxnId, amount, id]);
+  [newPlaidTxnId, previousPlaidTxnId, amount, id]);
 
 // Strip plaid_id from a transaction (demotes to incomplete, preserves user data)
 const unlinkPlaidId = (id) =>

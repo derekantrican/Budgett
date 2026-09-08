@@ -168,7 +168,8 @@ async function processAddedTransaction(txn, io) {
     updateTransactionFromPending(
       txn.transaction_id,
       -txn.amount,
-      matchedPending.id
+      matchedPending.id,
+      matchedPending.plaid_transaction_id
     );
     createLog('info', 'pending_matched', `Pending→Posted: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
     await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${escapeDiscordMarkdown(txn.merchant_name || txn.name)}` });
@@ -204,7 +205,7 @@ async function processAddedTransaction(txn, io) {
     const incomingMerchant = txn.merchant_name || txn.name || '';
     const fuzzyMatch = findFuzzyPendingMatch(accountId, -txn.amount, txn.date, incomingMerchant);
     if (fuzzyMatch) {
-      promotePendingToPosted(txn.transaction_id, -txn.amount, fuzzyMatch.id);
+      promotePendingToPosted(txn.transaction_id, -txn.amount, fuzzyMatch.id, fuzzyMatch.plaid_transaction_id);
       createLog('info', 'fuzzy_pending_matched',
         `Posted txn matched pending #${fuzzyMatch.id} (${fuzzyMatch.merchant}): plaid_id ${fuzzyMatch.plaid_transaction_id} → ${txn.transaction_id}, amount ${fuzzyMatch.amount} → ${-txn.amount}`);
       await sendNotifications('sync_update', { message: `UPDATED (fuzzy matched pending): ${escapeDiscordMarkdown(txn.merchant_name || txn.name)} → ${escapeDiscordMarkdown(fuzzyMatch.merchant)}` });
