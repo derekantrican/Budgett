@@ -16,3 +16,7 @@ This mostly doesn't matter today because `missing_category` only fired when a tr
 
 ## Universal variables?
 This is not a fully-flushed out idea, but something like `$CATEGORY_GROCERIES` or `$CAT(Groceries)` that can be used anywhere in the app (formulas, widgets, etc). I think in some places (like the above "Custom widget system" or "Planning" page) this might be needed, but I'm not sure how we would fully implement this. Things variables could show (we may not want to support all of these): a transaction amount by id, a category budgeted amount by name, a category remaining amount by name, an account balance by name/id, etc.
+
+## Better notifications
+- Notification methods: more methods (only Discord webhook is supported right now)
+- Notification events: currently notifications happen for a hardcoded set of events. But we could allow users to select what events they want notifications for (and maybe even multiple notification methods - different methods for different notifications). One example: "When emergency fund is no longer fully funded" (i.e. the Emergency Fund planning view's fund balance drops below its target amount).
