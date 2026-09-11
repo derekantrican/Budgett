@@ -171,6 +171,17 @@ CREATE TABLE IF NOT EXISTS webhook_payloads (
   raw_json TEXT NOT NULL
 );
 
+-- Planning tab views (user-added views like Loan Amortization, Retirement, etc.)
+CREATE TABLE IF NOT EXISTS planning_views (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL, -- e.g. 'loan_amortization'
+  name TEXT NOT NULL,
+  config_json TEXT, -- JSON blob of view-type-specific configuration
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- App Settings (key-value configuration)
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,

@@ -436,4 +436,145 @@ th {
   }
 }
 
+/* Planning: Add View modal cards */
+.view-type-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-tertiary);
+  cursor: pointer;
+  padding: 12px;
+  transition: border-color 0.15s, transform 0.1s;
+  text-align: center;
+}
+
+.view-type-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.view-type-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.view-type-card.disabled:hover {
+  border-color: var(--border);
+  transform: none;
+}
+
+.view-type-thumbnail {
+  width: 100%;
+  height: 90px;
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+/* Planning: spreadsheet-style label/value info tables */
+.planning-info-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+}
+
+.planning-info-table th, .planning-info-table td {
+  padding: 4px 10px !important;
+  border: 1px solid var(--border);
+  font-size: 0.85em;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.planning-info-table thead th {
+  background-color: var(--bg-tertiary);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 0.78em;
+}
+
+.planning-info-table td.info-label {
+  width: 58%;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.planning-info-table td.info-value {
+  width: 42%;
+  background-color: var(--bg-secondary);
+  text-align: right;
+}
+
+/* Planning: amortization schedule table - tighter, content-proportioned columns */
+.amortization-table th, .amortization-table td {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+.amortization-table thead th {
+  background-color: var(--bg-tertiary);
+}
+
+/* On narrow screens, render the schedule table at full height as part of the normal page
+   flow (one vertical scrollbar) instead of nesting a fixed-height scrollable table inside
+   an already-scrolling page. Horizontal overflow-x stays 'auto' (not touched here) so the
+   wide table still scrolls sideways within its own box instead of pushing into - and
+   swallowing - the page's right margin. */
+@media (max-width: 767.98px) {
+  .amortization-table-wrap {
+    height: auto !important;
+  }
+
+  .amortization-table-head {
+    position: static !important;
+  }
+}
+
+.amortization-table th.col-month, .amortization-table td.col-month {
+  width: 1%;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+
+.amortization-table td.col-money {
+  text-align: right;
+}
+
+.amortization-table tr.row-no-payment td {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.amortization-table td.col-notes {
+  width: 100%;
+}
+
+.amortization-table input.inline-cell-input {
+  width: 100%;
+  min-width: 90px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-primary);
+  padding: 2px 4px;
+  font-size: 0.85em;
+}
+
+.amortization-table input.inline-cell-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.amortization-table input.inline-cell-input:hover,
+.amortization-table input.inline-cell-input:focus {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+  outline: none;
+}
+
 

@@ -128,3 +128,12 @@ export const updateTemplateApi = (id, data) =>
   request(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteTemplateApi = (id) =>
   request(`/templates/${id}`, { method: 'DELETE' });
+
+// Planning Views
+export const getPlanningViews = () => request('/planning-views');
+export const createPlanningView = (data) =>
+  request('/planning-views', { method: 'POST', body: JSON.stringify(data) });
+export const updatePlanningView = (id, data) =>
+  request(`/planning-views/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deletePlanningView = (id) =>
+  request(`/planning-views/${id}`, { method: 'DELETE' });

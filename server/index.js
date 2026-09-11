@@ -37,6 +37,7 @@ const linkRoutes = require('./routes/link');
 const adminRoutes = require('./routes/admin');
 const settingsRoutes = require('./routes/settings');
 const templatesRoutes = require('./routes/templates');
+const planningViewsRoutes = require('./routes/planningViews');
 
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/items', itemsRoutes);
@@ -48,6 +49,7 @@ app.use('/api/link', linkRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/templates', templatesRoutes);
+app.use('/api/planning-views', planningViewsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));

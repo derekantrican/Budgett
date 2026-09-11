@@ -541,6 +541,18 @@ const updateTemplate = (id, name, merchant, notes, categoryId, accountId, amount
   run('UPDATE record_templates SET name = ?, merchant = ?, notes = ?, category_id = ?, account_id = ?, amount = ? WHERE id = ?',
     [name, merchant, notes, categoryId, accountId, amount, id]);
 
+// Planning Views
+const getAllPlanningViews = () =>
+  all('SELECT * FROM planning_views ORDER BY sort_order, id');
+const createPlanningView = (type, name, configJson, sortOrder = 0) =>
+  run('INSERT INTO planning_views (type, name, config_json, sort_order) VALUES (?, ?, ?, ?)',
+    [type, name, configJson, sortOrder]);
+const updatePlanningView = (id, name, configJson) =>
+  run("UPDATE planning_views SET name = ?, config_json = ?, updated_at = datetime('now') WHERE id = ?",
+    [name, configJson, id]);
+const deletePlanningView = (id) =>
+  run('DELETE FROM planning_views WHERE id = ?', [id]);
+
 // App Settings
 const getSettings = () => all('SELECT key, value FROM app_settings');
 const getSetting = (key) => {
@@ -584,6 +596,8 @@ module.exports = {
   getAllIncome, createIncome,
   // Record Templates
   getAllTemplates, createTemplate, deleteTemplate, updateTemplate,
+  // Planning Views
+  getAllPlanningViews, createPlanningView, updatePlanningView, deletePlanningView,
   // Settings
   getSettings, getSetting, setSetting,
 };
