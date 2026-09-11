@@ -1,5 +1,6 @@
 import React from 'react';
 import LoanAmortizationView from './LoanAmortizationView';
+import EmergencyFundView from './EmergencyFundView';
 
 // Small inline-SVG thumbnails used as previews in the "Add View" picker.
 function LoanThumbnail() {
@@ -54,7 +55,9 @@ const VIEW_TYPES = [
     label: 'Emergency Fund',
     description: 'Estimate how large your emergency fund should be based on essential categories.',
     Thumbnail: EmergencyFundThumbnail,
-    comingSoon: true,
+    Component: EmergencyFundView,
+    defaultConfig: {},
+    defaultName: 'Emergency Fund',
   },
 ];
 

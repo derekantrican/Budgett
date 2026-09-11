@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Spinner } from 'react-bootstrap';
-import { getPlanningViews, createPlanningView, getAccounts, getSettings } from '../services/api';
+import { getPlanningViews, createPlanningView, getAccounts, getItems, getCategories, getSettings } from '../services/api';
 import AddViewModal from '../components/planning/AddViewModal';
 import { getViewType } from '../components/planning/viewTypes';
 
@@ -19,6 +19,7 @@ import { getViewType } from '../components/planning/viewTypes';
 function Planning() {
   const [views, setViews] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [selectedViewId, setSelectedViewId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
@@ -33,9 +34,13 @@ function Planning() {
   }, []);
 
   const loadData = async (selectId) => {
-    const [viewList, accountList] = await Promise.all([getPlanningViews(), getAccounts()]);
+    const [viewList, accountList, itemList, categoryList] = await Promise.all([
+      getPlanningViews(), getAccounts(), getItems(), getCategories(),
+    ]);
+    const colorByItemId = new Map(itemList.map(i => [i.id, i.institution_color]));
     setViews(viewList);
-    setAccounts(accountList);
+    setAccounts(accountList.map(a => ({ ...a, institution_color: colorByItemId.get(a.item_id) || null })));
+    setCategories(categoryList);
     setSelectedViewId(prev => {
       if (selectId) {
         return selectId;
@@ -99,6 +104,7 @@ function Planning() {
         <selectedViewType.Component
           view={selectedView}
           accounts={accounts}
+          categories={categories}
           dateFormat={dateFormat}
           onUpdated={() => loadData(selectedView.id)}
           onDeleted={() => loadData()}

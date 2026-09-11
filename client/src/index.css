@@ -509,6 +509,80 @@ th {
   text-align: right;
 }
 
+/* Planning: account multi-select combobox with colored chips */
+.account-multiselect-toggle {
+  display: flex !important;
+  align-items: flex-start;
+  width: 100%;
+  gap: 8px;
+  white-space: normal;
+}
+
+.account-multiselect-toggle::after {
+  display: none;
+}
+
+.account-multiselect-toggle .chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.account-multiselect-toggle .toggle-arrow {
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-top: 4px;
+  color: var(--text-secondary);
+}
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.8em;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.account-chip-extra {
+  opacity: 0.85;
+  font-weight: 400;
+}
+
+.account-multiselect-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.account-multiselect-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+/* Planning: emergency fund per-category rationing percentage */
+.percentage-cell-input {
+  width: 56px;
+  text-align: right;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.percentage-cell-input:hover,
+.percentage-cell-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
 /* Planning: amortization schedule table - tighter, content-proportioned columns */
 .amortization-table th, .amortization-table td {
   padding-left: 10px !important;
