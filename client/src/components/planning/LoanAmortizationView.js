@@ -6,6 +6,7 @@ import { computeAmortizationSchedule, simulateFlatPayment } from '../../helpers/
 import { formatCurrency } from '../../utils/currency';
 import { formatDate } from '../../utils/date';
 import ScenariosModal from './ScenariosModal';
+import { InfoTable, AccountChip, AccountSelect } from './shared';
 
 const emptyForm = {
   loanAmount: '',
@@ -41,24 +42,6 @@ function mergeConfigIntoForm(config, name) {
         : [],
     },
   };
-}
-
-function InfoTable({ title, rows }) {
-  return (
-    <table className="planning-info-table mb-3">
-      <thead>
-        <tr><th colSpan={2}>{title}</th></tr>
-      </thead>
-      <tbody>
-        {rows.map(([label, value]) => (
-          <tr key={label}>
-            <td className="info-label">{label}</td>
-            <td className="info-value">{value}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
 }
 
 function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted }) {
@@ -225,8 +208,30 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
     setLocalPayments(prev => ({ ...prev, [month]: { ...(prev[month] || {}), [field]: value } }));
   };
 
+  // Saves are chained one at a time (rather than fired concurrently) so that editing two
+  // cells in quick succession can't have their save requests complete out of order over the
+  // network - which would otherwise let an earlier, less-complete snapshot silently
+  // overwrite a later edit that actually reached the server first.
+  const saveQueueRef = useRef(Promise.resolve());
+
   const commitPayments = (paymentsSnapshot) => {
-    updatePlanningView(view.id, { name: view.name, config: { ...config, payments: paymentsSnapshot } });
+    saveQueueRef.current = saveQueueRef.current
+      .then(() => updatePlanningView(view.id, { name: view.name, config: { ...config, payments: paymentsSnapshot } }))
+      .catch(err => console.error('Failed to save loan payment ledger:', err));
+  };
+
+  // Updates and commits a field in one shot, computed straight from the event rather than
+  // the `localPayments` closure - a native date picker can fire change and blur back-to-back
+  // in the same tick, so an onBlur reading `localPayments` can race ahead of onChange's
+  // update and commit a stale snapshot. Only safe for fields (like a date) whose onChange
+  // always carries a complete, final value - unlike text/number typing, which still commits
+  // on blur to avoid a request per keystroke.
+  const setAndCommitPaymentField = (month, field, value) => {
+    setLocalPayments(prev => {
+      const next = { ...prev, [month]: { ...(prev[month] || {}), [field]: value } };
+      commitPayments(next);
+      return next;
+    });
   };
 
   const openEdit = () => {
@@ -299,11 +304,11 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
 
   const escrowRows = [];
   if (currentRow && config.propertyTax?.monthlyAmount) {
-    escrowRows.push(['Property Tax (current)', formatCurrency(currentRow.propertyTax)]);
+    escrowRows.push({ key: 'tax', label: 'Property Tax (current)', value: formatCurrency(currentRow.propertyTax) });
   }
 
   if (currentRow && config.pmi?.enabled) {
-    escrowRows.push(['PMI (current)', currentRow.pmi > 0 ? formatCurrency(currentRow.pmi) : 'Removed']);
+    escrowRows.push({ key: 'pmi', label: 'PMI (current)', value: currentRow.pmi > 0 ? formatCurrency(currentRow.pmi) : 'Removed' });
   }
 
   return (
@@ -329,14 +334,17 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
             <div style={{ flex: '0 1 300px', minWidth: 280 }}>
               <InfoTable
                 title="Loan Info"
+                className="wide-value-column"
                 rows={[
-                  ['Loan Balance at Start', formatCurrency(Number(config.loanAmount))],
-                  ['Interest Rate', `${Number(config.interestRate)}%`],
-                  ['Term', `${config.termMonths} months (starting at #${startingMonth})`],
-                  ['First Payment Date', formatDate(config.startDate, dateFormat)],
-                  ['Current Balance', formatCurrency(currentRow.balance)],
-                  ['Months Remaining', Math.max((startingMonth + schedule.payoffMonths - 1) - currentRow.month + 1, 0)],
-                  ...(linkedAccount ? [['Linked Account', `${linkedAccount.display_name || linkedAccount.name} (${formatCurrency(linkedAccount.current_balance || 0)})`]] : []),
+                  { key: 'balance-at-start', label: 'Loan Balance at Start', value: formatCurrency(Number(config.loanAmount)) },
+                  { key: 'rate', label: 'Interest Rate', value: `${Number(config.interestRate)}%` },
+                  { key: 'term', label: 'Term', value: `${config.termMonths} months (starting at #${startingMonth})` },
+                  { key: 'first-payment', label: 'First Payment Date', value: formatDate(config.startDate, dateFormat) },
+                  { key: 'current-balance', label: 'Current Balance', value: formatCurrency(currentRow.balance) },
+                  { key: 'months-remaining', label: 'Months Remaining', value: Math.max((startingMonth + schedule.payoffMonths - 1) - currentRow.month + 1, 0) },
+                  ...(linkedAccount
+                    ? [{ key: 'linked-account', label: 'Linked Account', value: <AccountChip account={linkedAccount} extra={formatCurrency(linkedAccount.current_balance || 0)} wrap /> }]
+                    : []),
                 ]}
               />
             </div>
@@ -346,11 +354,11 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
               <InfoTable
                 title="Totals"
                 rows={[
-                  ['Base Payment (P&I)', formatCurrency(schedule.monthlyPayment)],
-                  ['Full Payment (incl. tax/PMI)', formatCurrency(currentRow.scheduledPayment)],
-                  ['Total Interest', formatCurrency(schedule.totalInterest)],
-                  ['Total Paid', formatCurrency(schedule.totalPaid)],
-                  ['Payoff Date', formatDate(schedule.payoffDate, dateFormat)],
+                  { key: 'base-payment', label: 'Base Payment (P&I)', value: formatCurrency(schedule.monthlyPayment) },
+                  { key: 'full-payment', label: 'Full Payment (incl. tax/PMI)', value: formatCurrency(currentRow.scheduledPayment) },
+                  { key: 'total-interest', label: 'Total Interest', value: formatCurrency(schedule.totalInterest) },
+                  { key: 'total-paid', label: 'Total Paid', value: formatCurrency(schedule.totalPaid) },
+                  { key: 'payoff-date', label: 'Payoff Date', value: formatDate(schedule.payoffDate, dateFormat) },
                 ]}
               />
             </div>
@@ -433,9 +441,12 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
                           }
                           onFocus={() => setFocusedDateMonth(row.month)}
                           onChange={(e) => setPaymentField(row.month, 'actualDate', e.target.value)}
-                          onBlur={() => {
-                            commitPayments(localPayments);
+                          onBlur={(e) => {
+                            const value = e.target.value;
                             setFocusedDateMonth(null);
+                            if (value) {
+                              setAndCommitPaymentField(row.month, 'actualDate', value);
+                            }
                           }}
                         />
                       )}
@@ -546,12 +557,19 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label>Linked Account</Form.Label>
-                <Form.Select value={form.linkedAccountId || ''} onChange={(e) => setForm({ ...form, linkedAccountId: e.target.value })}>
-                  <option value="">— None —</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.display_name || a.name}</option>
-                  ))}
-                </Form.Select>
+                <div className="d-flex gap-2 align-items-start">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <AccountSelect
+                      idPrefix="loan-linked-account"
+                      accounts={accounts}
+                      selectedId={form.linkedAccountId}
+                      onChange={(accountId) => setForm({ ...form, linkedAccountId: accountId })}
+                    />
+                  </div>
+                  {form.linkedAccountId && (
+                    <Button size="sm" variant="outline-secondary" onClick={() => setForm({ ...form, linkedAccountId: '' })}>Clear</Button>
+                  )}
+                </div>
                 <Form.Text className="text-muted">Optional — shows the live balance alongside the projected schedule.</Form.Text>
               </Form.Group>
 
