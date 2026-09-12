@@ -32,6 +32,7 @@ function App() {
           <Route path="/categories" element={<Categories />} />
           <Route path="/income" element={<Income />} />
           <Route path="/planning" element={<Planning />} />
+          <Route path="/planning/:slug" element={<Planning />} />
           <Route path="/recordTransaction" element={<RecordTransaction />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/logs" element={<AdminLogs />} />

@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Form, Spinner } from 'react-bootstrap';
 import { getPlanningViews, createPlanningView, getAccounts, getItems, getCategories, getSettings } from '../services/api';
 import AddViewModal from '../components/planning/AddViewModal';
-import { getViewType } from '../components/planning/viewTypes';
+import { getViewType, getViewSlugs, findViewBySlug } from '../components/planning/viewTypes';
 
 function Planning() {
+  const navigate = useNavigate();
+  const { slug } = useParams();
   const [views, setViews] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -19,7 +22,37 @@ function Planning() {
         setDateFormat(s.date_format);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keeps the selected view and the URL's slug in sync - runs on initial load, whenever the
+  // slug changes (bookmarked link, browser back/forward), and after a view is deleted (its
+  // slug no longer matches anything, so this falls through to the current/first view).
+  useEffect(() => {
+    if (!views) {
+      return;
+    }
+
+    if (!views.length) {
+      setSelectedViewId(null);
+      if (slug) {
+        navigate('/planning', { replace: true });
+      }
+
+      return;
+    }
+
+    const bySlug = slug ? findViewBySlug(views, slug) : null;
+    const current = views.find(v => v.id === selectedViewId);
+    const target = bySlug || current || views[0];
+    setSelectedViewId(target.id);
+
+    const correctSlug = getViewSlugs(views).get(target.id);
+    if (correctSlug !== slug) {
+      navigate(`/planning/${correctSlug}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, views]);
 
   const loadData = async (selectId) => {
     const [viewList, accountList, itemList, categoryList] = await Promise.all([
@@ -29,17 +62,13 @@ function Planning() {
     setViews(viewList);
     setAccounts(accountList.map(a => ({ ...a, institution_color: colorByItemId.get(a.item_id) || null })));
     setCategories(categoryList);
-    setSelectedViewId(prev => {
-      if (selectId) {
-        return selectId;
-      }
 
-      if (prev && viewList.some(v => v.id === prev)) {
-        return prev;
-      }
-
-      return viewList.length ? viewList[0].id : null;
-    });
+    if (selectId) {
+      setSelectedViewId(selectId);
+    }
+    // The [slug, views] effect above reconciles the URL once `views` (and `selectedViewId`
+    // above) update - covers a newly-created view, a rename that changes its slug, and a
+    // deletion falling back to whatever view is now first.
   };
 
   const handleChooseType = async (viewType) => {
@@ -50,6 +79,13 @@ function Planning() {
     });
     setShowAddModal(false);
     await loadData(result.id);
+  };
+
+  const selectView = (id) => {
+    const newSlug = getViewSlugs(views).get(id);
+    if (newSlug) {
+      navigate(`/planning/${newSlug}`);
+    }
   };
 
   if (!views) {
@@ -71,7 +107,7 @@ function Planning() {
           {views.length > 0 && (
             <Form.Select
               value={selectedViewId || ''}
-              onChange={(e) => setSelectedViewId(Number(e.target.value))}
+              onChange={(e) => selectView(Number(e.target.value))}
               style={{ minWidth: 200 }}
             >
               {views.map(v => (

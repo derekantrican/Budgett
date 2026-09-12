@@ -2,6 +2,7 @@ import React from 'react';
 import LoanAmortizationView from './LoanAmortizationView';
 import RetirementView from './RetirementView';
 import EmergencyFundView from './EmergencyFundView';
+import { slugify } from '../../helpers/slug';
 
 // Small inline-SVG thumbnails used as previews in the "Add View" picker.
 function LoanThumbnail() {
@@ -52,6 +53,7 @@ const VIEW_TYPES = [
     Component: RetirementView,
     defaultConfig: {},
     defaultName: 'Retirement',
+    fixedSlug: 'retirement',
   },
   {
     type: 'emergency_fund',
@@ -61,9 +63,35 @@ const VIEW_TYPES = [
     Component: EmergencyFundView,
     defaultConfig: {},
     defaultName: 'Emergency Fund',
+    fixedSlug: 'emergency-fund',
   },
 ];
 
 export const getViewType = (type) => VIEW_TYPES.find(v => v.type === type);
+
+// Maps each view's id to a URL slug: a fixed one for types where there's naturally only one
+// (retirement, emergency fund), otherwise derived from the view's own name (e.g. loan views,
+// where a user might have both a "Mortgage" and a "Car Loan"). Falls back to view-<id> if a
+// name slugifies to nothing, and de-dupes by appending -2, -3, etc. in list order so two views
+// can never collide on the same URL.
+export function getViewSlugs(views) {
+  const seen = new Map();
+  const slugByViewId = new Map();
+
+  for (const view of views) {
+    const base = getViewType(view.type)?.fixedSlug || slugify(view.name) || `view-${view.id}`;
+    const count = seen.get(base) || 0;
+    seen.set(base, count + 1);
+    slugByViewId.set(view.id, count === 0 ? base : `${base}-${count + 1}`);
+  }
+
+  return slugByViewId;
+}
+
+export function findViewBySlug(views, slug) {
+  const slugByViewId = getViewSlugs(views);
+  const entry = views.find(view => slugByViewId.get(view.id) === slug);
+  return entry || null;
+}
 
 export default VIEW_TYPES;
