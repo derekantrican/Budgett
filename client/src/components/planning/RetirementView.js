@@ -232,9 +232,9 @@ function RetirementView({ view, accounts, dateFormat, onUpdated, onDeleted }) {
                   <YAxis tickFormatter={(v) => formatCurrency(v)} width={90} stroke="var(--text-secondary)" fontSize={12} />
                   <Tooltip content={<RetirementTooltip dateFormat={dateFormat} />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="balance_below" name={`Below-Average (−${config.scenarioSpread ?? DEFAULT_SCENARIO_SPREAD}%)`} stroke={RATE_COLORS.below} strokeWidth={1.5} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="balance_average" name="Average Market" stroke={RATE_COLORS.average} strokeWidth={3} dot={false} isAnimationActive={false} />
                   <Line type="monotone" dataKey="balance_above" name={`Above-Average (+${config.scenarioSpread ?? DEFAULT_SCENARIO_SPREAD}%)`} stroke={RATE_COLORS.above} strokeWidth={1.5} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="balance_average" name="Average Market" stroke={RATE_COLORS.average} strokeWidth={3} dot={false} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="balance_below" name={`Below-Average (−${config.scenarioSpread ?? DEFAULT_SCENARIO_SPREAD}%)`} stroke={RATE_COLORS.below} strokeWidth={1.5} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
