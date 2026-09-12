@@ -20,3 +20,10 @@ This is not a fully-flushed out idea, but something like `$CATEGORY_GROCERIES` o
 ## Better notifications
 - Notification methods: more methods (only Discord webhook is supported right now)
 - Notification events: currently notifications happen for a hardcoded set of events. But we could allow users to select what events they want notifications for (and maybe even multiple notification methods - different methods for different notifications). One example: "When emergency fund is no longer fully funded" (i.e. the Emergency Fund planning view's fund balance drops below its target amount).
+
+## Retirement planning view — more than just accumulation
+The Retirement planning view (`client/src/components/planning/RetirementView.js`) currently only projects account growth up to retirement age. A few natural additions if we want more than a pure accumulation chart — nothing here needs to be fancy, just enough to sanity-check "am I roughly on track," not a full replacement for something like Fidelity/NewRetirement:
+
+- **Amount needed in retirement.** Right now the view shows a projected ending balance with no benchmark to judge it against. A simple target (e.g. desired annual retirement spending × 25, or a configurable withdrawal-rate multiplier) would let the view say "on track" / "short by $X" instead of just showing a raw number.
+- **Inflation-adjusted ("today's dollars") view.** Nominal balances 30+ years out are hard to reason about. An optional toggle (or a second line on the chart) showing the same projection deflated by an assumed inflation rate would make the numbers more intuitive.
+- **Post-retirement drawdown.** The projection currently stops cold at the retirement date. Modeling a simple withdrawal rate (e.g. 4%/year) from that point forward would show how long the balance actually lasts, rather than leaving that as a separate mental exercise.

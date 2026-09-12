@@ -509,6 +509,15 @@ th {
   text-align: right;
 }
 
+/* ~30% wider value column, for tables whose values need more room (e.g. stacked account chips) */
+.planning-info-table.wide-value-column td.info-label {
+  width: 45%;
+}
+
+.planning-info-table.wide-value-column td.info-value {
+  width: 55%;
+}
+
 /* Planning: account multi-select combobox with colored chips */
 .account-multiselect-toggle {
   display: flex !important;

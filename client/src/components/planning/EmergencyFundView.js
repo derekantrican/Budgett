@@ -1,85 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Dropdown, Form, Modal, ProgressBar, Table } from 'react-bootstrap';
+import { Button, Form, Modal, ProgressBar, Table } from 'react-bootstrap';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { updatePlanningView, deletePlanningView } from '../../services/api';
 import { evaluateBudgetExpression } from '../../helpers/budgetFormula';
 import { formatCurrency } from '../../utils/currency';
 import { formatDate } from '../../utils/date';
-
-function InfoTable({ title, rows }) {
-  return (
-    <table className="planning-info-table mb-3">
-      <thead>
-        <tr><th colSpan={2}>{title}</th></tr>
-      </thead>
-      <tbody>
-        {rows.map(({ key, label, value }) => (
-          <tr key={key}>
-            <td className="info-label">{label}</td>
-            <td className="info-value">{value}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function sumBalances(accounts, ids) {
-  return accounts
-    .filter(a => ids.includes(a.id))
-    .reduce((sum, a) => sum + (a.current_balance || 0), 0);
-}
-
-function AccountChip({ account, extra }) {
-  return (
-    <span className="account-chip" style={{ backgroundColor: account.institution_color || '#1a73e8' }}>
-      {account.display_name || account.name}
-      {extra && <span className="account-chip-extra">{extra}</span>}
-    </span>
-  );
-}
-
-function AccountMultiSelect({ idPrefix, accounts, selectedIds, onToggle, placeholder = 'Select account(s)…' }) {
-  const selectedAccounts = accounts.filter(a => selectedIds.includes(a.id));
-
-  return (
-    <Dropdown autoClose="outside">
-      <Dropdown.Toggle
-        id={`${idPrefix}-toggle`}
-        variant="outline-light"
-        className="account-multiselect-toggle"
-      >
-        <span className="chip-row">
-          {selectedAccounts.length > 0
-            ? selectedAccounts.map(a => <AccountChip key={a.id} account={a} />)
-            : <span className="text-muted">{placeholder}</span>}
-        </span>
-        <svg className="toggle-arrow" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z" />
-        </svg>
-      </Dropdown.Toggle>
-      <Dropdown.Menu style={{ maxHeight: 280, overflowY: 'auto', width: '100%' }}>
-        {accounts.map(a => (
-          <Dropdown.ItemText
-            key={a.id}
-            className="account-multiselect-item"
-            onClick={() => onToggle(a.id)}
-          >
-            <Form.Check
-              type="checkbox"
-              id={`${idPrefix}-${a.id}`}
-              checked={selectedIds.includes(a.id)}
-              onChange={() => onToggle(a.id)}
-              onClick={(e) => e.stopPropagation()}
-              className="mb-0"
-            />
-            <AccountChip account={a} extra={formatCurrency(a.current_balance || 0)} />
-          </Dropdown.ItemText>
-        ))}
-      </Dropdown.Menu>
-    </Dropdown>
-  );
-}
+import { InfoTable, sumBalances, AccountChip, AccountMultiSelect } from './shared';
 
 function EmergencyFundView({ view, accounts, categories, dateFormat, onUpdated, onDeleted }) {
   const config = view.config || {};

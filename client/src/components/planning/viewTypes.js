@@ -1,5 +1,6 @@
 import React from 'react';
 import LoanAmortizationView from './LoanAmortizationView';
+import RetirementView from './RetirementView';
 import EmergencyFundView from './EmergencyFundView';
 
 // Small inline-SVG thumbnails used as previews in the "Add View" picker.
@@ -48,7 +49,9 @@ const VIEW_TYPES = [
     label: 'Retirement Growth',
     description: 'Project retirement account growth over time.',
     Thumbnail: RetirementThumbnail,
-    comingSoon: true,
+    Component: RetirementView,
+    defaultConfig: {},
+    defaultName: 'Retirement',
   },
   {
     type: 'emergency_fund',
