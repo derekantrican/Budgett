@@ -30,6 +30,7 @@ function initQueries() {
     'ALTER TABLE accounts ADD COLUMN display_name TEXT',
     'ALTER TABLE items ADD COLUMN display_name TEXT',
     'ALTER TABLE items ADD COLUMN display_icon_url TEXT',
+    'ALTER TABLE items ADD COLUMN display_color TEXT',
     `CREATE TABLE IF NOT EXISTS record_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,

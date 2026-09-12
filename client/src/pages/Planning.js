@@ -58,7 +58,7 @@ function Planning() {
     const [viewList, accountList, itemList, categoryList] = await Promise.all([
       getPlanningViews(), getAccounts(), getItems(), getCategories(),
     ]);
-    const colorByItemId = new Map(itemList.map(i => [i.id, i.institution_color]));
+    const colorByItemId = new Map(itemList.map(i => [i.id, i.display_color || i.institution_color]));
     setViews(viewList);
     setAccounts(accountList.map(a => ({ ...a, institution_color: colorByItemId.get(a.item_id) || null })));
     setCategories(categoryList);

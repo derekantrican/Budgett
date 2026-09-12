@@ -20,15 +20,19 @@ router.get('/', (req, res) => {
 // PATCH /api/items/:id
 router.patch('/:id', (req, res) => {
   const { id } = req.params;
-  const { display_name, display_icon_url, status } = req.body;
+  const { display_name, display_icon_url, display_color, status } = req.body;
   const updates = [];
   const params = [];
   if (display_name !== undefined) {
-    updates.push('display_name = ?'); params.push(display_name || null); 
+    updates.push('display_name = ?'); params.push(display_name || null);
   }
 
   if (display_icon_url !== undefined) {
-    updates.push('display_icon_url = ?'); params.push(display_icon_url || null); 
+    updates.push('display_icon_url = ?'); params.push(display_icon_url || null);
+  }
+
+  if (display_color !== undefined) {
+    updates.push('display_color = ?'); params.push(display_color || null);
   }
 
   if (status !== undefined) {

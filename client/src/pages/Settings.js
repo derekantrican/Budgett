@@ -132,6 +132,7 @@ function Settings() {
     setEditForm({
       display_name: item.display_name || '',
       display_icon_url: item.display_icon_url || '',
+      display_color: item.display_color || '',
       accounts: (item.accounts || []).map(a => ({
         id: a.id,
         name: a.name,
@@ -146,6 +147,7 @@ function Settings() {
     await updateItem(editItem.id, {
       display_name: editForm.display_name,
       display_icon_url: editForm.display_icon_url,
+      display_color: editForm.display_color,
     });
     for (const acct of editForm.accounts) {
       await updateAccount(acct.id, {
@@ -172,7 +174,7 @@ function Settings() {
           <Card key={item.id} className="institution-card" style={{ width: 320, maxWidth: '100%', background: '#212529', border: 'none', borderRadius: 10 }}>
             <Card.Header
               style={{
-                background: item.institution_color || '#1a73e8',
+                background: item.display_color || item.institution_color || '#1a73e8',
                 borderRadius: '10px 10px 0 0',
                 display: 'flex',
                 alignItems: 'center',
@@ -279,6 +281,25 @@ function Settings() {
                 />
                 <Form.Text style={{ color: 'var(--text-secondary)' }}>
                   Leave blank to use Plaid's logo
+                </Form.Text>
+              </Form.Group>
+              <Form.Group className="mb-4">
+                <Form.Label>Color</Form.Label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Form.Control
+                    type="color"
+                    style={{ width: 48, padding: 2 }}
+                    value={editForm.display_color || editItem.institution_color || '#1a73e8'}
+                    onChange={(e) => setEditForm({ ...editForm, display_color: e.target.value })}
+                  />
+                  {editForm.display_color && (
+                    <Button size="sm" variant="outline-secondary" onClick={() => setEditForm({ ...editForm, display_color: '' })}>
+                      Reset
+                    </Button>
+                  )}
+                </div>
+                <Form.Text style={{ color: 'var(--text-secondary)' }}>
+                  Leave blank to use Plaid's institution color
                 </Form.Text>
               </Form.Group>
               <hr style={{ borderColor: '#3a3a4f' }} />

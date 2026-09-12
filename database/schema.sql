@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS items (
   institution_logo TEXT,
   display_name TEXT,
   display_icon_url TEXT,
+  display_color TEXT,
   online_banking_url TEXT,
   transaction_cursor TEXT,
   status TEXT NOT NULL DEFAULT 'ok', -- ok, login_required, error
