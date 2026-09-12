@@ -240,7 +240,7 @@ function RetirementView({ view, accounts, dateFormat, onUpdated, onDeleted }) {
             </div>
           </div>
 
-          <Table striped hover variant="dark" size="sm" className="mt-4 mb-0">
+          <Table striped hover variant="dark" size="sm" className="mt-4 mb-0 mx-auto" style={{ width: 'auto' }}>
             <thead>
               <tr>
                 <th>Age</th>
