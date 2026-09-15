@@ -66,6 +66,11 @@ function initQueries() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
     'ALTER TABLE categories DROP COLUMN include_in_summary',
+    'ALTER TABLE income_sources ADD COLUMN quantity_per_period REAL',
+    'ALTER TABLE income_sources ADD COLUMN unit_label TEXT',
+    'ALTER TABLE income_sources ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE income_sources ADD COLUMN reference_pay_date TEXT',
+    'ALTER TABLE income_sources ADD COLUMN payday_weekday INTEGER',
   ];
   for (const sql of migrations) {
     try {
@@ -85,6 +90,22 @@ function initQueries() {
   for (const row of noColor) {
     const color = palette[Math.floor(Math.random() * palette.length)];
     db.prepare('UPDATE categories SET color = ? WHERE id = ?').run(color, row.id);
+  }
+
+  // Budget expressions now require a leading "=" to be evaluated as a formula (matching
+  // transaction split formulas) - plain numbers still work as-is with no prefix, but anything
+  // using operators/variables needs "=" prepended or it would now be misread as just its
+  // leading number (e.g. "-150*sundays" -> -150). Idempotent: only touches rows that are
+  // neither already "="-prefixed nor a plain number.
+  const isPlainNumber = (s) => /^-?\d+(\.\d+)?$/.test(s);
+  const needsEquals = db.prepare(
+    "SELECT id, budgeted_amount_expression FROM categories WHERE budgeted_amount_expression IS NOT NULL AND budgeted_amount_expression != ''"
+  ).all();
+  for (const row of needsEquals) {
+    const expr = row.budgeted_amount_expression.trim();
+    if (!expr.startsWith('=') && !isPlainNumber(expr)) {
+      db.prepare('UPDATE categories SET budgeted_amount_expression = ? WHERE id = ?').run(`=${expr}`, row.id);
+    }
   }
 }
 
@@ -524,10 +545,19 @@ const createEndpoint = (name, url, method, bodyTemplate, eventTypesJson) =>
 
 // Income Sources
 const getAllIncome = () =>
-  all('SELECT * FROM income_sources');
-const createIncome = (name, type, amount, payPeriod, adjustmentsJson) =>
-  run('INSERT INTO income_sources (name, type, amount, pay_period, adjustments_json) VALUES (?, ?, ?, ?, ?)',
-    [name, type, amount, payPeriod, adjustmentsJson]);
+  all('SELECT * FROM income_sources ORDER BY is_archived, id');
+const createIncome = (name, type, amount, quantityPerPeriod, unitLabel, payPeriod, paydayWeekday, referencePayDate, adjustmentsJson) =>
+  run(`INSERT INTO income_sources (name, type, amount, quantity_per_period, unit_label, pay_period, payday_weekday, reference_pay_date, adjustments_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [name, type, amount, quantityPerPeriod, unitLabel, payPeriod, paydayWeekday, referencePayDate, adjustmentsJson]);
+const updateIncome = (id, name, type, amount, quantityPerPeriod, unitLabel, payPeriod, paydayWeekday, referencePayDate, adjustmentsJson) =>
+  run(`UPDATE income_sources SET name = ?, type = ?, amount = ?, quantity_per_period = ?, unit_label = ?,
+       pay_period = ?, payday_weekday = ?, reference_pay_date = ?, adjustments_json = ?, updated_at = datetime('now') WHERE id = ?`,
+    [name, type, amount, quantityPerPeriod, unitLabel, payPeriod, paydayWeekday, referencePayDate, adjustmentsJson, id]);
+const toggleIncomeArchived = (id, isArchived) =>
+  run("UPDATE income_sources SET is_archived = ?, updated_at = datetime('now') WHERE id = ?", [isArchived ? 1 : 0, id]);
+const deleteIncome = (id) =>
+  run('DELETE FROM income_sources WHERE id = ?', [id]);
 
 // Record Templates
 const getAllTemplates = () =>
@@ -594,7 +624,7 @@ module.exports = {
   // Notifications
   getAllEndpoints, createEndpoint,
   // Income
-  getAllIncome, createIncome,
+  getAllIncome, createIncome, updateIncome, toggleIncomeArchived, deleteIncome,
   // Record Templates
   getAllTemplates, createTemplate, deleteTemplate, updateTemplate,
   // Planning Views

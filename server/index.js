@@ -38,6 +38,7 @@ const adminRoutes = require('./routes/admin');
 const settingsRoutes = require('./routes/settings');
 const templatesRoutes = require('./routes/templates');
 const planningViewsRoutes = require('./routes/planningViews');
+const incomeRoutes = require('./routes/income');
 
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/items', itemsRoutes);
@@ -50,6 +51,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/templates', templatesRoutes);
 app.use('/api/planning-views', planningViewsRoutes);
+app.use('/api/income', incomeRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));

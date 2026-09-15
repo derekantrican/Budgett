@@ -129,6 +129,16 @@ export const updateTemplateApi = (id, data) =>
 export const deleteTemplateApi = (id) =>
   request(`/templates/${id}`, { method: 'DELETE' });
 
+// Income
+export const getIncome = () => request('/income');
+export const createIncomeApi = (data) =>
+  request('/income', { method: 'POST', body: JSON.stringify(data) });
+export const updateIncomeApi = (id, data) =>
+  request(`/income/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const toggleIncomeArchived = (id, isArchived) =>
+  request(`/income/${id}/archive`, { method: 'PATCH', body: JSON.stringify({ is_archived: isArchived }) });
+export const deleteIncomeApi = (id) => request(`/income/${id}`, { method: 'DELETE' });
+
 // Planning Views
 export const getPlanningViews = () => request('/planning-views');
 export const createPlanningView = (data) =>

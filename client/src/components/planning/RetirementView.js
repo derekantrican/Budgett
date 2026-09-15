@@ -6,6 +6,7 @@ import { calculateAge, computeRetirementPlan, DEFAULT_RETURN_RATE, DEFAULT_SCENA
 import { formatCurrency } from '../../utils/currency';
 import { formatDate } from '../../utils/date';
 import { InfoTable, AccountChip, AccountSelect } from './shared';
+import CurrencyInput from '../CurrencyInput';
 
 const emptyForm = {
   birthDate: '',
@@ -301,7 +302,7 @@ function RetirementView({ view, accounts, dateFormat, onUpdated, onDeleted }) {
                     <Form.Control style={{ flex: '1 1 180px' }} placeholder="Asset name (e.g. Individual Stocks)" value={asset.label || ''} onChange={(e) => updateAsset(idx, 'label', e.target.value)} />
                   )}
                   {asset.type === 'manual' && (
-                    <Form.Control type="number" style={{ flex: '0 1 130px' }} placeholder="Balance" value={asset.balance ?? ''} onChange={(e) => updateAsset(idx, 'balance', e.target.value)} />
+                    <CurrencyInput style={{ flex: '0 1 130px' }} placeholder="Balance" value={asset.balance ?? ''} onChange={(e) => updateAsset(idx, 'balance', e.target.value)} />
                   )}
                   <div className="d-flex align-items-center" style={{ flex: '0 1 90px', gap: 4 }}>
                     <Form.Control type="number" step="0.1" placeholder="7" value={asset.returnRate ?? ''} onChange={(e) => updateAsset(idx, 'returnRate', e.target.value)} />
@@ -319,7 +320,7 @@ function RetirementView({ view, accounts, dateFormat, onUpdated, onDeleted }) {
               <h6>Future Contributions</h6>
               <Form.Group className="mb-3">
                 <Form.Label>Monthly Contribution</Form.Label>
-                <Form.Control type="number" value={form.monthlyContribution} onChange={(e) => setForm({ ...form, monthlyContribution: e.target.value })} placeholder="e.g. 500 (0 if you've stopped contributing)" />
+                <CurrencyInput value={form.monthlyContribution} onChange={(e) => setForm({ ...form, monthlyContribution: e.target.value })} placeholder="e.g. 500 (0 if you've stopped contributing)" />
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label>Contribution Growth Rate (%)</Form.Label>
@@ -344,7 +345,7 @@ function RetirementView({ view, accounts, dateFormat, onUpdated, onDeleted }) {
               {form.employerMatch.enabled && (
                 <Form.Group className="mb-3">
                   <Form.Label>Monthly Employer Match Amount</Form.Label>
-                  <Form.Control type="number" value={form.employerMatch.monthlyAmount} onChange={(e) => setForm({ ...form, employerMatch: { ...form.employerMatch, monthlyAmount: e.target.value } })} />
+                  <CurrencyInput value={form.employerMatch.monthlyAmount} onChange={(e) => setForm({ ...form, employerMatch: { ...form.employerMatch, monthlyAmount: e.target.value } })} />
                 </Form.Group>
               )}
 

@@ -3,9 +3,10 @@ import { Table, Button, Form, Modal, Spinner, Badge } from 'react-bootstrap';
 import { PieChart, Pie, Cell } from 'recharts';
 import {
   getCategories, getTransactions, createCategory, updateCategoryApi, toggleCategoryHidden, reorderCategory,
-  getCategoryUsage, deleteCategoryApi, mergeCategoryApi, disassociateCategoryApi,
+  getCategoryUsage, deleteCategoryApi, mergeCategoryApi, disassociateCategoryApi, getIncome,
 } from '../services/api';
 import { evaluateBudgetExpression, randomVibrantColor } from '../helpers/budgetFormula';
+import { sumIncomeForMonth } from '../helpers/income';
 import { formatCurrency } from '../utils/currency';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -13,6 +14,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 function Categories() {
   const [categories, setCategories] = useState(null);
   const [transactions, setTransactions] = useState(null);
+  const [incomeSources, setIncomeSources] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [form, setForm] = useState({ name: '', color: '', budgeted_amount_expression: '' });
@@ -49,9 +51,17 @@ function Categories() {
       endDate = `${viewYear}-12-31`;
     }
 
-    const [cats, txns] = await Promise.all([getCategories(), getTransactions(startDate, endDate)]);
+    const [cats, txns, income] = await Promise.all([getCategories(), getTransactions(startDate, endDate), getIncome()]);
     setCategories(cats);
     setTransactions(txns);
+    setIncomeSources(income);
+  };
+
+  // income_gross/income_net for a given month, for use as extra variables in budget formulas
+  // (e.g. a tithing category budgeted as "income_gross*0.1").
+  const incomeVariablesFor = (year, month) => {
+    const totals = sumIncomeForMonth(incomeSources, new Date(year, month, 1));
+    return { income_gross: totals.gross, income_net: totals.net };
   };
 
   const handleSave = async () => {
@@ -190,16 +200,17 @@ function Categories() {
     }
 
     if (viewMode === 'year') {
-      // Sum across all 12 months
+      // Sum across all 12 months - income varies month to month (e.g. a 5-paycheck month),
+      // so income_gross/income_net are recomputed for each one rather than reused.
       let total = 0;
       for (let m = 0; m < 12; m++) {
-        total += evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, m);
+        total += evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, m, incomeVariablesFor(viewYear, m));
       }
 
       return total;
     }
 
-    return evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, viewMonth);
+    return evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, viewMonth, incomeVariablesFor(viewYear, viewMonth));
   };
 
   // Calculate spending per category (only visible ones for chart)
@@ -440,9 +451,9 @@ function Categories() {
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Budget Expression</Form.Label>
-            <Form.Control value={form.budgeted_amount_expression} onChange={(e) => setForm({ ...form, budgeted_amount_expression: e.target.value })} placeholder="e.g. 500 or 150 * sundays" />
+            <Form.Control value={form.budgeted_amount_expression} onChange={(e) => setForm({ ...form, budgeted_amount_expression: e.target.value })} placeholder="e.g. 500 or =150 * sundays" />
             <Form.Text style={{ color: 'var(--text-secondary)' }}>
-              Variables: sundays, mondays, ..., saturdays, days, weeks
+              Prefix with = to use a formula. Variables: sundays, mondays, ..., saturdays, days, weeks, income_gross, income_net
             </Form.Text>
           </Form.Group>
         </Modal.Body>
@@ -469,12 +480,12 @@ function Categories() {
                 <Form.Control
                   value={editForm.budgeted_amount_expression}
                   onChange={(e) => setEditForm({ ...editForm, budgeted_amount_expression: e.target.value })}
-                  placeholder="e.g. 500 or 150 * sundays"
+                  placeholder="e.g. 500 or =150 * sundays"
                 />
                 <Form.Text style={{ color: 'var(--text-secondary)' }}>
-                  Variables: sundays, mondays, ..., saturdays, days, weeks
+                  Prefix with = to use a formula. Variables: sundays, mondays, ..., saturdays, days, weeks, income_gross, income_net
                   {editForm.budgeted_amount_expression && (
-                    <span> — evaluates to <strong>{formatCurrency(evaluateBudgetExpression(editForm.budgeted_amount_expression, viewYear, viewMonth))}</strong> for {MONTHS[viewMonth]}</span>
+                    <span> — evaluates to <strong>{formatCurrency(evaluateBudgetExpression(editForm.budgeted_amount_expression, viewYear, viewMonth, incomeVariablesFor(viewYear, viewMonth)))}</strong> for {MONTHS[viewMonth]}</span>
                   )}
                 </Form.Text>
               </Form.Group>

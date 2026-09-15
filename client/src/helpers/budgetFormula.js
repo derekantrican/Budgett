@@ -1,19 +1,29 @@
 /**
  * Evaluates a budget expression for a given year/month.
- * 
- * Supports:
- *   - Plain numbers: "500"
- *   - Arithmetic: "150 * sundays", "100 + 50 * mondays"
- *   - Variables: sundays, mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, days, weeks
- * 
- * @param {string} expression - The budget formula
+ *
+ * A value NOT starting with "=" is treated as a plain number (e.g. "500", "-200") - matching
+ * transaction split formulas, no arithmetic or variables are applied to it. Prefix with "="
+ * to use a formula:
+ *   - Arithmetic: "=150 * sundays", "=100 + 50 * mondays", "=income_gross * 0.1"
+ *   - Variables: sundays, mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, days, weeks,
+ *     plus whatever is passed in `extraVariables` (e.g. income_gross, income_net)
+ *
+ * @param {string} expression - The budget value or "="-prefixed formula
  * @param {number} year - Full year (e.g. 2025)
  * @param {number} month - 0-indexed month (0=Jan, 11=Dec)
+ * @param {Object} [extraVariables] - Additional { name: value } variables, e.g. income totals
+ *   for this same month - merged in on top of the built-in day-of-week ones.
  * @returns {number} Evaluated amount, or 0 if expression is invalid/empty
  */
-export function evaluateBudgetExpression(expression, year, month) {
+export function evaluateBudgetExpression(expression, year, month, extraVariables = {}) {
   if (!expression || !expression.trim()) {
     return 0;
+  }
+
+  const trimmed = expression.trim();
+  if (!trimmed.startsWith('=')) {
+    const num = parseFloat(trimmed);
+    return isFinite(num) ? num : 0;
   }
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -35,11 +45,12 @@ export function evaluateBudgetExpression(expression, year, month) {
     saturdays: dayCounts[6],
     days: daysInMonth,
     weeks: Math.ceil(daysInMonth / 7),
+    ...extraVariables,
   };
 
   try {
-    // Replace variable names with their values
-    let expr = expression.toLowerCase().trim();
+    // Replace variable names with their values (strip the leading "=" first)
+    let expr = trimmed.slice(1).toLowerCase().trim();
     for (const [name, value] of Object.entries(variables)) {
       expr = expr.replace(new RegExp(`\\b${name}\\b`, 'g'), String(value));
     }

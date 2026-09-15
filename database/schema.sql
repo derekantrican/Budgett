@@ -94,10 +94,17 @@ CREATE TABLE IF NOT EXISTS transaction_splits (
 CREATE TABLE IF NOT EXISTS income_sources (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  type TEXT NOT NULL, -- salary, hourly, commission
-  amount REAL, -- annual salary, hourly rate, or per-commission
-  pay_period TEXT, -- weekly, biweekly, twice_monthly, monthly
-  adjustments_json TEXT, -- JSON array of {name, amount OR percentage}
+  type TEXT NOT NULL, -- salary, hourly, commission (rate per unit, e.g. per lesson), fixed (flat amount per paycheck)
+  amount REAL, -- annual salary, hourly rate, rate per unit, or flat per-paycheck amount
+  quantity_per_period TEXT, -- hours (hourly) or units (commission) per pay period; unused for salary/fixed.
+    -- A plain number ("36") or an "="-prefixed formula using the same day-of-week variables as
+    -- category budget expressions (e.g. "=4*sundays", "=1325.56/36").
+  unit_label TEXT, -- label for the commission unit, e.g. "lesson" (commission only)
+  pay_period TEXT, -- weekly, biweekly, semimonthly, monthly
+  payday_weekday INTEGER, -- 0 (Sunday) - 6 (Saturday); which weekday pay lands on (weekly only)
+  reference_pay_date TEXT, -- a known 'YYYY-MM-DD' payday; anchors the biweekly cycle so we can tell how many paychecks land in a given month
+  adjustments_json TEXT, -- JSON array of {name, kind: 'fixed'|'percent', value} applied per pay period
+  is_archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

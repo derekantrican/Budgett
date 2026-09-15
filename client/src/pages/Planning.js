@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Form, Spinner } from 'react-bootstrap';
-import { getPlanningViews, createPlanningView, getAccounts, getItems, getCategories, getSettings } from '../services/api';
+import { getPlanningViews, createPlanningView, getAccounts, getItems, getCategories, getIncome, getSettings } from '../services/api';
 import AddViewModal from '../components/planning/AddViewModal';
 import { getViewType, getViewSlugs, findViewBySlug } from '../components/planning/viewTypes';
 
@@ -11,6 +11,7 @@ function Planning() {
   const [views, setViews] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [incomeSources, setIncomeSources] = useState([]);
   const [selectedViewId, setSelectedViewId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
@@ -55,13 +56,14 @@ function Planning() {
   }, [slug, views]);
 
   const loadData = async (selectId) => {
-    const [viewList, accountList, itemList, categoryList] = await Promise.all([
-      getPlanningViews(), getAccounts(), getItems(), getCategories(),
+    const [viewList, accountList, itemList, categoryList, incomeList] = await Promise.all([
+      getPlanningViews(), getAccounts(), getItems(), getCategories(), getIncome(),
     ]);
     const colorByItemId = new Map(itemList.map(i => [i.id, i.display_color || i.institution_color]));
     setViews(viewList);
     setAccounts(accountList.map(a => ({ ...a, institution_color: colorByItemId.get(a.item_id) || null })));
     setCategories(categoryList);
+    setIncomeSources(incomeList);
 
     if (selectId) {
       setSelectedViewId(selectId);
@@ -129,6 +131,7 @@ function Planning() {
           view={selectedView}
           accounts={accounts}
           categories={categories}
+          incomeSources={incomeSources}
           dateFormat={dateFormat}
           onUpdated={() => loadData(selectedView.id)}
           onDeleted={() => loadData()}

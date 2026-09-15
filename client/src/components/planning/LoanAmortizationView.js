@@ -7,6 +7,7 @@ import { formatCurrency } from '../../utils/currency';
 import { formatDate } from '../../utils/date';
 import ScenariosModal from './ScenariosModal';
 import { InfoTable, AccountChip, AccountSelect } from './shared';
+import CurrencyInput from '../CurrencyInput';
 
 const emptyForm = {
   loanAmount: '',
@@ -535,7 +536,7 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label>Loan Balance at Starting Month</Form.Label>
-                <Form.Control type="number" value={form.loanAmount} onChange={(e) => setForm({ ...form, loanAmount: e.target.value })} placeholder="e.g. 532232.35" />
+                <CurrencyInput value={form.loanAmount} onChange={(e) => setForm({ ...form, loanAmount: e.target.value })} placeholder="e.g. 532232.35" />
                 <Form.Text className="text-muted">The remaining principal balance as of the Starting Month below (or the original loan amount if Starting Month is 1).</Form.Text>
               </Form.Group>
               <Form.Group className="mb-3">
@@ -586,7 +587,7 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
                 <>
                   <Form.Group className="mb-3">
                     <Form.Label>Monthly PMI Amount</Form.Label>
-                    <Form.Control type="number" value={form.pmi.monthlyAmount} onChange={(e) => setForm({ ...form, pmi: { ...form.pmi, monthlyAmount: e.target.value } })} />
+                    <CurrencyInput value={form.pmi.monthlyAmount} onChange={(e) => setForm({ ...form, pmi: { ...form.pmi, monthlyAmount: e.target.value } })} />
                   </Form.Group>
                   <Form.Group className="mb-3">
                     <Form.Label>Removal Rule</Form.Label>
@@ -607,7 +608,7 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
                     <>
                       <Form.Group className="mb-3">
                         <Form.Label>Original Loan Amount</Form.Label>
-                        <Form.Control type="number" value={form.pmi.originalLoanAmount} onChange={(e) => setForm({ ...form, pmi: { ...form.pmi, originalLoanAmount: e.target.value } })} placeholder="Basis for the % threshold" />
+                        <CurrencyInput value={form.pmi.originalLoanAmount} onChange={(e) => setForm({ ...form, pmi: { ...form.pmi, originalLoanAmount: e.target.value } })} placeholder="Basis for the % threshold" />
                       </Form.Group>
                       <Form.Group className="mb-3">
                         <Form.Label>Remove at % of Original Balance</Form.Label>
@@ -622,7 +623,7 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
               <h6>Property Tax</h6>
               <Form.Group className="mb-3">
                 <Form.Label>Monthly Property Tax</Form.Label>
-                <Form.Control type="number" value={form.propertyTax.monthlyAmount} onChange={(e) => setForm({ ...form, propertyTax: { ...form.propertyTax, monthlyAmount: e.target.value } })} />
+                <CurrencyInput value={form.propertyTax.monthlyAmount} onChange={(e) => setForm({ ...form, propertyTax: { ...form.propertyTax, monthlyAmount: e.target.value } })} />
               </Form.Group>
               <Form.Group className="mb-3">
                 <div className="d-flex justify-content-between align-items-center mb-2">
@@ -632,7 +633,7 @@ function LoanAmortizationView({ view, accounts, dateFormat, onUpdated, onDeleted
                 {form.propertyTax.adjustments.map((adj, idx) => (
                   <div key={idx} className="d-flex gap-2 mb-2 align-items-center">
                     <Form.Control type="number" placeholder="Effective month #" value={adj.effectiveMonth} onChange={(e) => updateAdjustment(idx, 'effectiveMonth', e.target.value)} />
-                    <Form.Control type="number" placeholder="Amount to add" value={adj.amount} onChange={(e) => updateAdjustment(idx, 'amount', e.target.value)} />
+                    <CurrencyInput placeholder="Amount to add" value={adj.amount} onChange={(e) => updateAdjustment(idx, 'amount', e.target.value)} />
                     <Button size="sm" variant="outline-danger" onClick={() => removeAdjustment(idx)}>✕</Button>
                   </div>
                 ))}

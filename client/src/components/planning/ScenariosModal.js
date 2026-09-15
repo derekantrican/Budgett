@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Form, Modal, Table } from 'react-bootstrap';
+import { Button, Modal, Table } from 'react-bootstrap';
 import { simulateFlatPayment } from '../../helpers/loanAmortization';
 import { formatCurrency } from '../../utils/currency';
+import CurrencyInput from '../CurrencyInput';
 
 function scenarioLabel(amount) {
   return `${formatCurrency(Number(amount)).replace(/\.00$/, '')}/mo`;
@@ -59,8 +60,7 @@ function ScenariosModal({ show, onClose, scenarios, onSave, startBalance, startM
         </p>
         {inputs.map((value, idx) => (
           <div key={idx} className="d-flex gap-2 mb-2 align-items-center">
-            <Form.Control
-              type="number"
+            <CurrencyInput
               placeholder="Monthly payment"
               value={value}
               onChange={(e) => updateRow(idx, e.target.value)}
