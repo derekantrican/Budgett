@@ -45,7 +45,17 @@ function clearRequireCacheUnder(folderPath) {
 
 function scanExtensions() {
   const root = getSetting('extensions_folder_path');
-  if (!root || !fs.existsSync(root)) {
+  if (!root) {
+    return [];
+  }
+
+  // Previously silent: an unset path is a normal "feature not opted into" no-op, but a path
+  // that IS set and just doesn't exist/isn't readable (typo, permissions, a Docker volume that
+  // isn't mounted, etc.) is almost always a real misconfiguration worth surfacing - it used to
+  // fail exactly the same way (empty result, no log line) as simply not having configured
+  // anything, which made it impossible to tell the two apart from Settings -> Logs.
+  if (!fs.existsSync(root)) {
+    logger.warn('extensions_folder_not_found', `Extensions folder path "${root}" does not exist, or the server process doesn't have permission to read it.`);
     return [];
   }
 
@@ -115,6 +125,10 @@ function scanExtensions() {
         setExtensionStatus(slug, 'error', err.message);
       }
     }
+  }
+
+  if (seenSlugs.length === 0) {
+    logger.warn('extensions_folder_empty', `Extensions folder "${root}" exists but no valid extensions were found in it - each extension needs its own subfolder directly inside it, containing a manifest.json.`);
   }
 
   markExtensionsMissing(seenSlugs);

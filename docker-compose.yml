@@ -9,4 +9,5 @@ services:
       - PORT=5000
     volumes:
       - ./database:/app/database
+      # NOTE: if loading extensions, you may need to expose the extensions folder to the container 
     restart: unless-stopped
