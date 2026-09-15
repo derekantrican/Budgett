@@ -190,6 +190,33 @@ CREATE TABLE IF NOT EXISTS planning_views (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Extensions registry (scanned from the folder configured via app_settings.extensions_folder_path)
+CREATE TABLE IF NOT EXISTS extensions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE, -- from manifest.json "id"; used in URLs and as the data-store scope key
+  name TEXT NOT NULL,
+  version TEXT,
+  folder_path TEXT NOT NULL, -- absolute path to the extension's own subfolder
+  client_entry_path TEXT, -- resolved absolute path to the client bundle file, if any
+  server_entry_path TEXT, -- resolved absolute path to the server hook module, if any
+  manifest_json TEXT NOT NULL, -- full parsed manifest.json, verbatim
+  status TEXT NOT NULL DEFAULT 'ok', -- ok | error (server hook failed to load) | missing (not found on last scan)
+  status_message TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Generic per-extension JSON key/value store
+CREATE TABLE IF NOT EXISTS extension_data (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  extension_slug TEXT NOT NULL REFERENCES extensions(slug),
+  key TEXT NOT NULL,
+  value_json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(extension_slug, key)
+);
+
 -- App Settings (key-value configuration)
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,

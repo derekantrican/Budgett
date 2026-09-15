@@ -6,6 +6,7 @@ import Transactions from './pages/Transactions';
 import Categories from './pages/Categories';
 import Income from './pages/Income';
 import Planning from './pages/Planning';
+import Extensions from './pages/Extensions';
 import RecordTransaction from './pages/RecordTransaction';
 import Settings from './pages/Settings';
 import AdminLogs from './pages/admin/Logs';
@@ -33,6 +34,8 @@ function App() {
           <Route path="/income" element={<Income />} />
           <Route path="/planning" element={<Planning />} />
           <Route path="/planning/:slug" element={<Planning />} />
+          <Route path="/extensions" element={<Extensions />} />
+          <Route path="/extensions/:slug" element={<Extensions />} />
           <Route path="/recordTransaction" element={<RecordTransaction />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/logs" element={<AdminLogs />} />

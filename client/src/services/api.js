@@ -115,6 +115,10 @@ export const getWebhooks = (limit = 50) => request(`/admin/webhooks?limit=${limi
 export const getIncompleteTransactions = () => request('/admin/incomplete-transactions');
 export const getMoneyMovement = (days = 30) => request(`/admin/money-movement?days=${days}`);
 
+// Extensions
+export const getExtensions = () => request('/extensions');
+export const rescanExtensions = () => request('/extensions/rescan', { method: 'POST' });
+
 // Settings
 export const getSettings = () => request('/settings');
 export const updateSettings = (data) =>

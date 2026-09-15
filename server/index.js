@@ -9,6 +9,7 @@ const cors = require('cors');
 const { init: initDb, startPeriodicCheckpoint } = require('./db/init');
 const { initQueries } = require('./db/queries');
 const { errorHandler } = require('./middleware/errorHandler');
+const { scanExtensions } = require('./services/extensionLoader');
 
 const app = express();
 const server = http.createServer(app);
@@ -39,6 +40,7 @@ const settingsRoutes = require('./routes/settings');
 const templatesRoutes = require('./routes/templates');
 const planningViewsRoutes = require('./routes/planningViews');
 const incomeRoutes = require('./routes/income');
+const extensionsRoutes = require('./routes/extensions');
 
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/items', itemsRoutes);
@@ -52,6 +54,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/templates', templatesRoutes);
 app.use('/api/planning-views', planningViewsRoutes);
 app.use('/api/income', incomeRoutes);
+app.use('/api/extensions', extensionsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
@@ -81,6 +84,7 @@ function start() {
   initDb();
   initQueries();
   startPeriodicCheckpoint();
+  scanExtensions();
 
   const PORT = process.env.PORT || 5000;
   server.listen(PORT, '0.0.0.0', () => {

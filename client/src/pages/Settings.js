@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Form, Modal } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
-import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount, deleteItem, getAccountDiff, removeAccountsApi } from '../services/api';
+import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount, deleteItem, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
 
 function Settings() {
   const [items, setItems] = useState([]);
@@ -13,6 +13,8 @@ function Settings() {
   const [plaidEnv, setPlaidEnv] = useState('sandbox');
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
   const [numberFormat, setNumberFormat] = useState('1,000.00');
+  const [extensionsFolderPath, setExtensionsFolderPath] = useState('');
+  const [rescanning, setRescanning] = useState(false);
 
   // Edit institution modal
   const [editItem, setEditItem] = useState(null);
@@ -49,6 +51,10 @@ function Settings() {
 
       if (s.number_format) {
         setNumberFormat(s.number_format);
+      }
+
+      if (s.extensions_folder_path) {
+        setExtensionsFolderPath(s.extensions_folder_path);
       }
     });
   }, []);
@@ -158,6 +164,19 @@ function Settings() {
 
     setEditItem(null);
     loadItems();
+  };
+
+  const handleRescanExtensions = async () => {
+    setRescanning(true);
+    try {
+      await updateSettings({ extensions_folder_path: extensionsFolderPath });
+      await rescanExtensions();
+      window.location.reload();
+    }
+    catch (err) {
+      setRescanning(false);
+      alert('Failed to rescan extensions: ' + err.message);
+    }
   };
 
   const getItemDisplayName = (item) => item.display_name || item.institution_name || 'Institution';
@@ -492,6 +511,22 @@ function Settings() {
         </div>
 
         <div>
+          <h5 style={{ color: 'var(--text-secondary)' }}>Extensions</h5>
+          <div style={{ display: 'grid', gridTemplateColumns: 'max-content auto', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div className="settings-label">Extensions Folder Path:</div>
+            <input
+              className="settings-input"
+              value={extensionsFolderPath}
+              onChange={(e) => setExtensionsFolderPath(e.target.value)}
+              placeholder="/path/to/extensions"
+            />
+          </div>
+          <button className="settings-button" onClick={handleRescanExtensions} disabled={rescanning}>
+            {rescanning ? 'Rescanning...' : 'Rescan Extensions'}
+          </button>
+        </div>
+
+        <div>
           <h5 style={{ color: 'var(--text-secondary)' }}>Plaid Settings</h5>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
             <span className="settings-label">Sandbox</span>
@@ -507,7 +542,7 @@ function Settings() {
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="settings-button" onClick={() => updateSettings({ date_format: dateFormat, webhook_url: webhookUrl, base_url: baseUrl, plaid_env: plaidEnv, number_format: numberFormat })}>Save</button>
+          <button className="settings-button" onClick={() => updateSettings({ date_format: dateFormat, webhook_url: webhookUrl, base_url: baseUrl, plaid_env: plaidEnv, number_format: numberFormat, extensions_folder_path: extensionsFolderPath })}>Save</button>
           <button className="settings-button" style={{ background: 'var(--bg-tertiary)' }}>Revert</button>
         </div>
       </div>

@@ -584,6 +584,37 @@ const updatePlanningView = (id, name, configJson) =>
 const deletePlanningView = (id) =>
   run('DELETE FROM planning_views WHERE id = ?', [id]);
 
+// Extensions
+const getAllExtensions = () =>
+  all("SELECT * FROM extensions WHERE status != 'missing' ORDER BY name COLLATE NOCASE");
+const getExtensionBySlug = (slug) =>
+  get('SELECT * FROM extensions WHERE slug = ?', [slug]);
+const upsertExtension = (slug, name, version, folderPath, clientEntryPath, serverEntryPath, manifestJson) =>
+  run(`INSERT INTO extensions (slug, name, version, folder_path, client_entry_path, server_entry_path, manifest_json, status, status_message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'ok', NULL)
+       ON CONFLICT(slug) DO UPDATE SET
+         name = excluded.name, version = excluded.version, folder_path = excluded.folder_path,
+         client_entry_path = excluded.client_entry_path, server_entry_path = excluded.server_entry_path,
+         manifest_json = excluded.manifest_json, status = 'ok', status_message = NULL,
+         updated_at = datetime('now')`,
+    [slug, name, version, folderPath, clientEntryPath, serverEntryPath, manifestJson]);
+const setExtensionStatus = (slug, status, statusMessage) =>
+  run("UPDATE extensions SET status = ?, status_message = ?, updated_at = datetime('now') WHERE slug = ?",
+    [status, statusMessage, slug]);
+const markExtensionsMissing = (slugsStillPresent) => {
+  const placeholders = slugsStillPresent.length ? slugsStillPresent.map(() => '?').join(',') : "''";
+  run(`UPDATE extensions SET status = 'missing', updated_at = datetime('now') WHERE slug NOT IN (${placeholders})`,
+    slugsStillPresent);
+};
+
+// Extension Data (generic per-extension key/value store)
+const getExtensionDataValue = (slug, key) =>
+  get('SELECT value_json FROM extension_data WHERE extension_slug = ? AND key = ?', [slug, key]);
+const setExtensionDataValue = (slug, key, valueJson) =>
+  run(`INSERT INTO extension_data (extension_slug, key, value_json) VALUES (?, ?, ?)
+       ON CONFLICT(extension_slug, key) DO UPDATE SET value_json = excluded.value_json, updated_at = datetime('now')`,
+    [slug, key, valueJson]);
+
 // App Settings
 const getSettings = () => all('SELECT key, value FROM app_settings');
 const getSetting = (key) => {
@@ -629,6 +660,9 @@ module.exports = {
   getAllTemplates, createTemplate, deleteTemplate, updateTemplate,
   // Planning Views
   getAllPlanningViews, createPlanningView, updatePlanningView, deletePlanningView,
+  // Extensions
+  getAllExtensions, getExtensionBySlug, upsertExtension, setExtensionStatus, markExtensionsMissing,
+  getExtensionDataValue, setExtensionDataValue,
   // Settings
   getSettings, getSetting, setSetting,
 };

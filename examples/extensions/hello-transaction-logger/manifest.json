@@ -1,0 +1,8 @@
+{
+  "id": "hello-transaction-logger",
+  "name": "Hello Transaction Logger",
+  "version": "1.0.0",
+  "description": "Example Budgett extension: logs synced transactions and shows them in a simple UI.",
+  "client": { "entry": "client/bundle.js" },
+  "server": { "entry": "server/index.js" }
+}

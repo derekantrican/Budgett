@@ -1,0 +1,7 @@
+{
+  "id": "category-spending-chart",
+  "name": "Category Spending Chart",
+  "version": "1.0.0",
+  "description": "Pick a category and see its spending per month for the current year so far.",
+  "client": { "entry": "client/bundle.js" }
+}

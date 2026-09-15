@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Navbar, Nav, Container } from 'react-bootstrap';
+import { getExtensions } from '../services/api';
 
 const navLinkStyle = ({ isActive }) => ({
   color: isActive ? '#fff' : '#ccc',
@@ -10,6 +11,11 @@ const navLinkStyle = ({ isActive }) => ({
 
 function Navigation() {
   const [expanded, setExpanded] = useState(false);
+  const [extensions, setExtensions] = useState([]);
+
+  useEffect(() => {
+    getExtensions().then(setExtensions);
+  }, []);
 
   return (
     <Navbar expand="lg" expanded={expanded} onToggle={setExpanded} sticky="top" style={{ background: '#0d1117', borderBottom: '1px solid var(--border)' }}>
@@ -26,6 +32,9 @@ function Navigation() {
             <Nav.Link as={NavLink} to="/categories" onClick={() => setExpanded(false)} style={navLinkStyle}>Categories</Nav.Link>
             <Nav.Link as={NavLink} to="/income" onClick={() => setExpanded(false)} style={navLinkStyle}>Income</Nav.Link>
             <Nav.Link as={NavLink} to="/planning" onClick={() => setExpanded(false)} style={navLinkStyle}>Planning</Nav.Link>
+            {extensions.length > 0 && (
+              <Nav.Link as={NavLink} to="/extensions" onClick={() => setExpanded(false)} style={navLinkStyle}>Extensions</Nav.Link>
+            )}
             <Nav.Link as={NavLink} to="/settings" onClick={() => setExpanded(false)} style={navLinkStyle}>Settings</Nav.Link>
           </Nav>
         </Navbar.Collapse>
