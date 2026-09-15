@@ -8,6 +8,7 @@ const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByP
   updateAccountBalance, updateItemStatus, get, deleteTransaction } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications, escapeDiscordMarkdown } = require('../helpers/notifications');
+const { dispatchExtensionEvent } = require('../services/extensionLoader');
 const { formatAmount } = require('../helpers/format');
 const { evaluateMathExpression } = require('../helpers/mathExpression');
 
@@ -50,12 +51,14 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
   // Send sync summary notification FIRST
   if (addedCount > 0 || modifiedCount > 0 || removedCount > 0) {
     const instName = item ? (item.display_name || item.institution_name) : plaidItemId;
-    await sendNotifications('sync_complete', {
+    const syncCompleteVars = {
       institution: instName,
       added_count: String(addedCount),
       modified_count: String(modifiedCount),
       removed_count: String(removedCount),
-    });
+    };
+    await sendNotifications('sync_complete', syncCompleteVars);
+    await dispatchExtensionEvent('sync_complete', syncCompleteVars);
 
     // Send detailed listing of added/modified/removed
     let details = '';
@@ -91,6 +94,7 @@ async function syncTransactions(plaidItemId, accessToken, cursor, io) {
 
     if (details) {
       await sendNotifications('sync_details', { details });
+      await dispatchExtensionEvent('sync_details', { details });
     }
   }
 
@@ -173,6 +177,7 @@ async function processAddedTransaction(txn, io) {
     );
     createLog('info', 'pending_matched', `Pending→Posted: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
     await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${escapeDiscordMarkdown(txn.merchant_name || txn.name)}` });
+    await dispatchExtensionEvent('sync_update', { message: `UPDATED (posted matched by pending id): ${txn.merchant_name || txn.name}` });
     return;
   }
 
@@ -187,6 +192,7 @@ async function processAddedTransaction(txn, io) {
     linkIncompleteTransaction(txn.transaction_id, txn.pending ? 1 : 0, incompleteMatch.id);
     createLog('info', 'incomplete_matched', `Linked to incomplete txn #${incompleteMatch.id}: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
     await sendNotifications('sync_update', { message: `UPDATED (matched incomplete by amount): ${escapeDiscordMarkdown(txn.merchant_name || txn.name)}` });
+    await dispatchExtensionEvent('sync_update', { message: `UPDATED (matched incomplete by amount): ${txn.merchant_name || txn.name}` });
     return;
   }
   else if (incompleteMatches.length > 1) {
@@ -209,6 +215,7 @@ async function processAddedTransaction(txn, io) {
       createLog('info', 'fuzzy_pending_matched',
         `Posted txn matched pending #${fuzzyMatch.id} (${fuzzyMatch.merchant}): plaid_id ${fuzzyMatch.plaid_transaction_id} → ${txn.transaction_id}, amount ${fuzzyMatch.amount} → ${-txn.amount}`);
       await sendNotifications('sync_update', { message: `UPDATED (fuzzy matched pending): ${escapeDiscordMarkdown(txn.merchant_name || txn.name)} → ${escapeDiscordMarkdown(fuzzyMatch.merchant)}` });
+      await dispatchExtensionEvent('sync_update', { message: `UPDATED (fuzzy matched pending): ${txn.merchant_name || txn.name} → ${fuzzyMatch.merchant}` });
       return;
     }
   }
@@ -256,12 +263,14 @@ async function processAddedTransaction(txn, io) {
     }
 
     createLog('info', 'rule_matched', `Rule "${matchedRule.pattern}" matched for ${merchantName}${matchedRule.rename_to ? ' → ' + matchedRule.rename_to : ''}`);
-    await sendNotifications('rule_matched', {
+    const ruleMatchedVars = {
       merchant: merchantName,
       pattern: matchedRule.pattern,
       rename_to: matchedRule.rename_to || null,
       category_name: matchedRule.category_name || null,
-    });
+    };
+    await sendNotifications('rule_matched', ruleMatchedVars);
+    await dispatchExtensionEvent('rule_matched', ruleMatchedVars);
   }
 
   // Build record link
@@ -280,13 +289,24 @@ async function processAddedTransaction(txn, io) {
   const recordLink = `${baseUrl}/recordTransaction?${recordParams.toString().replace(/\*/g, '%2A')}`;
 
   // Send notifications
-  await sendNotifications('transaction_found', {
+  const transactionFoundVars = {
     merchant: displayName,
     amount: -txn.amount,  // Use Budgett convention: negative = expense, positive = income
     date: txn.date,
     category: matchedRule && matchedRule.category_name ? matchedRule.category_name : 'Uncategorized',
     account_name: account ? (account.display_name || account.name) : 'Unknown',
     record_link: recordLink,
+  };
+  await sendNotifications('transaction_found', transactionFoundVars);
+  await dispatchExtensionEvent('transaction_found', {
+    ...transactionFoundVars,
+    transaction_id: txnId,
+    account_id: accountId,
+    // Plaid's own categorization, not Budgett's rule-derived `category` above — extensions that
+    // need to detect a specific kind of transaction (e.g. dividend/interest income) generally
+    // want this rather than a Budgett category, since a user-defined rule may not exist for it.
+    plaid_category: txn.personal_finance_category?.primary || null,
+    plaid_category_detailed: txn.personal_finance_category?.detailed || null,
   });
 
   createLog('info', 'transaction_added', `Added: ${txn.merchant_name || txn.name} (${formatAmount(-txn.amount)})`);
