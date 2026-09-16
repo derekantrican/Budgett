@@ -13,7 +13,6 @@ import { updateDashboardTilesLayout } from '../../services/api';
 const BREAKPOINTS = { lg: 992, xs: 0 };
 const COLS = { lg: 12, xs: 1 };
 const ROW_HEIGHT = 28;
-const DRAG_CONFIG = { handle: '.tile-drag-handle' };
 
 // Renders every stored tile on a snap-to-grid layout. Desktop (`lg`) positions/sizes are
 // persisted; the `xs` (mobile) breakpoint isn't supplied explicitly, so react-grid-layout
@@ -22,6 +21,10 @@ const DRAG_CONFIG = { handle: '.tile-drag-handle' };
 function DashboardGrid({ tiles, ctx, onConfigure, onRemove }) {
   const { width, containerRef, mounted } = useContainerWidth();
   const [breakpoint, setBreakpoint] = useState('lg');
+  // The `xs` breakpoint is the single-column, full-width mobile layout (see the file-level
+  // comment) - dragging/resizing there would fight with that forced layout (and with touch
+  // scrolling), so both are turned off outside `lg`.
+  const isMobile = breakpoint !== 'lg';
 
   // Only tiles whose type still resolves (e.g. not an extension tile whose extension was
   // since removed) - layout items and rendered children must match 1:1, or react-grid-layout
@@ -54,7 +57,8 @@ function DashboardGrid({ tiles, ctx, onConfigure, onRemove }) {
           cols={COLS}
           rowHeight={ROW_HEIGHT}
           margin={[16, 16]}
-          dragConfig={DRAG_CONFIG}
+          dragConfig={{ handle: '.tile-drag-handle', enabled: !isMobile }}
+          resizeConfig={{ enabled: !isMobile }}
           onBreakpointChange={setBreakpoint}
           onDragStop={persistLayout}
           onResizeStop={persistLayout}
