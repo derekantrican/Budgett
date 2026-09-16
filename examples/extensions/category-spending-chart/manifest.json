@@ -3,5 +3,10 @@
   "name": "Category Spending Chart",
   "version": "1.0.0",
   "description": "Pick a category and see its spending per month for the current year so far.",
-  "client": { "entry": "client/bundle.js" }
+  "client": {
+    "entry": "client/bundle.js",
+    "tiles": [
+      { "id": "monthly-chart", "label": "Category Spending Chart", "description": "Pick a category and see its spending per month for the current year so far." }
+    ]
+  }
 }

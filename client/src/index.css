@@ -558,6 +558,80 @@ th {
   white-space: nowrap;
 }
 
+/* Summary dashboard: tile grid */
+.dashboard-tile {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dashboard-tile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.dashboard-tile-header:active {
+  cursor: grabbing;
+}
+
+.dashboard-tile-title {
+  font-weight: bold;
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-tile-menu-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dashboard-tile-menu-toggle:hover {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.dashboard-tile-menu-toggle::after {
+  display: none;
+}
+
+.dashboard-tile-body {
+  flex: 1;
+  overflow: auto;
+  padding: 10px;
+  min-height: 0;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background-color: var(--accent) !important;
+  opacity: 0.2;
+  border-radius: 8px;
+}
+
+/* The default handle is a small black corner triangle - invert it so it's visible on this
+   app's dark background instead of nearly disappearing. */
+.react-resizable-handle {
+  filter: invert(1);
+  opacity: 0.5;
+}
+
 .account-chip-extra {
   opacity: 0.85;
   font-weight: 400;

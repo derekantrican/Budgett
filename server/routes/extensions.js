@@ -9,14 +9,25 @@ const KEY_RE = /^[a-zA-Z0-9_.-]{1,100}$/;
 // GET /api/extensions
 router.get('/', (req, res) => {
   const rows = getAllExtensions();
-  res.json(rows.map(r => ({
-    slug: r.slug,
-    name: r.name,
-    version: r.version,
-    status: r.status,
-    status_message: r.status_message,
-    has_client: !!r.client_entry_path,
-  })));
+  res.json(rows.map(r => {
+    let tiles = [];
+    try {
+      tiles = JSON.parse(r.manifest_json)?.client?.tiles || [];
+    }
+    catch {
+      tiles = [];
+    }
+
+    return {
+      slug: r.slug,
+      name: r.name,
+      version: r.version,
+      status: r.status,
+      status_message: r.status_message,
+      has_client: !!r.client_entry_path,
+      tiles,
+    };
+  }));
 });
 
 // POST /api/extensions/rescan

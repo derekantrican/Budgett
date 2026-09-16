@@ -4,6 +4,7 @@ import { Button, Form, Spinner } from 'react-bootstrap';
 import { getPlanningViews, createPlanningView, getAccounts, getItems, getCategories, getIncome, getSettings } from '../services/api';
 import AddViewModal from '../components/planning/AddViewModal';
 import { getViewType, getViewSlugs, findViewBySlug } from '../components/planning/viewTypes';
+import { withInstitutionColors } from '../helpers/accounts';
 
 function Planning() {
   const navigate = useNavigate();
@@ -59,9 +60,8 @@ function Planning() {
     const [viewList, accountList, itemList, categoryList, incomeList] = await Promise.all([
       getPlanningViews(), getAccounts(), getItems(), getCategories(), getIncome(),
     ]);
-    const colorByItemId = new Map(itemList.map(i => [i.id, i.display_color || i.institution_color]));
     setViews(viewList);
-    setAccounts(accountList.map(a => ({ ...a, institution_color: colorByItemId.get(a.item_id) || null })));
+    setAccounts(withInstitutionColors(accountList, itemList));
     setCategories(categoryList);
     setIncomeSources(incomeList);
 

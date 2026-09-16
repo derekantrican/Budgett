@@ -9,6 +9,13 @@ window.registerBudgettExtension = (slug, Component) => {
   window.__BUDGETT_EXTENSIONS__[slug] = Component;
 };
 
+// Dashboard tiles are registered the same way, keyed by "slug:tileId" so one extension bundle
+// can offer several tiles alongside (or instead of) its full-page component.
+window.__BUDGETT_TILES__ = window.__BUDGETT_TILES__ || {};
+window.registerBudgettTile = (slug, tileId, Component) => {
+  window.__BUDGETT_TILES__[`${slug}:${tileId}`] = Component;
+};
+
 const loadedSlugs = new Set();
 
 export function loadExtensionScript(slug) {
@@ -30,6 +37,7 @@ export function loadExtensionScript(slug) {
 }
 
 export const getExtensionComponent = (slug) => window.__BUDGETT_EXTENSIONS__[slug] || null;
+export const getExtensionTileComponent = (slug, tileId) => window.__BUDGETT_TILES__[`${slug}:${tileId}`] || null;
 
 // Per-extension data API handed to the extension's React component as `props.api`. Extension
 // bundles live outside the CRA module graph and can't import services/api.js, so this talks

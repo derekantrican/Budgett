@@ -151,3 +151,14 @@ export const updatePlanningView = (id, data) =>
   request(`/planning-views/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deletePlanningView = (id) =>
   request(`/planning-views/${id}`, { method: 'DELETE' });
+
+// Dashboard Tiles
+export const getDashboardTiles = () => request('/dashboard-tiles');
+export const createDashboardTile = (data) =>
+  request('/dashboard-tiles', { method: 'POST', body: JSON.stringify(data) });
+export const updateDashboardTile = (id, data) =>
+  request(`/dashboard-tiles/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const updateDashboardTilesLayout = (tiles) =>
+  request('/dashboard-tiles/layout', { method: 'PUT', body: JSON.stringify({ tiles }) });
+export const deleteDashboardTile = (id) =>
+  request(`/dashboard-tiles/${id}`, { method: 'DELETE' });

@@ -190,6 +190,19 @@ CREATE TABLE IF NOT EXISTS planning_views (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Summary dashboard tiles (user-added tiles like Category Pie, Balances Table, etc.)
+CREATE TABLE IF NOT EXISTS dashboard_tiles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL, -- e.g. 'category_pie_month', or 'ext:<slug>:<tileId>' for an extension-provided tile
+  config_json TEXT, -- JSON blob of tile-type-specific configuration (account ids, category ids, planning view id, etc.)
+  x INTEGER NOT NULL DEFAULT 0,
+  y INTEGER NOT NULL DEFAULT 0,
+  w INTEGER NOT NULL DEFAULT 4,
+  h INTEGER NOT NULL DEFAULT 4,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Extensions registry (scanned from the folder configured via app_settings.extensions_folder_path)
 CREATE TABLE IF NOT EXISTS extensions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

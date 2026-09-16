@@ -39,6 +39,7 @@ const adminRoutes = require('./routes/admin');
 const settingsRoutes = require('./routes/settings');
 const templatesRoutes = require('./routes/templates');
 const planningViewsRoutes = require('./routes/planningViews');
+const dashboardTilesRoutes = require('./routes/dashboardTiles');
 const incomeRoutes = require('./routes/income');
 const extensionsRoutes = require('./routes/extensions');
 
@@ -53,6 +54,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/templates', templatesRoutes);
 app.use('/api/planning-views', planningViewsRoutes);
+app.use('/api/dashboard-tiles', dashboardTilesRoutes);
 app.use('/api/income', incomeRoutes);
 app.use('/api/extensions', extensionsRoutes);
 

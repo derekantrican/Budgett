@@ -56,6 +56,7 @@ category-spending-chart/
 | `description` | No | Not currently surfaced in the UI, but good documentation |
 | `client.entry` | No | Path to your bundle, relative to the extension's own folder. It can't
   point outside that folder (Budgett rejects that at scan time) |
+| `client.tiles` | No | Array of dashboard tiles this extension offers (see "Dashboard tiles" below) |
 | `server.entry` | No | Path to a server hook module, relative to the extension's folder |
 
 At least one of `client.entry` / `server.entry` should be set, or the extension does nothing.
@@ -319,6 +320,44 @@ The full, working version of all of this — dropdown, chart, and webhook button
 Every time you edit `bundle.js`, just refresh the page — extension bundles are served with
 `Cache-Control: no-cache`, so there's no rebuild or rescan needed for client-side changes (only a
 manifest change, like a renamed `id` or entry path, needs a rescan).
+
+## Dashboard tiles
+
+An extension can also offer one or more tiles for the Summary page's dashboard, instead of (or
+alongside) its full-page component. Declare them in `manifest.json`:
+
+```json
+{
+  "id": "category-spending-chart",
+  "name": "Category Spending Chart",
+  "client": {
+    "entry": "client/bundle.js",
+    "tiles": [
+      { "id": "monthly-chart", "label": "Category Spending Chart", "description": "Optional, shown in the Add Tile picker." }
+    ]
+  }
+}
+```
+
+Each tile needs an `id` (unique within the extension, same character rules as the extension's
+own `id`) and a `label`; `description` is optional. Declaring it here is what makes it show up
+in the Summary page's "Add Tile" picker — the extension's script isn't loaded until a user
+actually places the tile on their dashboard.
+
+In `client/bundle.js`, register a component for each declared tile with
+`window.registerBudgettTile(slug, tileId, Component)`, the same way `registerBudgettExtension`
+registers the full-page one — one bundle can call both:
+
+```js
+window.registerBudgettExtension('category-spending-chart', CategorySpendingChart);
+window.registerBudgettTile('category-spending-chart', 'monthly-chart', CategorySpendingChart);
+```
+
+A tile component receives the same `api` prop (`getData`/`setData`) as the full-page one. It
+renders inside a fixed-size grid cell (the user resizes it on the dashboard), so measure your
+own container rather than assuming a specific width — see `containerRef`/`ResizeObserver` in
+`examples/extensions/category-spending-chart/client/bundle.js`, which registers the exact same
+component for both its full page and its tile.
 
 ## How it all works
 

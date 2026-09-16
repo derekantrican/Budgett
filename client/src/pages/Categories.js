@@ -6,7 +6,7 @@ import {
   getCategoryUsage, deleteCategoryApi, mergeCategoryApi, disassociateCategoryApi, getIncome,
 } from '../services/api';
 import { evaluateBudgetExpression, randomVibrantColor } from '../helpers/budgetFormula';
-import { sumIncomeForMonth } from '../helpers/income';
+import { incomeVariablesFor, evaluateCategoryBudget, categorySpent } from '../helpers/categoryBudget';
 import { formatCurrency } from '../utils/currency';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -55,13 +55,6 @@ function Categories() {
     setCategories(cats);
     setTransactions(txns);
     setIncomeSources(income);
-  };
-
-  // income_gross/income_net for a given month, for use as extra variables in budget formulas
-  // (e.g. a tithing category budgeted as "income_gross*0.1").
-  const incomeVariablesFor = (year, month) => {
-    const totals = sumIncomeForMonth(incomeSources, new Date(year, month, 1));
-    return { income_gross: totals.gross, income_net: totals.net };
   };
 
   const handleSave = async () => {
@@ -193,39 +186,15 @@ function Categories() {
     );
   }
 
-  // Evaluate budgets for the current period
-  const evaluateBudget = (cat) => {
-    if (!cat.budgeted_amount_expression) {
-      return 0;
-    }
-
-    if (viewMode === 'year') {
-      // Sum across all 12 months - income varies month to month (e.g. a 5-paycheck month),
-      // so income_gross/income_net are recomputed for each one rather than reused.
-      let total = 0;
-      for (let m = 0; m < 12; m++) {
-        total += evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, m, incomeVariablesFor(viewYear, m));
-      }
-
-      return total;
-    }
-
-    return evaluateBudgetExpression(cat.budgeted_amount_expression, viewYear, viewMonth, incomeVariablesFor(viewYear, viewMonth));
-  };
-
   // Calculate spending per category (only visible ones for chart)
   const visibleCategories = categories.filter(c => !c.is_hidden);
   const hiddenCategories = categories.filter(c => c.is_hidden);
-  
-  const catData = visibleCategories.map(cat => {
-    const spent = transactions
-      .filter(t => t.splits?.some(s => s.category_id === cat.id))
-      .reduce((sum, t) => {
-        const catSplits = t.splits.filter(s => s.category_id === cat.id);
-        return sum + catSplits.reduce((s, split) => s + split.amount, 0);
-      }, 0);
-    return { ...cat, spent, budgeted: evaluateBudget(cat) };
-  });
+
+  const catData = visibleCategories.map(cat => ({
+    ...cat,
+    spent: categorySpent(cat, transactions),
+    budgeted: evaluateCategoryBudget(cat, incomeSources, viewYear, viewMonth, viewMode),
+  }));
 
   const totalBudgeted = catData.reduce((sum, c) => sum + c.budgeted, 0);
   const totalSpent = catData.reduce((sum, c) => sum + c.spent, 0);
@@ -485,7 +454,7 @@ function Categories() {
                 <Form.Text style={{ color: 'var(--text-secondary)' }}>
                   Prefix with = to use a formula. Variables: sundays, mondays, ..., saturdays, days, weeks, income_gross, income_net
                   {editForm.budgeted_amount_expression && (
-                    <span> — evaluates to <strong>{formatCurrency(evaluateBudgetExpression(editForm.budgeted_amount_expression, viewYear, viewMonth, incomeVariablesFor(viewYear, viewMonth)))}</strong> for {MONTHS[viewMonth]}</span>
+                    <span> — evaluates to <strong>{formatCurrency(evaluateBudgetExpression(editForm.budgeted_amount_expression, viewYear, viewMonth, incomeVariablesFor(incomeSources, viewYear, viewMonth)))}</strong> for {MONTHS[viewMonth]}</span>
                   )}
                 </Form.Text>
               </Form.Group>

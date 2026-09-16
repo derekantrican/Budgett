@@ -584,6 +584,30 @@ const updatePlanningView = (id, name, configJson) =>
 const deletePlanningView = (id) =>
   run('DELETE FROM planning_views WHERE id = ?', [id]);
 
+// Dashboard Tiles (Summary page)
+const getAllDashboardTiles = () =>
+  all('SELECT * FROM dashboard_tiles ORDER BY y, x, id');
+const createDashboardTile = (type, configJson, x, y, w, h) =>
+  run('INSERT INTO dashboard_tiles (type, config_json, x, y, w, h) VALUES (?, ?, ?, ?, ?, ?)',
+    [type, configJson, x, y, w, h]);
+const updateDashboardTileConfig = (id, configJson) =>
+  run("UPDATE dashboard_tiles SET config_json = ?, updated_at = datetime('now') WHERE id = ?",
+    [configJson, id]);
+// One transaction so a batch of drag/resize moves either all land or none do - a partial
+// write would otherwise leave some tiles snapped to their new spot and others stuck at the
+// old one after a page refresh.
+const updateDashboardTilesLayout = (tiles) => {
+  const stmt = getDb().prepare("UPDATE dashboard_tiles SET x = ?, y = ?, w = ?, h = ?, updated_at = datetime('now') WHERE id = ?");
+  const applyAll = getDb().transaction((rows) => {
+    for (const t of rows) {
+      stmt.run(t.x, t.y, t.w, t.h, t.id);
+    }
+  });
+  applyAll(tiles);
+};
+const deleteDashboardTile = (id) =>
+  run('DELETE FROM dashboard_tiles WHERE id = ?', [id]);
+
 // Extensions
 const getAllExtensions = () =>
   all("SELECT * FROM extensions WHERE status != 'missing' ORDER BY name COLLATE NOCASE");
@@ -660,6 +684,8 @@ module.exports = {
   getAllTemplates, createTemplate, deleteTemplate, updateTemplate,
   // Planning Views
   getAllPlanningViews, createPlanningView, updatePlanningView, deletePlanningView,
+  // Dashboard Tiles
+  getAllDashboardTiles, createDashboardTile, updateDashboardTileConfig, updateDashboardTilesLayout, deleteDashboardTile,
   // Extensions
   getAllExtensions, getExtensionBySlug, upsertExtension, setExtensionStatus, markExtensionsMissing,
   getExtensionDataValue, setExtensionDataValue,

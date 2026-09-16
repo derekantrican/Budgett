@@ -102,6 +102,29 @@ function scanExtensions() {
       }
     }
 
+    // Optional dashboard tiles this extension's client bundle registers via
+    // window.registerBudgettTile. Declared statically in the manifest (rather than only
+    // discovered by loading the bundle) so the "Add Tile" picker can list them without
+    // fetching/running every extension's script up front. Malformed entries are dropped
+    // individually rather than failing the whole extension.
+    if (manifest.client?.tiles !== undefined && !Array.isArray(manifest.client.tiles)) {
+      logger.warn('extension_manifest_invalid', `Extension "${slug}": client.tiles must be an array, ignoring`);
+      manifest.client.tiles = [];
+    }
+    else if (Array.isArray(manifest.client?.tiles)) {
+      const validTiles = [];
+      for (const tile of manifest.client.tiles) {
+        if (!tile || !tile.id || !SLUG_RE.test(tile.id) || !tile.label) {
+          logger.warn('extension_manifest_invalid', `Extension "${slug}": skipping a tile entry - each needs an "id" matching ${SLUG_RE} and a "label"`);
+          continue;
+        }
+
+        validTiles.push(tile);
+      }
+
+      manifest.client.tiles = validTiles;
+    }
+
     let serverEntryPath = null;
     if (manifest.server?.entry) {
       serverEntryPath = resolveEntrySafely(folderPath, manifest.server.entry);

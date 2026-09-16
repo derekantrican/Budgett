@@ -1,110 +1,101 @@
 import React, { useEffect, useState } from 'react';
-import { Spinner } from 'react-bootstrap';
-import { PieChart, Pie, Cell, Legend, Sector } from 'recharts';
-import { getTransactions, getCategories } from '../services/api';
+import { Button, Spinner } from 'react-bootstrap';
+import {
+  getCategories, getAccounts, getItems, getPlanningViews, getIncome, getExtensions, getSettings,
+  getDashboardTiles, createDashboardTile, updateDashboardTile, deleteDashboardTile,
+} from '../services/api';
+import DashboardGrid from '../components/dashboard/DashboardGrid';
+import AddTileModal from '../components/dashboard/AddTileModal';
+import ConfigureTileModal from '../components/dashboard/ConfigureTileModal';
+import { withInstitutionColors } from '../helpers/accounts';
 
 function Summary() {
-  const [categories, setCategories] = useState(null);
-  const [transactions, setTransactions] = useState(null);
-  const [activeIndex, setActiveIndex] = useState(-1);
+  const [tiles, setTiles] = useState(null);
+  const [ctx, setCtx] = useState(null);
+  const [showAddTile, setShowAddTile] = useState(false);
+  const [configuring, setConfiguring] = useState(null); // { tile, tileType } | null
+
+  const loadTiles = () => getDashboardTiles().then(setTiles);
 
   useEffect(() => {
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-
-    getTransactions(startDate, endDate).then(setTransactions);
-    getCategories().then(setCategories);
+    loadTiles();
+    Promise.all([getCategories(), getAccounts(), getItems(), getPlanningViews(), getIncome(), getExtensions(), getSettings()])
+      .then(([categories, accounts, items, planningViews, incomeSources, extensions, settings]) => {
+        setCtx({
+          categories,
+          accounts: withInstitutionColors(accounts, items),
+          planningViews,
+          incomeSources,
+          extensions,
+          dateFormat: settings.date_format || 'MMM D, YYYY',
+        });
+      });
   }, []);
 
-  if (!categories || !transactions) {
+  if (!tiles || !ctx) {
     return (
       <div className="loading-container">
-        <Spinner animation="border" variant="success" style={{ width: 80, height: 80 }} />
+        <Spinner animation="border" variant="light" style={{ width: 60, height: 60 }} />
       </div>
     );
   }
 
-  // Build pie chart data
-  const chartData = [];
-  const chartColors = [];
+  const handleAddTile = async (tileType, config) => {
+    const y = tiles.reduce((max, t) => Math.max(max, t.y + t.h), 0);
+    await createDashboardTile({ type: tileType.type, config, x: 0, y, w: tileType.defaultSize.w, h: tileType.defaultSize.h });
+    setShowAddTile(false);
+    loadTiles();
+  };
 
-  for (const cat of categories) {
-    const spent = transactions
-      .filter(t => t.splits?.some(s => s.category_id === cat.id))
-      .reduce((sum, t) => {
-        const catSplits = t.splits.filter(s => s.category_id === cat.id);
-        return sum + catSplits.reduce((s, split) => s + split.amount, 0);
-      }, 0);
+  const handleConfigureSave = async (tile, config) => {
+    await updateDashboardTile(tile.id, { config });
+    setConfiguring(null);
+    loadTiles();
+  };
 
-    if (spent < 0) {
-      chartData.push({ name: cat.name, value: Math.abs(spent) });
-      chartColors.push(cat.color || `hsl(${Math.random() * 360}, 60%, 50%)`);
+  const handleRemove = async (tile) => {
+    if (!window.confirm('Remove this tile?')) {
+      return;
     }
-  }
 
-  // Uncategorized
-  const uncategorized = transactions
-    .reduce((sum, t) => {
-      if (!t.splits || t.splits.length === 0) {
-        return sum + t.amount;
-      }
-
-      const uncatSplits = t.splits.filter(s => !s.category_id);
-      return sum + uncatSplits.reduce((s, split) => s + split.amount, 0);
-    }, 0);
-  if (uncategorized < 0) {
-    chartData.push({ name: 'Uncategorized', value: Math.abs(uncategorized) });
-    chartColors.push('#6c757d');
-  }
-
-  const total = chartData.reduce((sum, d) => sum + d.value, 0);
-
-  const renderActiveShape = (props) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload } = props;
-    return (
-      <g>
-        <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius}
-          startAngle={startAngle} endAngle={endAngle} fill={fill} />
-        <Sector cx={cx} cy={cy} startAngle={startAngle} endAngle={endAngle}
-          innerRadius={outerRadius + 6} outerRadius={outerRadius + 10} fill={fill} />
-        <text x={cx} y={cy} dy={8} textAnchor="middle" fill="white">
-          {payload.name}
-        </text>
-      </g>
-    );
+    await deleteDashboardTile(tile.id);
+    loadTiles();
   };
 
   return (
-    <div>
-      <h4 style={{ marginBottom: 20 }}>Spending Categories this month</h4>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <PieChart width={600} height={500}>
-          <Legend />
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            isAnimationActive={false}
-            labelLine={false}
-            label={({ value }) => {
-              const pct = (value / total) * 100;
-              return pct < 1 ? '<1%' : `${Math.round(pct)}%`;
-            }}
-            outerRadius={180}
-            innerRadius={110}
-            dataKey="value"
-            activeIndex={activeIndex}
-            activeShape={renderActiveShape}
-            onMouseEnter={(_, index) => setActiveIndex(index)}
-            onMouseLeave={() => setActiveIndex(-1)}
-          >
-            {chartData.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={chartColors[index]} />
-            ))}
-          </Pie>
-        </PieChart>
-      </div>
+    <div style={{ position: 'relative' }}>
+      {/* Floats over the grid instead of reserving its own row, so tiles can occupy the very
+          top of the page - it only needs to stay clickable, not stay clear of tile content. */}
+      <Button
+        variant="primary"
+        onClick={() => setShowAddTile(true)}
+        style={{ position: 'absolute', top: 0, right: 0, zIndex: 10, boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)' }}
+      >
+        + Add Tile
+      </Button>
+
+      {tiles.length === 0 ? (
+        <div className="text-center" style={{ padding: '64px 16px' }}>
+          <p className="text-muted">No tiles yet. Click "+ Add Tile" to get started.</p>
+        </div>
+      ) : (
+        <DashboardGrid
+          tiles={tiles}
+          ctx={ctx}
+          onConfigure={(tile, tileType) => setConfiguring({ tile, tileType })}
+          onRemove={handleRemove}
+        />
+      )}
+
+      <AddTileModal show={showAddTile} onClose={() => setShowAddTile(false)} onAdd={handleAddTile} ctx={ctx} />
+      <ConfigureTileModal
+        show={!!configuring}
+        tile={configuring?.tile}
+        tileType={configuring?.tileType}
+        ctx={ctx}
+        onSave={handleConfigureSave}
+        onClose={() => setConfiguring(null)}
+      />
     </div>
   );
 }

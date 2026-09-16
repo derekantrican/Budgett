@@ -165,4 +165,9 @@
   }
 
   window.registerBudgettExtension('category-spending-chart', CategorySpendingChart);
+
+  // Also offered as a Summary dashboard tile (see manifest.json's client.tiles) - same
+  // component works unmodified since it already measures its own container width instead of
+  // assuming a full page.
+  window.registerBudgettTile('category-spending-chart', 'monthly-chart', CategorySpendingChart);
 })();
