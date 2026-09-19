@@ -120,6 +120,12 @@ function Transactions() {
     setHiddenTxns(hidden);
   };
 
+  // Reloads the transaction list, preserving an active search filter instead of
+  // always falling back to the unfiltered date-range list.
+  const refreshTransactions = useCallback(() => {
+    return search.trim() ? searchTransactions(search).then(setTransactions) : loadTransactions();
+  }, [search]);
+
   // Fetch a summary of the linked transaction (for the tooltip) whenever the edited transaction's link changes
   useEffect(() => {
     if (editTxn?.linked_transaction_id) {
@@ -310,7 +316,7 @@ function Transactions() {
       }
 
       setEditTxn(null);
-      loadTransactions();
+      refreshTransactions();
     }
     finally {
       setSaving(false);
@@ -326,7 +332,7 @@ function Transactions() {
     try {
       await deleteTransaction(editTxn.id);
       setEditTxn(null);
-      loadTransactions();
+      refreshTransactions();
     }
     finally {
       setSaving(false);
@@ -824,7 +830,7 @@ function Transactions() {
                   onClick={async () => {
                     await unlinkCounterpart(editTxn.id);
                     setEditTxn(null);
-                    loadTransactions();
+                    refreshTransactions();
                   }}
                 >
                   <UnlinkIcon />
@@ -839,7 +845,7 @@ function Transactions() {
                 onClick={async () => {
                   await updateTransaction(editTxn.id, { is_hidden: !editTxn.is_hidden });
                   setEditTxn(null);
-                  loadTransactions();
+                  refreshTransactions();
                 }}
               >
                 {editTxn.is_hidden ? <EyeSlashIcon /> : <EyeIcon />}
@@ -961,7 +967,7 @@ function Transactions() {
                   setCounterpartCandidates(null);
                   setSelectedCounterpart(null);
                   setEditTxn(null);
-                  loadTransactions();
+                  refreshTransactions();
                 }}
               >
                 Link Transactions
