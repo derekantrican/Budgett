@@ -22,6 +22,7 @@ function EmergencyFundView({ view, accounts, categories, dateFormat, onUpdated, 
     monthsOfCoverage,
     fundAccountIds,
     backupAccountIds,
+    additionalMonthlyIncome: config.additionalMonthlyIncome ?? 0,
   });
 
   // Per-category rationing percentage (e.g. "we'd only really need 70% of our normal grocery
@@ -53,6 +54,7 @@ function EmergencyFundView({ view, accounts, categories, dateFormat, onUpdated, 
 
   const {
     essentialCategories = [], monthlyBudgetFor, monthlyEssentialTotal = 0,
+    monthlyNeed = 0, additionalMonthlyIncome = 0,
     targetAmount = 0, fundAccounts = [], backupAccounts = [], fundBalance = 0,
     percentFunded, monthsFromFund, monthsWithBackup, showChart, chartData = [],
   } = plan;
@@ -80,6 +82,7 @@ function EmergencyFundView({ view, accounts, categories, dateFormat, onUpdated, 
       monthsOfCoverage,
       fundAccountIds,
       backupAccountIds,
+      additionalMonthlyIncome: config.additionalMonthlyIncome ?? 0,
     });
     setConfirmDelete(false);
     setShowEdit(true);
@@ -119,10 +122,13 @@ function EmergencyFundView({ view, accounts, categories, dateFormat, onUpdated, 
     await updatePlanningView(view.id, {
       name: view.name,
       config: {
+        // Keep the inline-edited settings (rationing percentages, margin) - they aren't part of this form.
+        ...config,
         essentialCategoryIds: form.essentialCategoryIds,
         monthsOfCoverage: Number(form.monthsOfCoverage) || 0,
         fundAccountIds: form.fundAccountIds,
         backupAccountIds: form.backupAccountIds,
+        additionalMonthlyIncome: Math.max(0, Number(form.additionalMonthlyIncome) || 0),
       },
     });
     setShowEdit(false);
@@ -173,6 +179,12 @@ function EmergencyFundView({ view, accounts, categories, dateFormat, onUpdated, 
                       </div>
                     ),
                   },
+                  ...(additionalMonthlyIncome > 0
+                    ? [
+                      { key: 'additional-income', label: 'Additional Monthly Income', value: `−${formatCurrency(additionalMonthlyIncome)}` },
+                      { key: 'monthly-need', label: 'Net Monthly Need', value: formatCurrency(monthlyNeed) },
+                    ]
+                    : []),
                   { key: 'months-of-coverage', label: 'Months of Coverage', value: monthsOfCoverage },
                   { key: 'target-amount', label: 'Target Fund Amount', value: formatCurrency(targetAmount) },
                   ...(fundAccounts.length > 0
@@ -311,6 +323,17 @@ function EmergencyFundView({ view, accounts, categories, dateFormat, onUpdated, 
                   onChange={(e) => setForm({ ...form, monthsOfCoverage: e.target.value })}
                 />
                 <Form.Text className="text-muted">How many months of essential spending should this fund cover?</Form.Text>
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Additional Monthly Income</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.additionalMonthlyIncome}
+                  onChange={(e) => setForm({ ...form, additionalMonthlyIncome: e.target.value })}
+                />
+                <Form.Text className="text-muted">Optional — income you'd still receive during an emergency (e.g. a partner's paycheck or a side hobby). Reduces the essential monthly spend the fund needs to cover.</Form.Text>
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label>Emergency Fund Account(s)</Form.Label>
