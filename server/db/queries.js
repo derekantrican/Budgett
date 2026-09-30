@@ -305,21 +305,26 @@ const updateTransactionPlaidData = (amount, merchant, plaidCategory, rawJson, pl
 // sides before comparing, since Plaid's raw merchant names often mash words together
 // (e.g. "Wsferries") while a manually-typed name naturally has one (e.g. "WS Ferries")
 // — without this, an otherwise-perfect amount/date match silently fails to link at
-// all, with nothing logged, because the merchant check alone doesn't even try. Returns
-// every match, not just the best one — a same-amount collision (e.g. two blank-merchant
+// all, with nothing logged, because the merchant check alone doesn't even try. The
+// merchant check is skipped entirely when the incomplete entry is on the same account as
+// the incoming transaction — same account + exact amount + nearby date is already strong
+// evidence, and bank transfers in particular come through with no merchant_name and a raw
+// description (e.g. "Deposit - Online Banking Transfer from ... SAV") that never contains
+// whatever name was typed by hand (e.g. "Savings"). Returns every match, not just the best one — a same-amount collision (e.g. two blank-merchant
 // manual entries) is ambiguous, and the caller should refuse to auto-link rather than
 // silently guess.
-const findIncompleteMatches = (amount, date, merchantName) =>
+const findIncompleteMatches = (amount, date, merchantName, accountId) =>
   all(`SELECT * FROM transactions
        WHERE plaid_transaction_id IS NULL AND is_removed = 0
        AND date >= date(?, '-45 days') AND date <= date(?, '+5 days')
        AND ABS(amount - ?) < 0.005
        AND (
-         merchant IS NULL OR merchant = ''
+         account_id = ?
+         OR merchant IS NULL OR merchant = ''
          OR INSTR(REPLACE(LOWER(?), ' ', ''), REPLACE(LOWER(merchant), ' ', '')) > 0
          OR INSTR(REPLACE(LOWER(merchant), ' ', ''), REPLACE(LOWER(?), ' ', '')) > 0
        )
-       ORDER BY date DESC`, [date, date, amount, merchantName, merchantName]);
+       ORDER BY date DESC`, [date, date, amount, accountId, merchantName, merchantName]);
 
 // Link an incomplete transaction to the incoming plaid transaction. Also restores
 // is_pending from the incoming transaction — a prior unlink (see unlinkPlaidId) always
