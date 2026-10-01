@@ -124,7 +124,7 @@ function Transactions() {
   // always falling back to the unfiltered date-range list.
   const refreshTransactions = useCallback(() => {
     return search.trim() ? searchTransactions(search).then(setTransactions) : loadTransactions();
-  }, [search]);
+  }, [search, startDate, endDate]);
 
   // Fetch a summary of the linked transaction (for the tooltip) whenever the edited transaction's link changes
   useEffect(() => {
