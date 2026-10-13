@@ -185,8 +185,8 @@ async function processAddedTransaction(txn, io) {
   const account = getAccountByPlaidId(txn.account_id);
   const accountId = account ? account.id : null;
 
-  // Check for incomplete transactions (no plaid_id, same amount, date/merchant proximity)
-  const incompleteMatches = findIncompleteMatches(-txn.amount, txn.date, txn.merchant_name || txn.name);
+  // Check for incomplete transactions (no plaid_id, same amount, date proximity, same account or similar merchant)
+  const incompleteMatches = findIncompleteMatches(-txn.amount, txn.date, txn.merchant_name || txn.name, accountId);
   if (incompleteMatches.length === 1) {
     const incompleteMatch = incompleteMatches[0];
     linkIncompleteTransaction(txn.transaction_id, txn.pending ? 1 : 0, incompleteMatch.id);
