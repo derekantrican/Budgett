@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { getTransactionsByDateRange, createTransaction, getTransactionByPlaidId,
-  createSplit, getSplitsByTransaction, deleteSplitsByTransaction,
+  getTransactionByPendingId, createSplit, getSplitsByTransaction, deleteSplitsByTransaction,
   getIncompleteTransactions } = require('../db/queries');
 
 // GET /api/transactions?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
@@ -116,9 +116,17 @@ router.get('/hidden', (req, res) => {
   res.json(Array.from(transactionsMap.values()));
 });
 
+// Resolve a Plaid id to its transaction, including a pending id that has since been
+// promoted to posted (the row's plaid_transaction_id now holds the posted id, and the
+// original pending id lives on in pending_transaction_id). Record links sent for a
+// pending transaction carry the pending id, so they must still resolve after promotion.
+function findByPlaidOrPendingId(plaidId) {
+  return getTransactionByPlaidId(plaidId) || getTransactionByPendingId(plaidId);
+}
+
 // GET /api/transactions/by-plaid-id/:plaidId
 router.get('/by-plaid-id/:plaidId', (req, res) => {
-  const txn = getTransactionByPlaidId(req.params.plaidId);
+  const txn = findByPlaidOrPendingId(req.params.plaidId);
   if (!txn) {
     return res.status(404).json({ error: 'Transaction not found' });
   }
@@ -157,6 +165,13 @@ router.post('/', (req, res) => {
 
   if (!date || amount === undefined) {
     return res.status(400).json({ error: 'date and amount required' });
+  }
+
+  if (plaid_transaction_id) {
+    const existing = findByPlaidOrPendingId(plaid_transaction_id);
+    if (existing) {
+      return res.status(409).json({ error: `Transaction with Plaid id ${plaid_transaction_id} already exists (#${existing.id})` });
+    }
   }
 
   const result = createTransaction(
