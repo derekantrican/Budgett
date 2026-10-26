@@ -109,3 +109,7 @@ Things that are planned but not built yet:
 - **Universal variables** (e.g. `$CAT(Groceries)`) usable across budget formulas and future widgets
 - **Per-category time-scoping** — categories that can expire or roll over instead of persisting forever
 - **Authentication & multi-user roles** (admin, user, read-only) for deployments beyond a single trusted user
+
+## License
+
+Budgett is source-available under the [Creative Commons Attribution-NoDerivatives 4.0 International License](LICENSE) (CC BY-ND 4.0). You're free to use, self-host, and share it unchanged, as long as you credit the original project. Distributing modified versions is not permitted.

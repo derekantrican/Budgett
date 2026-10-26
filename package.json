@@ -2,6 +2,7 @@
   "name": "budgett",
   "version": "1.0.0",
   "description": "A self-hosted budget management app powered by Plaid",
+  "license": "CC-BY-ND-4.0",
   "scripts": {
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
     "server": "cd server && npm start",
