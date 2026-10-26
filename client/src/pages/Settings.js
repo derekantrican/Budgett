@@ -3,6 +3,7 @@ import { Card, Button, Form, Modal } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
 import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount, deleteItem, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
+import { IS_DEMO } from '../demo/isDemo';
 
 function Settings() {
   const [items, setItems] = useState([]);
@@ -65,6 +66,11 @@ function Settings() {
   };
 
   const handleGetLinkToken = async (itemId) => {
+    if (IS_DEMO) {
+      alert('Linking bank accounts through Plaid is not available in the demo.');
+      return;
+    }
+
     try {
       setReauthItemId(itemId || null);
       const { link_token } = await getLinkToken(itemId);
@@ -510,7 +516,8 @@ function Settings() {
           </Form.Select>
         </div>
 
-        <div>
+        {/* Extensions are loaded from the server's disk, so there's nothing to configure in the demo */}
+        {!IS_DEMO && <div>
           <h5 style={{ color: 'var(--text-secondary)' }}>Extensions</h5>
           <div style={{ display: 'grid', gridTemplateColumns: 'max-content auto', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <div className="settings-label">Extensions Folder Path:</div>
@@ -524,7 +531,7 @@ function Settings() {
           <button className="settings-button" onClick={handleRescanExtensions} disabled={rescanning}>
             {rescanning ? 'Rescanning...' : 'Rescan Extensions'}
           </button>
-        </div>
+        </div>}
 
         <div>
           <h5 style={{ color: 'var(--text-secondary)' }}>Plaid Settings</h5>
@@ -561,12 +568,16 @@ function Settings() {
       {/* Admin Tools */}
       <h5 className="mt-4 mb-3" style={{ color: 'var(--text-secondary)' }}>Admin Tools</h5>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <NavLink to="/settings/logs" style={{ textDecoration: 'none' }}>
-          <Button variant="outline-light">Logs</Button>
-        </NavLink>
-        <NavLink to="/settings/webhooks" style={{ textDecoration: 'none' }}>
-          <Button variant="outline-light">Webhook Inspector</Button>
-        </NavLink>
+        {!IS_DEMO && (
+          <>
+            <NavLink to="/settings/logs" style={{ textDecoration: 'none' }}>
+              <Button variant="outline-light">Logs</Button>
+            </NavLink>
+            <NavLink to="/settings/webhooks" style={{ textDecoration: 'none' }}>
+              <Button variant="outline-light">Webhook Inspector</Button>
+            </NavLink>
+          </>
+        )}
         <NavLink to="/settings/incomplete" style={{ textDecoration: 'none' }}>
           <Button variant="outline-light">Incomplete Transactions</Button>
         </NavLink>

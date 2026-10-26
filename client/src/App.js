@@ -17,6 +17,10 @@ import AdminRules from './pages/admin/Rules';
 import AdminTemplates from './pages/admin/Templates';
 import { getSettings } from './services/api';
 import { setCurrencySettings } from './utils/currency';
+import { IS_DEMO } from './demo/isDemo';
+
+// Required conditionally (like the mock API in services/api.js) so normal builds don't bundle it
+const DemoBanner = process.env.REACT_APP_DEMO === 'true' ? require('./demo/DemoBanner').default : null;
 
 function App() {
   useEffect(() => {
@@ -25,6 +29,7 @@ function App() {
 
   return (
     <div>
+      {IS_DEMO && <DemoBanner />}
       <Navigation />
       <div className="container-fluid mt-3">
         <Routes>
@@ -38,8 +43,9 @@ function App() {
           <Route path="/extensions/:slug" element={<Extensions />} />
           <Route path="/recordTransaction" element={<RecordTransaction />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/logs" element={<AdminLogs />} />
-          <Route path="/settings/webhooks" element={<AdminWebhooks />} />
+          {/* Logs and webhook payloads only exist on a real server */}
+          {!IS_DEMO && <Route path="/settings/logs" element={<AdminLogs />} />}
+          {!IS_DEMO && <Route path="/settings/webhooks" element={<AdminWebhooks />} />}
           <Route path="/settings/incomplete" element={<AdminIncomplete />} />
           <Route path="/settings/money-movement" element={<AdminMoneyMovement />} />
           <Route path="/settings/rules" element={<AdminRules />} />

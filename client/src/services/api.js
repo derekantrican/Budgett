@@ -1,6 +1,15 @@
 const API_BASE = '/api';
 
+// Only bundled into the demo build - process.env.REACT_APP_DEMO is inlined at build time, so
+// webpack drops the require (and the seed data with it) from normal builds. This has to test
+// process.env directly rather than IS_DEMO, since an imported constant isn't folded.
+const demoApi = process.env.REACT_APP_DEMO === 'true' ? require('../demo/mockApi') : null;
+
 async function request(path, options = {}) {
+  if (demoApi) {
+    return demoApi.handleDemoRequest(path, options);
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,

@@ -1,0 +1,63 @@
+# Builds the client in demo mode (no server - every API call is answered by the in-browser mock in
+# client/src/demo/mockApi.js) and publishes it to GitHub Pages at https://derekantrican.github.io/Budgett/.
+# Requires Settings > Pages > Source to be set to "GitHub Actions".
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      - name: Build demo
+        run: npm run build
+        env:
+          REACT_APP_DEMO: 'true'
+          PUBLIC_URL: /Budgett
+          # CRA fails the build on lint warnings when CI=true
+          CI: 'false'
+
+      # GitHub Pages serves 404.html for unknown paths; it redirects deep links (e.g.
+      # /Budgett/transactions) back to index.html, which restores the route for BrowserRouter.
+      - run: cp demo/404.html build/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: client/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

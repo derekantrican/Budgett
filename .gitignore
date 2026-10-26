@@ -5,6 +5,8 @@ database/*.db-wal
 .env
 .env.*
 !.env.template
+# Public CRA build defaults (no secrets - REACT_APP_* values are baked into the client bundle anyway)
+!client/.env.production
 client/build/
 server/build/
 

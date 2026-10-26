@@ -21,7 +21,7 @@ function Navigation() {
     <Navbar expand="lg" expanded={expanded} onToggle={setExpanded} sticky="top" style={{ background: '#0d1117', borderBottom: '1px solid var(--border)' }}>
       <Container fluid>
         <Navbar.Brand as={NavLink} to="/" onClick={() => setExpanded(false)} style={{ fontWeight: 'bold', color: '#fff', fontSize: '1.3em' }}>
-          <img src="/logo192.png" alt="" style={{ width: 28, height: 28, borderRadius: 6, marginRight: 8, verticalAlign: 'middle' }} />
+          <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="" style={{ width: 28, height: 28, borderRadius: 6, marginRight: 8, verticalAlign: 'middle' }} />
           Budgett
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="main-nav" style={{ borderColor: 'var(--border)' }} />
