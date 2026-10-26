@@ -9,10 +9,11 @@ const { syncTransactions } = require('../webhookHandlers/transactionSync');
 // GET /api/items - return all items with accounts
 router.get('/', (req, res) => {
   const { all } = require('../db/queries');
-  const items = all('SELECT * FROM items');
-  for (const item of items) {
-    item.accounts = getAccountsByItem(item.id);
-  }
+  // Don't send the Plaid access token to the client - it grants ongoing access to the bank data
+  const items = all('SELECT * FROM items').map(({ plaid_access_token, ...item }) => ({
+    ...item,
+    accounts: getAccountsByItem(item.id),
+  }));
 
   res.json(items);
 });
