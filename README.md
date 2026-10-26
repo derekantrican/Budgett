@@ -105,10 +105,7 @@ Budgett/
 
 Things that are planned but not built yet:
 
-- **Income tracking** — salary, hourly, or commission income with deductions (`Income` tab is currently a placeholder)
-- **Planning tab** — mortgage amortization, retirement growth projections, and emergency-fund sizing based on selected categories
 - **SimpleFIN support** as an alternative/complement to Plaid for institutions that support it (a bridge client already exists at `server/services/simplefin.js`, not yet wired into syncing)
-- **Extensions / custom widget system** — a way to add features (personal-funds tracking, etc.) without baking every idea into the core app
 - **Universal variables** (e.g. `$CAT(Groceries)`) usable across budget formulas and future widgets
 - **Per-category time-scoping** — categories that can expire or roll over instead of persisting forever
 - **Authentication & multi-user roles** (admin, user, read-only) for deployments beyond a single trusted user
