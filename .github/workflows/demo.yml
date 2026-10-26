@@ -1,5 +1,5 @@
 # Builds the client in demo mode (no server - every API call is answered by the in-browser mock in
-# client/src/demo/mockApi.js) and publishes it to GitHub Pages at https://derekantrican.github.io/Budgett/.
+# client/src/demo/mockApi.js) and publishes it to GitHub Pages at https://derekantrican.com/Budgett.
 # Requires Settings > Pages > Source to be set to "GitHub Actions".
 name: Deploy demo to GitHub Pages
 
