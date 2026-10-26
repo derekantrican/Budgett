@@ -230,10 +230,11 @@ export function buildSeed() {
     {
       id: 1, name: 'Northwind Logistics', type: 'salary', amount: salary, quantity_per_period: null, unit_label: null,
       pay_period: 'biweekly', payday_weekday: null, reference_pay_date: iso(firstPayday),
+      // Adjustments are added to gross pay (see computeIncomeAmounts), so deductions are negative
       adjustments_json: JSON.stringify([
-        { name: 'Federal tax', kind: 'percent', value: 12 },
-        { name: '401(k)', kind: 'percent', value: 6 },
-        { name: 'Health insurance', kind: 'fixed', value: 95 },
+        { name: 'Federal tax', kind: 'percent', value: -12 },
+        { name: '401(k)', kind: 'percent', value: -6 },
+        { name: 'Health insurance', kind: 'fixed', value: -95 },
       ]),
       is_archived: 0, ...stamp,
     },
@@ -286,16 +287,20 @@ export function buildSeed() {
     },
   ];
 
+  // Heights are sized to each tile's content (DashboardGrid: 28px rows + 16px gaps), so the
+  // tiles don't sit half-empty. The tall Income tile is balanced by stacking the emergency fund
+  // and loan overview tables beside it.
   const tile = (id, type, config, x, y, w, h) => ({ id, type, config_json: JSON.stringify(config), x, y, w, h, ...stamp });
   const dashboardTiles = [
-    tile(1, 'balances_table', { accountIds: [CHECKING, SAVINGS, CARD, 4] }, 0, 0, 4, 8),
-    tile(2, 'categories_table', { categoryIds: [cat.Groceries, cat['Dining Out'], cat.Gas, cat.Shopping, cat.Entertainment] }, 4, 0, 4, 8),
-    tile(3, 'category_pie_month', { categoryIds: [] }, 8, 0, 4, 8),
-    tile(4, 'income_cards', { incomeSourceIds: null }, 0, 8, 6, 9),
-    tile(5, 'emergency_fund_table', { viewId: 3 }, 6, 8, 6, 9),
-    tile(6, 'loan_amortization_graph', { viewId: 1 }, 0, 17, 6, 9),
-    tile(7, 'retirement_graph', { viewId: 2 }, 6, 17, 6, 9),
-    tile(8, 'category_year_table', { categoryIds: [] }, 0, 26, 12, 10),
+    tile(1, 'balances_table', { accountIds: [CHECKING, SAVINGS, CARD, 4] }, 0, 0, 4, 7),
+    tile(2, 'categories_table', { categoryIds: [cat.Groceries, cat['Dining Out'], cat.Gas, cat.Shopping, cat.Entertainment] }, 4, 0, 4, 7),
+    tile(3, 'category_pie_month', { categoryIds: [] }, 8, 0, 4, 7),
+    tile(4, 'income_cards', { incomeSourceIds: null }, 0, 7, 6, 13),
+    tile(5, 'emergency_fund_table', { viewId: 3 }, 6, 7, 6, 7),
+    tile(9, 'loan_amortization_overview', { viewId: 1 }, 6, 14, 6, 6),
+    tile(6, 'loan_amortization_graph', { viewId: 1 }, 0, 20, 6, 9),
+    tile(7, 'retirement_graph', { viewId: 2 }, 6, 20, 6, 9),
+    tile(8, 'category_year_table', { categoryIds: [] }, 0, 29, 12, 13),
   ];
 
   return {

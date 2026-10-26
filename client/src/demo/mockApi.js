@@ -7,7 +7,8 @@
 import { buildSeed } from './seed';
 import { DEMO_DISABLED_MESSAGE } from './isDemo';
 
-const STORAGE_KEY = 'budgett-demo-db-v1';
+// Bump the version whenever seed.js changes, so returning visitors pick up the new seed
+const STORAGE_KEY = 'budgett-demo-db-v2';
 
 function loadDb() {
   try {
