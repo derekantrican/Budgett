@@ -32,3 +32,4 @@ budgett_api.py
 # Personal extensions - kept in this folder for development in localhost alongside example extensions
 examples/extensions/personal-funds/
 examples/extensions/bill-payment-template/
+examples/extensions/bank-reconcile/
