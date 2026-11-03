@@ -327,9 +327,9 @@ route('GET', '/transactions/:id/counterpart-candidates', ({ params }) => {
 });
 
 route('POST', '/transactions/:id/link-counterpart', ({ params, body }) => {
-  const { counterpart_id, link_type, hide_self, hide_counterpart } = body;
-  if (!counterpart_id || !link_type) {
-    throw httpError('counterpart_id and link_type required');
+  const { counterpart_id, hide_self, hide_counterpart } = body;
+  if (!counterpart_id) {
+    throw httpError('counterpart_id required');
   }
 
   const txn = findById('transactions', params.id);
@@ -338,7 +338,7 @@ route('POST', '/transactions/:id/link-counterpart', ({ params, body }) => {
     throw httpError('Transaction not found');
   }
 
-  const flags = { is_auth: link_type === 'auth' ? 1 : 0, is_transfer: link_type === 'transfer' ? 1 : 0 };
+  const flags = { is_auth: 0, is_transfer: 1 };
   touch(txn, { ...flags, linked_transaction_id: counterpart.id, is_hidden: hide_self ? 1 : 0 });
   touch(counterpart, { ...flags, linked_transaction_id: txn.id, is_hidden: hide_counterpart ? 1 : 0 });
   return { success: true };

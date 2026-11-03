@@ -5,7 +5,7 @@ const { getItemByPlaidId, updateItemCursor, createTransaction, getTransactionByP
   updateTransactionPlaidData, getAccountByPlaidId, getSetting,
   findIncompleteMatches, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
-  updateAccountBalance, updateItemStatus, get, deleteTransaction } = require('../db/queries');
+  updateAccountBalance, updateItemStatus } = require('../db/queries');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications, escapeDiscordMarkdown } = require('../helpers/notifications');
 const { dispatchExtensionEvent } = require('../services/extensionLoader');
@@ -366,16 +366,6 @@ async function processRemovedTransaction(txn, io) {
 
   softRemoveTransaction(txn.transaction_id);
   createLog('info', 'transaction_removed', `Soft-removed: ${txn.transaction_id} (${existing.merchant}, ${formatAmount(existing.amount)})`);
-
-  // Auth charge auto-delete: if this hidden+auth transaction's counterpart is also removed, hard-delete both
-  if (existing.is_hidden && existing.is_auth && existing.linked_transaction_id) {
-    const counterpart = get('SELECT * FROM transactions WHERE id = ?', [existing.linked_transaction_id]);
-    if (counterpart && counterpart.is_removed) {
-      deleteTransaction(existing.id);
-      deleteTransaction(counterpart.id);
-      createLog('info', 'auth_pair_deleted', `Auto-deleted auth charge pair: ${existing.merchant} (${formatAmount(existing.amount)}) and counterpart #${counterpart.id}`);
-    }
-  }
 }
 
 module.exports = { syncTransactions };

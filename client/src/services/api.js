@@ -64,8 +64,8 @@ export const getHiddenTransactions = (startDate, endDate) =>
   request(`/transactions/hidden?start_date=${startDate}&end_date=${endDate}`);
 export const getCounterpartCandidates = (txnId) =>
   request(`/transactions/${txnId}/counterpart-candidates`);
-export const linkCounterpart = (txnId, counterpartId, linkType, hideSelf, hideCounterpart) =>
-  request(`/transactions/${txnId}/link-counterpart`, { method: 'POST', body: JSON.stringify({ counterpart_id: counterpartId, link_type: linkType, hide_self: hideSelf, hide_counterpart: hideCounterpart }) });
+export const linkCounterpart = (txnId, counterpartId, hideSelf, hideCounterpart) =>
+  request(`/transactions/${txnId}/link-counterpart`, { method: 'POST', body: JSON.stringify({ counterpart_id: counterpartId, hide_self: hideSelf, hide_counterpart: hideCounterpart }) });
 export const unlinkCounterpart = (txnId) =>
   request(`/transactions/${txnId}/unlink-counterpart`, { method: 'POST' });
 export const getTransaction = (id) =>

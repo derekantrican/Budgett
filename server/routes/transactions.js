@@ -559,11 +559,11 @@ router.get('/:id/counterpart-candidates', (req, res) => {
 // POST /api/transactions/:id/link-counterpart
 router.post('/:id/link-counterpart', (req, res) => {
   const { id } = req.params;
-  const { counterpart_id, link_type, hide_self, hide_counterpart } = req.body; // link_type: 'auth' | 'transfer'
+  const { counterpart_id, hide_self, hide_counterpart } = req.body; // all links are transfers
   const { get, run } = require('../db/queries');
 
-  if (!counterpart_id || !link_type) {
-    return res.status(400).json({ error: 'counterpart_id and link_type required' });
+  if (!counterpart_id) {
+    return res.status(400).json({ error: 'counterpart_id required' });
   }
 
   const txn = get('SELECT * FROM transactions WHERE id = ?', [id]);
@@ -572,13 +572,10 @@ router.post('/:id/link-counterpart', (req, res) => {
     return res.status(404).json({ error: 'Transaction not found' });
   }
 
-  const isAuth = link_type === 'auth' ? 1 : 0;
-  const isTransfer = link_type === 'transfer' ? 1 : 0;
-
-  run(`UPDATE transactions SET linked_transaction_id = ?, is_auth = ?, is_transfer = ?, is_hidden = ?, updated_at = datetime('now') WHERE id = ?`,
-    [counterpart_id, isAuth, isTransfer, hide_self ? 1 : 0, id]);
-  run(`UPDATE transactions SET linked_transaction_id = ?, is_auth = ?, is_transfer = ?, is_hidden = ?, updated_at = datetime('now') WHERE id = ?`,
-    [id, isAuth, isTransfer, hide_counterpart ? 1 : 0, counterpart_id]);
+  run(`UPDATE transactions SET linked_transaction_id = ?, is_auth = 0, is_transfer = 1, is_hidden = ?, updated_at = datetime('now') WHERE id = ?`,
+    [counterpart_id, hide_self ? 1 : 0, id]);
+  run(`UPDATE transactions SET linked_transaction_id = ?, is_auth = 0, is_transfer = 1, is_hidden = ?, updated_at = datetime('now') WHERE id = ?`,
+    [id, hide_counterpart ? 1 : 0, counterpart_id]);
 
   res.json({ success: true });
 });

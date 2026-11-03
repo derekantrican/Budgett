@@ -84,7 +84,6 @@ function Transactions() {
   const [hiddenTxns, setHiddenTxns] = useState([]);
   const [showHidden, setShowHidden] = useState(false);
   const [counterpartCandidates, setCounterpartCandidates] = useState(null);
-  const [counterpartLinkType, setCounterpartLinkType] = useState('auth');
   const [selectedCounterpart, setSelectedCounterpart] = useState(null);
   const [hideSelf, setHideSelf] = useState(true);
   const [hideCounterpart, setHideCounterpart] = useState(true);
@@ -791,7 +790,6 @@ function Transactions() {
                 onClick={async () => {
                   const candidates = await getCounterpartCandidates(editTxn.id);
                   setCounterpartCandidates(candidates);
-                  setCounterpartLinkType('auth');
                   setSelectedCounterpart(null);
                   setHideSelf(true);
                   setHideCounterpart(true);
@@ -876,13 +874,6 @@ function Transactions() {
           <Modal.Title>Link Counterpart</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>Link type</Form.Label>
-            <Form.Select value={counterpartLinkType} onChange={e => setCounterpartLinkType(e.target.value)}>
-              <option value="auth">Auth charge</option>
-              <option value="transfer">Transfer</option>
-            </Form.Select>
-          </Form.Group>
           {counterpartCandidates && counterpartCandidates.length === 0 && (
             <p style={{ color: 'var(--text-secondary)' }}>No matching counterpart found (opposite amount within 7 days).</p>
           )}
@@ -963,7 +954,7 @@ function Transactions() {
                 variant="primary"
                 className="w-100"
                 onClick={async () => {
-                  await linkCounterpart(editTxn.id, selectedCounterpart.id, counterpartLinkType, hideSelf, hideCounterpart);
+                  await linkCounterpart(editTxn.id, selectedCounterpart.id, hideSelf, hideCounterpart);
                   setCounterpartCandidates(null);
                   setSelectedCounterpart(null);
                   setEditTxn(null);
