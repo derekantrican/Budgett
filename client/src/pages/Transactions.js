@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Table, Form, Button, Badge, Modal, Spinner, OverlayTrigger, Tooltip, CloseButton } from 'react-bootstrap';
 import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart, getTransaction } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
@@ -65,8 +66,20 @@ function SearchIcon({ size = 16 }) {
     </svg>
   );
 }
+// Resolve the displayed month from ?month=&year= (1-based month), falling back to the current month
+function monthFromParams(searchParams) {
+  const month = parseInt(searchParams.get('month'), 10);
+  const year = parseInt(searchParams.get('year'), 10);
+  if (month >= 1 && month <= 12 && year >= 1900 && year <= 9999) {
+    return { year, month };
+  }
+
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
 
 function Transactions() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [transactions, setTransactions] = useState(null);
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -89,15 +102,10 @@ function Transactions() {
   const [hideCounterpart, setHideCounterpart] = useState(true);
   const [linkedTxnSummary, setLinkedTxnSummary] = useState(null);
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-  });
-  const [endDate, setEndDate] = useState(() => {
-    const d = new Date();
-    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-  });
+  // The displayed month lives in the URL (?month=10&year=2026); no params = current month
+  const { year: viewYear, month: viewMonth } = monthFromParams(searchParams);
+  const startDate = `${viewYear}-${pad2(viewMonth)}-01`;
+  const endDate = `${viewYear}-${pad2(viewMonth)}-${pad2(new Date(viewYear, viewMonth, 0).getDate())}`;
 
   useEffect(() => {
     loadTransactions();
@@ -340,18 +348,12 @@ function Transactions() {
 
   // Month navigation
   const navigateMonth = (direction) => {
-    const parts = startDate.split('-');
-    const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1 + direction;
-    const start = new Date(year, month, 1);
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-    setStartDate(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`);
-    setEndDate(`${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`);
+    const target = new Date(viewYear, viewMonth - 1 + direction, 1);
+    setSearchParams({ month: String(target.getMonth() + 1), year: String(target.getFullYear()) });
   };
 
   const monthLabel = () => {
-    const parts = startDate.split('-');
-    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+    const d = new Date(viewYear, viewMonth - 1, 1);
     return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
