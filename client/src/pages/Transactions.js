@@ -66,6 +66,50 @@ function SearchIcon({ size = 16 }) {
     </svg>
   );
 }
+
+// Month calendar with a red "back" arrow across the bottom, for the "snap to end of previous month" action
+function CalendarBackIcon({ size = 16 }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 16 16">
+      <g fill="currentColor">
+        {/* Binder rings */}
+        <rect x="4" y="0" width="1.6" height="3.4" rx="0.8" />
+        <rect x="10.4" y="0" width="1.6" height="3.4" rx="0.8" />
+        {/* Frame with solid header band */}
+        <path fillRule="evenodd" d="M2.5 2h11A1.5 1.5 0 0 1 15 3.5v10a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 13.5v-10A1.5 1.5 0 0 1 2.5 2zM2.2 5v8.8h11.6V5z" />
+        {/* Days: partial first week, then two full weeks */}
+        <rect x="8.4" y="5.8" width="1.8" height="1.7" />
+        <rect x="11.2" y="5.8" width="1.8" height="1.7" />
+        <rect x="2.8" y="8.2" width="1.8" height="1.7" />
+        <rect x="5.6" y="8.2" width="1.8" height="1.7" />
+        <rect x="8.4" y="8.2" width="1.8" height="1.7" />
+        <rect x="11.2" y="8.2" width="1.8" height="1.7" />
+        <rect x="2.8" y="10.6" width="1.8" height="1.7" />
+        <rect x="5.6" y="10.6" width="1.8" height="1.7" />
+        <rect x="8.4" y="10.6" width="1.8" height="1.7" />
+        <rect x="11.2" y="10.6" width="1.8" height="1.7" />
+      </g>
+      {/* Back arrow along the bottom edge */}
+      <path d="M15.6 14H4" stroke="#ff6666" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M0.4 14 4.6 11.9V16Z" fill="#ff6666" />
+    </svg>
+  );
+}
+
+// Icon buttons in the edit dialog footer: fixed 42x38 box (Bootstrap's default size for a
+// 16px icon) so a larger icon doesn't stretch the button, with the icon centered inside.
+const FOOTER_ICON_SIZE = 20;
+const FOOTER_ICON_BUTTON_STYLE = { width: 42, height: 38, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// Last day of the month before the given YYYY-MM-DD date, as YYYY-MM-DD
+function endOfPreviousMonth(dateStr) {
+  const [y, m] = dateStr.split('-').map(Number);
+  const d = new Date(y, m - 1, 0); // day 0 of this month = last day of the previous month
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
 // Resolve the displayed month from ?month=&year= (1-based month), falling back to the current month
 function monthFromParams(searchParams) {
   const month = parseInt(searchParams.get('month'), 10);
@@ -603,11 +647,7 @@ function Transactions() {
                         <tr key={txn.id} style={{ cursor: 'pointer' }} onClick={() => openEdit(txn)}>
                           <td style={{ width: 100 }}>{formatDate(txn.date, dateFormat)}</td>
                           <td style={{ width: 80, textAlign: 'center' }}>
-                            {txn.linked_transaction_id
-                              ? <Badge bg="info">Transfer</Badge>
-                              : txn.is_auth ? <Badge bg="secondary">Auth</Badge>
-                                : txn.is_transfer ? <Badge bg="info">Transfer</Badge>
-                                  : null}
+                            {(txn.linked_transaction_id || txn.is_transfer) ? <Badge bg="info">Transfer</Badge> : null}
                           </td>
                           <td>{txn.merchant}</td>
                           <td style={{ textAlign: 'right', width: 125 }}>{fmt(txn.amount)}</td>
@@ -622,11 +662,7 @@ function Transactions() {
                         <div className="transaction-card-header d-flex justify-content-between">
                           <span>
                             {txn.merchant}
-                            {txn.linked_transaction_id
-                              ? <Badge bg="info" className="ms-2">Transfer</Badge>
-                              : txn.is_auth ? <Badge bg="secondary" className="ms-2">Auth</Badge>
-                                : txn.is_transfer ? <Badge bg="info" className="ms-2">Transfer</Badge>
-                                  : null}
+                            {(txn.linked_transaction_id || txn.is_transfer) ? <Badge bg="info" className="ms-2">Transfer</Badge> : null}
                           </span>
                           <span>{fmt(txn.amount)}</span>
                         </div>
@@ -799,6 +835,7 @@ function Transactions() {
             {!isNewTxn && editTxn && !editTxn.linked_transaction_id && (
               <Button
                 variant="outline-info"
+                style={FOOTER_ICON_BUTTON_STYLE}
                 tabIndex={afterSplitsTabIndex + 3}
                 title="Link counterpart"
                 onClick={async () => {
@@ -809,7 +846,7 @@ function Transactions() {
                   setHideCounterpart(true);
                 }}
               >
-                <LinkIcon />
+                <LinkIcon size={FOOTER_ICON_SIZE} />
               </Button>
             )}
             {!isNewTxn && editTxn && editTxn.linked_transaction_id && (
@@ -826,17 +863,19 @@ function Transactions() {
                 >
                   <Button
                     variant="outline-info"
+                    style={FOOTER_ICON_BUTTON_STYLE}
                     tabIndex={afterSplitsTabIndex + 3}
                     onClick={async () => {
                       const linked = await getTransaction(editTxn.linked_transaction_id);
                       openEdit(linked);
                     }}
                   >
-                    <LinkIcon />
+                    <LinkIcon size={FOOTER_ICON_SIZE} />
                   </Button>
                 </OverlayTrigger>
                 <Button
                   variant="outline-warning"
+                  style={FOOTER_ICON_BUTTON_STYLE}
                   tabIndex={afterSplitsTabIndex + 4}
                   title="Remove link"
                   onClick={async () => {
@@ -845,13 +884,14 @@ function Transactions() {
                     refreshTransactions();
                   }}
                 >
-                  <UnlinkIcon />
+                  <UnlinkIcon size={FOOTER_ICON_SIZE} />
                 </Button>
               </>
             )}
             {!isNewTxn && editTxn && (
               <Button
                 variant="outline-secondary"
+                style={FOOTER_ICON_BUTTON_STYLE}
                 tabIndex={afterSplitsTabIndex + 5}
                 title={editTxn.is_hidden ? 'Unhide transaction' : 'Hide transaction'}
                 onClick={async () => {
@@ -860,7 +900,22 @@ function Transactions() {
                   refreshTransactions();
                 }}
               >
-                {editTxn.is_hidden ? <EyeSlashIcon /> : <EyeIcon />}
+                {editTxn.is_hidden ? <EyeSlashIcon size={FOOTER_ICON_SIZE} /> : <EyeIcon size={FOOTER_ICON_SIZE} />}
+              </Button>
+            )}
+            {!isNewTxn && editTxn && editTxn.date && (
+              <Button
+                variant="outline-secondary"
+                style={FOOTER_ICON_BUTTON_STYLE}
+                tabIndex={afterSplitsTabIndex + 6}
+                title={`Snap to end of previous month (${formatDate(endOfPreviousMonth(editTxn.date), dateFormat)}) and hide (useful for things like credit card payments)`}
+                onClick={async () => {
+                  await updateTransaction(editTxn.id, { date: endOfPreviousMonth(editTxn.date), is_hidden: true });
+                  setEditTxn(null);
+                  refreshTransactions();
+                }}
+              >
+                <CalendarBackIcon size={FOOTER_ICON_SIZE} />
               </Button>
             )}
           </div>
