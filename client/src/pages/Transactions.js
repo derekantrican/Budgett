@@ -451,14 +451,26 @@ function Transactions() {
 
       {showSearch && (
         <div className="transactions-header">
-          <Form.Control
-            type="text"
-            placeholder="Search transactions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="transactions-search"
-            autoFocus
-          />
+          <div style={{ position: 'relative', width: '100%' }}>
+            <Form.Control
+              type="text"
+              placeholder="Search transactions..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="transactions-search"
+              style={{ paddingRight: 36 }}
+              autoFocus
+            />
+            {search && (
+              <CloseButton
+                variant="white"
+                aria-label="Clear search"
+                title="Clear search"
+                onClick={() => setSearch('')}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: '0.75em' }}
+              />
+            )}
+          </div>
         </div>
       )}
 
