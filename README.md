@@ -32,6 +32,22 @@ Budgett pulls in your real transactions, helps you categorize them (automaticall
 - **Lightweight** — SQLite via `better-sqlite3`, no external database server
 - **Docker support** for deployment
 
+## How is this different from Actual Budget?
+
+[Actual Budget](https://actualbudget.org) is the best-known self-hosted budgeting app, and it's excellent — but the two take different approaches:
+
+| | Budgett | Actual Budget |
+|---|---|---|
+| **Bank syncing** | Plaid-native: Plaid is the main way transactions arrive, synced by webhook in the background (SimpleFIN & BankSync.io coming soon!) | Built around manual entry and file imports; bank sync is optional, through providers such as GoCardless and SimpleFIN. Plaid isn't supported natively and needs a third-party integration |
+| **Budgeting model** | A monthly target per category, compared with what you actually spent. Targets can be formulas that scale with the month (number of Sundays, your income, etc.) | Envelope / zero-based budgeting in the style of YNAB, where every dollar is assigned and balances carry over (it also has a simpler tracking mode) |
+| **UI** | Deliberately simple: a transaction list, categories, and a customizable Summary dashboard | A fuller accounting-style app with accounts, a budget grid, scheduled transactions, and reports |
+| **Beyond budgeting** | Built-in income modeling (pay schedules, deductions, 3-paycheck months) and planning tools (mortgage amortization, retirement projections, emergency-fund sizing) | Focused on budgeting and reports |
+| **Automation** | Auto-categorization rules that the app writes for you as it learns your habits, transfer detection, and outgoing webhooks (e.g. Discord alerts) | A powerful rules engine that you set up yourself |
+| **Customization** | Drop-in JavaScript extensions for new pages, dashboard tiles, and sync hooks | Customized by changing the code (it's open source) or through its API |
+| **Architecture** | A single Node + SQLite server that you open in a browser | Local-first: each client keeps its own copy of the data and syncs through a server, with optional end-to-end encryption |
+
+**When Actual is the better fit:** you want envelope budgeting, multi-device sync with offline support, end-to-end encryption, or built-in authentication — Budgett doesn't have auth yet (see below). **When Budgett is the better fit:** you're in the US (or anywhere else Plaid covers) and want built-in Plaid sync, so transactions show up without you doing anything or setting up anything extra, you'd rather compare spending with simple targets than assign every dollar, or you want income and long-term planning in the same place as your budget.
+
 > [!NOTE]
 > Budgett currently has **no authentication** — every API route, including the admin endpoints and the Plaid webhook, is open. It's built for a single user running it on a trusted network (e.g. a home server behind a Cloudflare Tunnel or VPN), not for exposing directly to the public internet. Multi-user auth is on the [roadmap](#roadmap) but not implemented yet. Adding your own auth (e.g. a login-gated reverse proxy) in the meantime is highly recommended — but if you do, **exempt `/api/webhook` from it**, since Plaid calls that endpoint directly and can't participate in a login flow.
 
