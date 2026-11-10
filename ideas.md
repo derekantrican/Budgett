@@ -3,6 +3,12 @@
 ## SimpleFIN support
 What would it take to support SimpleFIN accounts in addtion to Plaid accounts?
 
+## banksync.io support
+Similar to SimpleFIN above, we'd also like to support [banksync.io](https://banksync.io) as another account-linking provider — assuming it integrates well with how we already sync transactions.
+
+## One-click deployment on Railway
+Offer a one-click "Deploy on Railway" template so users can run their own instance without having to host it on-prem themselves.
+
 ## Custom widget system
 This would allow us to integrate our "personal funds" and other ideas into the app without coding it in as a first-party feature forced upon all users.
 
