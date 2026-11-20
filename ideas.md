@@ -1,10 +1,12 @@
 # Budgett — Future Ideas
 
-## SimpleFIN support
-What would it take to support SimpleFIN accounts in addtion to Plaid accounts?
-
-## banksync.io support
-Similar to SimpleFIN above, we'd also like to support [banksync.io](https://banksync.io) as another account-linking provider — assuming it integrates well with how we already sync transactions.
+## Support for other financial sources (eg SimpleFIN, banksync.io, etc)
+These can work very differently than Plaid (eg SimpleFIN works on a "GET only, call once per day" model). We might want to create an "interface" or "plugin standard" similar to our extensions framework that has things like:
+- whether or not the app should expect to receive webhooks (eg Plaid)
+- refresh transactions function (eg Plaid, SimpleFIN)
+- refresh frequency
+- rules for reconciling transactions (like how Plaid has removed, modified, created, etc)
+- etc
 
 ## One-click deployment on Railway
 Offer a one-click "Deploy on Railway" template so users can run their own instance without having to host it on-prem themselves.
