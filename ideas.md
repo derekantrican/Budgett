@@ -8,6 +8,8 @@ These can work very differently than Plaid (eg SimpleFIN works on a "GET only, c
 - rules for reconciling transactions (like how Plaid has removed, modified, created, etc)
 - etc
 
+A statement importer (where you can export a bank statement and import it into Budgett) may also be helpful here to do it manually. Though, of course it would be annoying for users.
+
 ## One-click deployment on Railway
 Offer a one-click "Deploy on Railway" template so users can run their own instance without having to host it on-prem themselves.
 
