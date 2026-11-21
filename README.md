@@ -46,10 +46,10 @@ Budgett pulls in your real transactions, helps you categorize them (automaticall
 | **Customization** | Drop-in JavaScript extensions for new pages, dashboard tiles, and sync hooks | Customized by changing the code (it's open source) or through its API |
 | **Architecture** | A single Node + SQLite server that you open in a browser | Local-first: each client keeps its own copy of the data and syncs through a server, with optional end-to-end encryption |
 
-**When Actual is the better fit:** you want envelope budgeting, multi-device sync with offline support, end-to-end encryption, or built-in authentication — Budgett doesn't have auth yet (see below). **When Budgett is the better fit:** you're in the US (or anywhere else Plaid covers) and want built-in Plaid sync, so transactions show up without you doing anything or setting up anything extra, you'd rather compare spending with simple targets than assign every dollar, or you want income and long-term planning in the same place as your budget.
+**When Actual is the better fit:** you want envelope budgeting, multi-device sync with offline support, end-to-end encryption, or multiple users — Budgett only has optional single-password login (see below). **When Budgett is the better fit:** you're in the US (or anywhere else Plaid covers) and want built-in Plaid sync, so transactions show up without you doing anything or setting up anything extra, you'd rather compare spending with simple targets than assign every dollar, or you want income and long-term planning in the same place as your budget.
 
 > [!NOTE]
-> Budgett currently has **no authentication** — every API route, including the admin endpoints and the Plaid webhook, is open. It's built for a single user running it on a trusted network (e.g. a home server behind a Cloudflare Tunnel or VPN), not for exposing directly to the public internet. Multi-user auth is on the [roadmap](#roadmap) but not implemented yet. Adding your own auth (e.g. a login-gated reverse proxy) in the meantime is highly recommended — but if you do, **exempt `/api/webhook` from it**, since Plaid calls that endpoint directly and can't participate in a login flow.
+> Authentication is **off by default** — unless you turn on [basic authentication](#basic-authentication), every API route, including the admin endpoints, is open. Budgett is built for a single user, and if you make it reachable outside a trusted network (e.g. through a Cloudflare Tunnel), turn login on. There are no usernames or roles yet; multi-user auth is on the [roadmap](#roadmap). If you put your own auth in front of it instead (e.g. a login-gated reverse proxy), **exempt `/api/webhook` from it**, since Plaid calls that endpoint directly and can't take part in a login flow.
 
 ## Tech Stack
 
@@ -98,6 +98,20 @@ This serves the built React app and the `/api/*` routes from a single Express pr
 
 A `Dockerfile` and `docker-compose.yml` are also provided if you'd rather run it in a container. See [docs/running.md](docs/running.md) for more detail on the development and production setups.
 
+### Basic authentication
+
+Budgett can require a password (one shared password, no usernames) before anyone can use the UI or API. Set these in `.env`:
+
+| Variable | Description |
+|---|---|
+| `REQUIRE_LOGIN` | `true` to require login. Default `false`, which leaves the app open and ignores the variables below. |
+| `LOGIN_PASSWORD_HASH` | bcrypt hash of the password. Generate it with `cd server && npm run hash-password`, and keep the single quotes it prints (the hash contains `$`). |
+| `LOGIN_EXPIRATION` | How long a login lasts, e.g. `5d`, `24h`, `30m`. Default `7d`. |
+| `API_KEY` | Lets other applications call the `/api` endpoints without logging in, by sending `X-API-Key: <key>` or `Authorization: Bearer <key>`. It only works for the API, never the UI. Optional. |
+| `SESSION_SECRET` | Signs login sessions. Set it to a long random string, or logins won't survive a server restart. |
+
+With login on, the UI shows a login page until you sign in, and every `/api` route needs a login session or the API key. The exceptions are `/api/health` and the Plaid webhook (`/api/webhook`), which stay open. Changing the password logs out every existing session. The server refuses to start if `REQUIRE_LOGIN=true` and the password hash is missing or invalid. Serve it over HTTPS (a Cloudflare Tunnel does this), since the password is sent to the server as typed.
+
 ## Project Structure
 
 ```
@@ -116,9 +130,9 @@ Budgett/
 │   ├── db/              # Database init & queries
 │   ├── helpers/         # Notifications, rules, auto-rules, formulas, logging
 │   ├── services/        # Extension loader, external integrations (e.g. SimpleFIN)
-│   ├── middleware/      # Error handling
+│   ├── middleware/      # Error handling, basic authentication
 │   ├── routes/          # API routes
-│   ├── scripts/         # One-off/maintenance scripts (transaction import, webhook migration)
+│   ├── scripts/         # One-off/maintenance scripts (transaction import, webhook migration, password hashing)
 │   └── webhookHandlers/ # Plaid webhook processing
 ├── database/            # SQLite schema
 ├── docs/                # Additional docs
@@ -136,7 +150,7 @@ Things that are planned but not built yet:
 - **SimpleFIN support** as an alternative/complement to Plaid for institutions that support it (a bridge client already exists at `server/services/simplefin.js`, not yet wired into syncing)
 - **Universal variables** (e.g. `$CAT(Groceries)`) usable across budget formulas and dashboard tiles
 - **Per-category time-scoping** — categories that can expire or roll over instead of persisting forever
-- **Authentication & multi-user roles** (admin, user, read-only) for deployments beyond a single trusted user
+- **Multi-user auth & roles** (admin, user, read-only), building on the current single-password [basic authentication](#basic-authentication)
 
 ## License
 

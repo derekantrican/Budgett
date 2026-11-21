@@ -5,6 +5,8 @@ const API_BASE = '/api';
 // process.env directly rather than IS_DEMO, since an imported constant isn't folded.
 const demoApi = process.env.REACT_APP_DEMO === 'true' ? require('../demo/mockApi') : null;
 
+export const UNAUTHORIZED_EVENT = 'budgett:unauthorized';
+
 async function request(path, options = {}) {
   if (demoApi) {
     return demoApi.handleDemoRequest(path, options);
@@ -16,12 +18,23 @@ async function request(path, options = {}) {
   });
 
   if (!res.ok) {
+    // Session expired (or was never valid) - App listens for this and swaps in the login page
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    }
+
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'Request failed');
   }
 
   return res.json();
 }
+
+// Auth (basic password login - only enforced when the server has REQUIRE_LOGIN=true)
+export const getAuthStatus = () => request('/auth/status');
+export const login = (password) =>
+  request('/auth/login', { method: 'POST', body: JSON.stringify({ password }) });
+export const logout = () => request('/auth/logout', { method: 'POST' });
 
 // Transactions
 export const getTransactions = (startDate, endDate) =>

@@ -9,13 +9,19 @@ const navLinkStyle = ({ isActive }) => ({
   borderBottom: isActive ? '2px solid var(--accent, #4e89ff)' : '2px solid transparent',
 });
 
-function Navigation() {
+// onLogout is only passed when login is required, so the link stays hidden otherwise
+function Navigation({ onLogout }) {
   const [expanded, setExpanded] = useState(false);
   const [extensions, setExtensions] = useState([]);
 
   useEffect(() => {
     getExtensions().then(setExtensions);
   }, []);
+
+  const handleLogout = () => {
+    setExpanded(false);
+    onLogout();
+  };
 
   return (
     <Navbar expand="lg" expanded={expanded} onToggle={setExpanded} sticky="top" style={{ background: '#0d1117', borderBottom: '1px solid var(--border)' }}>
@@ -37,6 +43,13 @@ function Navigation() {
             )}
             <Nav.Link as={NavLink} to="/settings" onClick={() => setExpanded(false)} style={navLinkStyle}>Settings</Nav.Link>
           </Nav>
+          {onLogout && (
+            <Nav>
+              <Nav.Link as="button" type="button" onClick={handleLogout} style={{ color: '#ccc', background: 'none', border: 'none' }}>
+                Log out
+              </Nav.Link>
+            </Nav>
+          )}
         </Navbar.Collapse>
       </Container>
     </Navbar>

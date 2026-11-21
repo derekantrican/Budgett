@@ -10,6 +10,7 @@ const { init: initDb, startPeriodicCheckpoint } = require('./db/init');
 const { initQueries } = require('./db/queries');
 const { errorHandler } = require('./middleware/errorHandler');
 const { scanExtensions } = require('./services/extensionLoader');
+const { initAuth, requireApiAuth, requireSocketAuth, authRouter } = require('./middleware/auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,6 +21,8 @@ const io = new Server(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(requireApiAuth); // no-op unless REQUIRE_LOGIN=true
+io.use(requireSocketAuth);
 
 // Make io available to routes
 app.use((req, res, next) => {
@@ -43,6 +46,7 @@ const dashboardTilesRoutes = require('./routes/dashboardTiles');
 const incomeRoutes = require('./routes/income');
 const extensionsRoutes = require('./routes/extensions');
 
+app.use('/api/auth', authRouter);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/items', itemsRoutes);
 app.use('/api/accounts', accountsRoutes);
@@ -83,6 +87,7 @@ io.on('connection', (socket) => {
 
 // Initialize and start
 function start() {
+  initAuth();
   initDb();
   initQueries();
   startPeriodicCheckpoint();
