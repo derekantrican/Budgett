@@ -3,8 +3,9 @@ const fs = require('fs');
 const Database = require('better-sqlite3');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
+const { runMigrations } = require('./migrate');
+
 const dbPath = path.resolve(__dirname, '..', '..', 'database', 'budgett.db');
-const schemaPath = path.resolve(__dirname, '..', '..', 'database', 'schema.sql');
 
 // Ensure the database directory exists
 const dbDir = path.dirname(dbPath);
@@ -28,9 +29,10 @@ function getDb() {
 
 function init() {
   const database = getDb();
-  const schema = fs.readFileSync(schemaPath, 'utf-8');
-  database.exec(schema);
-  console.log('Database initialized successfully.');
+  const { from, to, applied } = runMigrations(database, { dbPath });
+  console.log(applied.length
+    ? `Database migrated from schema version ${from} to ${to}.`
+    : `Database is up to date (schema version ${to}).`);
   return database;
 }
 

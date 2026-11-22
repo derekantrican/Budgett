@@ -1,6 +1,8 @@
--- Budgett SQLite Schema
-
-PRAGMA foreign_keys = ON;
+-- Budgett SQLite Schema — baseline (schema version 1)
+--
+-- FROZEN: this is the schema as of the introduction of the migration system, applied by
+-- 0001_baseline.js. Don't edit it to change the schema; add a new numbered migration instead.
+-- (foreign_keys is enabled per-connection in db/init.js, not here.)
 
 -- Plaid Items (linked institutions)
 CREATE TABLE IF NOT EXISTS items (
@@ -124,8 +126,22 @@ CREATE TABLE IF NOT EXISTS rules (
   expires_at TEXT, -- nullable, self-destruct date
   is_auto_created INTEGER NOT NULL DEFAULT 0, -- created automatically from repeated manual renames, not by the user
   is_disabled INTEGER NOT NULL DEFAULT 0, -- turned off without deleting; also prevents an auto-created rule from being re-created
+  amount_condition TEXT, -- optional amount condition the transaction must also satisfy
+  rename_to TEXT, -- merchant name to rename matching transactions to
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Record Transaction templates (prefilled merchant/notes/category/account/amount)
+CREATE TABLE IF NOT EXISTS record_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  merchant TEXT,
+  notes TEXT,
+  category_id INTEGER REFERENCES categories(id),
+  account_id INTEGER REFERENCES accounts(id),
+  amount REAL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Log of manual merchant renames (old -> new), used to detect repeated renames

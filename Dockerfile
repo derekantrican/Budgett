@@ -22,7 +22,7 @@ WORKDIR /app
 COPY server/ ./server/
 COPY --from=server-deps /app/server/node_modules ./server/node_modules
 COPY --from=client-build /app/client/build ./client/build
-COPY database/schema.sql ./database/schema.sql
+RUN mkdir -p ./database
 
 EXPOSE 5000
 

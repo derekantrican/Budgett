@@ -127,14 +127,14 @@ Budgett/
 │       ├── services/    # API helper
 │       └── utils/       # Formatting & extension host
 ├── server/              # Express backend
-│   ├── db/              # Database init & queries
+│   ├── db/              # Database init, migrations (db/migrations) & queries
 │   ├── helpers/         # Notifications, rules, auto-rules, formulas, logging
 │   ├── services/        # Extension loader, external integrations (e.g. SimpleFIN)
 │   ├── middleware/      # Error handling, basic authentication
 │   ├── routes/          # API routes
 │   ├── scripts/         # One-off/maintenance scripts (transaction import, webhook migration, password hashing)
 │   └── webhookHandlers/ # Plaid webhook processing
-├── database/            # SQLite schema
+├── database/            # SQLite database file (+ pre-migration backups)
 ├── docs/                # Additional docs
 ├── examples/extensions/ # Example extensions (see EXTENSIONS.md)
 ├── .github/workflows/   # GitHub Pages demo deployment

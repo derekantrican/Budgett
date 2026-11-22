@@ -49,7 +49,7 @@ NODE_ENV=production node server/index.js
 ```bash
 cp .env.template .env       # Fill in Plaid credentials & session secret
 npm run install:all          # Installs root + server + client dependencies
-npm run db:init              # Creates the SQLite database file
+npm run db:init              # Creates the SQLite database file (and runs schema migrations; these also run on every server start)
 ```
 
 ---

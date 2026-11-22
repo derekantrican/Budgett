@@ -24,60 +24,8 @@ function all(sql, params = []) {
 
 function initQueries() {
   const db = getDb();
-  // Migrations
-  const migrations = [
-    'ALTER TABLE accounts ADD COLUMN hide_from_transactions INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE accounts ADD COLUMN display_name TEXT',
-    'ALTER TABLE items ADD COLUMN display_name TEXT',
-    'ALTER TABLE items ADD COLUMN display_icon_url TEXT',
-    'ALTER TABLE items ADD COLUMN display_color TEXT',
-    `CREATE TABLE IF NOT EXISTS record_templates (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      merchant TEXT,
-      notes TEXT,
-      category_id INTEGER REFERENCES categories(id),
-      account_id INTEGER REFERENCES accounts(id),
-      amount REAL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )`,
-    "ALTER TABLE webhook_payloads ADD COLUMN direction TEXT NOT NULL DEFAULT 'incoming'",
-    'ALTER TABLE webhook_payloads ADD COLUMN destination TEXT',
-    'ALTER TABLE rules ADD COLUMN amount_condition TEXT',
-    'ALTER TABLE rules ADD COLUMN rename_to TEXT',
-    'ALTER TABLE transactions ADD COLUMN is_auth INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE transactions ADD COLUMN is_transfer INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE transactions ADD COLUMN linked_transaction_id INTEGER REFERENCES transactions(id)',
-    'ALTER TABLE transaction_splits ADD COLUMN amount_formula TEXT',
-    'ALTER TABLE rules ADD COLUMN is_auto_created INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE rules ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0',
-    `CREATE TABLE IF NOT EXISTS merchant_rename_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      transaction_id INTEGER REFERENCES transactions(id),
-      original_merchant TEXT NOT NULL,
-      new_merchant TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )`,
-    `CREATE TABLE IF NOT EXISTS merchant_category_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      transaction_id INTEGER REFERENCES transactions(id),
-      merchant TEXT NOT NULL,
-      category_id INTEGER NOT NULL REFERENCES categories(id),
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )`,
-    'ALTER TABLE categories DROP COLUMN include_in_summary',
-    'ALTER TABLE income_sources ADD COLUMN quantity_per_period REAL',
-    'ALTER TABLE income_sources ADD COLUMN unit_label TEXT',
-    'ALTER TABLE income_sources ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE income_sources ADD COLUMN reference_pay_date TEXT',
-    'ALTER TABLE income_sources ADD COLUMN payday_weekday INTEGER',
-  ];
-  for (const sql of migrations) {
-    try {
-      db.exec(sql);
-    }
-    catch (e) { /* column/table already exists */ }
-  }
+  // (Schema changes live in db/migrations and run from db/init.js — the ad-hoc ALTER list that
+  // used to be here is folded into 0001_baseline.)
 
   // Assign random colors to categories that don't have one
   const palette = [
