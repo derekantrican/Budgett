@@ -794,7 +794,12 @@ function Transactions() {
                   />
                   <Form.Control
                     type="text"
-                    inputMode="decimal"
+                    // Full keyboard (not inputMode="decimal") so mobile users can type
+                    // formulas like =5*2 or -12.50; the decimal keypad lacks = - * ( ) and letters.
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     tabIndex={splitTabIndex(idx, 2)}
                     value={split.amount}
                     onChange={(e) => updateSplitField(idx, 'amount', e.target.value)}
