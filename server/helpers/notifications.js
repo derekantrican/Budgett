@@ -19,11 +19,12 @@ async function sendNotifications(eventType, variables) {
     return;
   }
 
-  const content = formatMessage(eventType, variables);
+  const { content, embeds } = normalizeMessage(formatMessage(eventType, variables));
 
   try {
     const body = JSON.stringify({
       content,
+      ...(embeds ? { embeds } : {}),
       username: 'Budgett',
     });
 
@@ -34,7 +35,7 @@ async function sendNotifications(eventType, variables) {
     });
 
     // Log outgoing webhook
-    createWebhookPayload(eventType, JSON.stringify({ content }), 'outgoing', webhookUrl);
+    createWebhookPayload(eventType, JSON.stringify({ content, ...(embeds ? { embeds } : {}) }), 'outgoing', webhookUrl);
   }
   catch (err) {
     const logger = require('./logger');
@@ -43,13 +44,26 @@ async function sendNotifications(eventType, variables) {
   }
 }
 
+// formatMessage returns either a plain string (content only) or { content, embeds }.
+function normalizeMessage(message) {
+  return typeof message === 'string' ? { content: message } : message;
+}
+
+// Discord's mobile push notifications expand masked [text](url) links to the full raw URL, both
+// in message content and in embed descriptions. An embed's `url` field isn't part of any text,
+// so sending the message as an embed whose (clickable) title links to the URL keeps the raw URL
+// out of the notification. Discord caps embed titles at 256 characters.
+function linkedTitleMessage(title, url) {
+  return { embeds: [{ title: title.length > 256 ? `${title.slice(0, 255)}…` : title, url }] };
+}
+
 function formatMessage(eventType, vars) {
   switch (eventType) {
     case 'transaction_found': {
       const prefix = vars.amount > 0
         ? 'You received the following refund: '
         : 'The following transaction was found: ';
-      return `${prefix}${formatAmount(vars.amount)} ${escapeDiscordMarkdown(vars.merchant)} (${escapeDiscordMarkdown(vars.account_name)}) [[RECORD]](<${vars.record_link}>)`;
+      return linkedTitleMessage(`${prefix}${formatAmount(vars.amount)} ${escapeDiscordMarkdown(vars.merchant)} (${escapeDiscordMarkdown(vars.account_name)})`, vars.record_link);
     }
 
     case 'sync_complete':
