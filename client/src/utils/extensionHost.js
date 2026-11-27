@@ -118,6 +118,7 @@ export function useExtensionErrors(slug, { includeUnattributed = false } = {}) {
 }
 
 const loadedSlugs = new Set();
+const BUNDLE_CACHE_BUSTER = Date.now().toString(36);
 
 export function loadExtensionScript(slug) {
   if (loadedSlugs.has(slug) || window.__BUDGETT_EXTENSIONS__[slug]) {
@@ -126,7 +127,10 @@ export function loadExtensionScript(slug) {
 
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `/api/extensions/${encodeURIComponent(slug)}/bundle.js`;
+    // Unique per page load, so no cache along the way (the browser's, or a CDN such as Cloudflare
+    // that may cache .js files whatever the server's Cache-Control says) can serve an old bundle
+    // after the extension's files are updated
+    script.src = `/api/extensions/${encodeURIComponent(slug)}/bundle.js?v=${BUNDLE_CACHE_BUSTER}`;
     script.onload = () => {
       loadedSlugs.add(slug);
       resolve();
