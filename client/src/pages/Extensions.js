@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Form, Spinner } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { getExtensions } from '../services/api';
-import { loadExtensionScript, getExtensionComponent, makeExtensionApi } from '../utils/extensionHost';
+import { loadExtensionScript, getExtensionComponent, makeExtensionApi, useExtensionErrors, notRegisteredMessage } from '../utils/extensionHost';
 import ExtensionErrorBoundary from '../components/extensions/ExtensionErrorBoundary';
+import ExtensionErrorList from '../components/extensions/ExtensionErrorList';
 
 function Extensions() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ function Extensions() {
   const [selectedSlug, setSelectedSlug] = useState(null);
   const [Component, setComponent] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const runtimeErrors = useExtensionErrors(selectedSlug, { includeUnattributed: true });
 
   useEffect(() => {
     getExtensions().then(setExtensions);
@@ -61,7 +63,11 @@ function Extensions() {
     loadExtensionScript(selectedSlug)
       .then(() => {
         if (!cancelled) {
-          setComponent(() => getExtensionComponent(selectedSlug));
+          const registered = getExtensionComponent(selectedSlug);
+          setComponent(() => registered);
+          if (!registered) {
+            setLoadError(notRegisteredMessage(selectedSlug, 'a page'));
+          }
         }
       })
       .catch((err) => {
@@ -114,11 +120,17 @@ function Extensions() {
       ) : !selectedExtension?.has_client ? (
         <p className="text-muted">This extension doesn't provide a UI.</p>
       ) : loadError ? (
-        <p className="text-muted">{loadError}</p>
+        <>
+          <div className="alert alert-danger" style={{ fontSize: '0.9em' }}>{loadError}</div>
+          <ExtensionErrorList errors={runtimeErrors} />
+        </>
       ) : Component ? (
-        <ExtensionErrorBoundary key={selectedSlug}>
-          <Component api={makeExtensionApi(selectedSlug)} />
-        </ExtensionErrorBoundary>
+        <>
+          <ExtensionErrorList errors={runtimeErrors} />
+          <ExtensionErrorBoundary key={selectedSlug}>
+            <Component api={makeExtensionApi(selectedSlug)} />
+          </ExtensionErrorBoundary>
+        </>
       ) : (
         <div className="loading-container">
           <Spinner animation="border" variant="light" style={{ width: 60, height: 60 }} />

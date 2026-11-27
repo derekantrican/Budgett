@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { loadExtensionScript, getExtensionTileComponent, makeExtensionApi } from '../../../utils/extensionHost';
+import { loadExtensionScript, getExtensionTileComponent, makeExtensionApi, useExtensionErrors, notRegisteredMessage } from '../../../utils/extensionHost';
 import ExtensionErrorBoundary from '../../extensions/ExtensionErrorBoundary';
+import ExtensionErrorList from '../../extensions/ExtensionErrorList';
 import TileLoading from '../TileLoading';
 
 // Renders a tile registered by an extension's client bundle via window.registerBudgettTile,
@@ -10,6 +11,8 @@ import TileLoading from '../TileLoading';
 function ExtensionTile({ config }) {
   const [Component, setComponent] = useState(() => getExtensionTileComponent(config.extensionSlug, config.tileId));
   const [error, setError] = useState(null);
+  // Only errors traced to this extension: the dashboard has other tiles that could fail too
+  const runtimeErrors = useExtensionErrors(config.extensionSlug);
 
   useEffect(() => {
     if (Component) {
@@ -20,7 +23,11 @@ function ExtensionTile({ config }) {
     loadExtensionScript(config.extensionSlug)
       .then(() => {
         if (!cancelled) {
-          setComponent(() => getExtensionTileComponent(config.extensionSlug, config.tileId));
+          const registered = getExtensionTileComponent(config.extensionSlug, config.tileId);
+          setComponent(() => registered);
+          if (!registered) {
+            setError(notRegisteredMessage(config.extensionSlug, `the "${config.tileId}" tile`));
+          }
         }
       })
       .catch((err) => {
@@ -44,9 +51,12 @@ function ExtensionTile({ config }) {
   }
 
   return (
-    <ExtensionErrorBoundary>
-      <Component api={makeExtensionApi(config.extensionSlug)} />
-    </ExtensionErrorBoundary>
+    <>
+      <ExtensionErrorList errors={runtimeErrors} compact />
+      <ExtensionErrorBoundary>
+        <Component api={makeExtensionApi(config.extensionSlug)} />
+      </ExtensionErrorBoundary>
+    </>
   );
 }
 
