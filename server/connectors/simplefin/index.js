@@ -183,19 +183,20 @@ module.exports = {
       return;
     }
 
-    if (getInstitutionsByConnectorCredential(credential.id).length === 0) {
+    // Keep the credential while other banks are still waiting for review
+    const state = parseJson(credential.sync_state_json, {});
+    if (getInstitutionsByConnectorCredential(credential.id).length === 0 && !(state.pendingConnections || []).length) {
       deleteConnectorCredential(credential.id);
       balanceCache.delete(credential.id);
       return;
     }
 
-    const state = parseJson(credential.sync_state_json, {});
     const ignored = new Set(state.ignoredConnIds || []);
     ignored.add(connIdOf(institution));
     updateConnectorCredentialSyncState(JSON.stringify({ ...state, ignoredConnIds: [...ignored] }), credential.id);
   },
 
   // For ./sync.js and ./routes.js
-  client, accessUrlOf, connectionsOf, accountConnId, snapshotForConnection, fetchWindow,
+  client, accessUrlOf, connectionsOf, accountConnId, snapshotForConnection, fetchWindow, fetchBalances,
   institutionExternalId, connIdOf, requestRange,
 };

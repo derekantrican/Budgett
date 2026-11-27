@@ -7,6 +7,7 @@ const {
 } = require('../db/queries');
 const { getConnectorFor, toPublicInstitution } = require('../connectors');
 const logger = require('../helpers/logger');
+const { findLinkedDuplicates } = require('../services/duplicates');
 
 // Credentials/sync state never go to the client - the credentials grant ongoing access to the bank data
 const listPublicInstitutions = () => getAllInstitutions().map(institution => ({
@@ -17,6 +18,17 @@ const listPublicInstitutions = () => getAllInstitutions().map(institution => ({
 // GET /api/institutions - return all institutions with accounts
 router.get('/', (req, res) => {
   res.json(listPublicInstitutions());
+});
+
+// POST /api/institutions/possible-duplicates { institution_name, accounts: [{ name, mask?, current_balance? }] }
+// Checks accounts about to be linked against the ones already linked (any connector), so the
+// client can warn before the same bank account is linked twice.
+router.post('/possible-duplicates', (req, res) => {
+  const { institution_name: institutionName, accounts } = req.body || {};
+  const candidates = (Array.isArray(accounts) ? accounts : []).map(a => ({
+    name: a.name, mask: a.mask, currentBalance: a.current_balance ?? null,
+  }));
+  res.json({ duplicates: findLinkedDuplicates(institutionName, candidates) });
 });
 
 // PATCH /api/institutions/:id

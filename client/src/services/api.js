@@ -124,6 +124,14 @@ export const exchangePlaidToken = (publicToken, linkInstitution) =>
 export const connectSimplefin = (setupToken) =>
   request('/connectors/simplefin/connections', { method: 'POST', body: JSON.stringify({ setup_token: setupToken }) });
 export const syncSimplefin = () => request('/connectors/simplefin/sync', { method: 'POST' });
+export const getSimplefinPending = () => request('/connectors/simplefin/pending');
+export const reviewSimplefinPending = (credentialId, importConnIds, ignoreConnIds) =>
+  request('/connectors/simplefin/pending/review', {
+    method: 'POST',
+    body: JSON.stringify({ credential_id: credentialId, import: importConnIds, ignore: ignoreConnIds }),
+  });
+export const checkPossibleDuplicates = (institutionName, accounts) =>
+  request('/institutions/possible-duplicates', { method: 'POST', body: JSON.stringify({ institution_name: institutionName, accounts }) });
 
 // Rules
 export const getRules = () => request('/rules');

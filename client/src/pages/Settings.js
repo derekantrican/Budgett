@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Form, Modal } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
-import { getPlaidLinkToken, exchangePlaidToken, connectSimplefin, syncSimplefin, getInstitutions, getSettings, updateSettings, updateInstitution, updateAccount, deleteInstitution, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
+import { getPlaidLinkToken, exchangePlaidToken, connectSimplefin, syncSimplefin, getSimplefinPending, reviewSimplefinPending,
+  checkPossibleDuplicates, getInstitutions, getSettings, updateSettings, updateInstitution, updateAccount, deleteInstitution, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
 import { IS_DEMO } from '../demo/isDemo';
 
 // Provider logos (client/public/connectors/*): the provider's icon plus its name. Plaid's ink is
@@ -53,7 +54,14 @@ function Settings() {
   const [removeAccountsTxnAction, setRemoveAccountsTxnAction] = useState('keep');
 
   // Add Institution dialog: null (closed) | 'choose' (pick a provider) | 'simplefin' (setup token)
+  // | 'simplefin-review' (pick which SimpleFIN banks to import)
   const [addStep, setAddStep] = useState(null);
+  // SimpleFIN banks held for review (all of them right after connecting; later, new ones that look
+  // already linked), and which of them are ticked for import, keyed `${credential_id}:${conn_id}`
+  const [simplefinPending, setSimplefinPending] = useState([]);
+  const [reviewChoices, setReviewChoices] = useState({});
+  // Plaid Link finished for accounts that look already linked: { publicToken, metadata, duplicates }
+  const [plaidDuplicates, setPlaidDuplicates] = useState(null);
   const [simplefinToken, setSimplefinToken] = useState('');
   const [simplefinBusy, setSimplefinBusy] = useState(false);
   const [simplefinMessage, setSimplefinMessage] = useState(null); // { variant, text }
@@ -90,6 +98,7 @@ function Settings() {
   const loadInstitutions = async () => {
     const data = await getInstitutions();
     setInstitutions(data);
+    getSimplefinPending().then(setSimplefinPending).catch(() => setSimplefinPending([]));
   };
 
   const handleGetLinkToken = async (institutionId) => {
@@ -126,6 +135,23 @@ function Settings() {
       }
     }
     else {
+      // Warn before linking accounts that are already linked (e.g. through SimpleFIN): each
+      // connector has its own ids, so every transaction would be imported twice
+      let duplicates = [];
+      try {
+        ({ duplicates } = await checkPossibleDuplicates(metadata.institution?.name,
+          (metadata.accounts || []).map(a => ({ name: a.name, mask: a.mask }))));
+      }
+      catch (err) {
+        // The check is advisory; link as normal if it fails
+      }
+
+      if (duplicates.length > 0) {
+        setPlaidDuplicates({ publicToken, metadata, duplicates });
+        setLinkToken(null);
+        return;
+      }
+
       await exchangePlaidToken(publicToken, metadata.institution);
     }
 
@@ -212,6 +238,47 @@ function Settings() {
     }
   };
 
+  const handleLinkPlaidAnyway = async () => {
+    const { publicToken, metadata } = plaidDuplicates;
+    setPlaidDuplicates(null);
+    await exchangePlaidToken(publicToken, metadata.institution);
+    loadInstitutions();
+  };
+
+  const openSimplefinReview = (pending) => {
+    setSimplefinPending(pending);
+    // Tick everything except banks that look already linked
+    setReviewChoices(Object.fromEntries(pending.map(p => [`${p.credential_id}:${p.conn_id}`, p.duplicates.length === 0])));
+    setSimplefinMessage(null);
+    setAddStep('simplefin-review');
+  };
+
+  const handleReviewSimplefin = async () => {
+    setSimplefinBusy(true);
+    setSimplefinMessage(null);
+    try {
+      const byCredential = new Map();
+      for (const p of simplefinPending) {
+        const choice = byCredential.get(p.credential_id) || { import: [], ignore: [] };
+        (reviewChoices[`${p.credential_id}:${p.conn_id}`] ? choice.import : choice.ignore).push(p.conn_id);
+        byCredential.set(p.credential_id, choice);
+      }
+
+      for (const [credentialId, choice] of byCredential) {
+        await reviewSimplefinPending(credentialId, choice.import, choice.ignore);
+      }
+
+      setAddStep(null);
+    }
+    catch (err) {
+      setSimplefinMessage({ variant: 'danger', text: err.message });
+    }
+    finally {
+      setSimplefinBusy(false);
+      loadInstitutions();
+    }
+  };
+
   const handleConnectSimplefin = async () => {
     setSimplefinBusy(true);
     setSimplefinMessage(null);
@@ -222,8 +289,11 @@ function Settings() {
       if (result.warning) {
         setSimplefinMessage({ variant: 'warning', text: result.warning });
       }
+      else if (result.pending.length > 0) {
+        openSimplefinReview(result.pending);
+      }
       else {
-        setAddStep(null);
+        setSimplefinMessage({ variant: 'warning', text: 'Connected, but SimpleFIN Bridge has no banks linked yet. Link some in Bridge; they\'ll be imported on the next sync.' });
       }
     }
     catch (err) {
@@ -363,6 +433,17 @@ function Settings() {
         </Card>
       </div>
 
+      {simplefinPending.length > 0 && addStep !== 'simplefin-review' && (
+        <div className="alert alert-warning d-flex align-items-center justify-content-between" style={{ fontSize: '0.9em', gap: 12 }}>
+          <span>
+            SimpleFIN has {simplefinPending.length === 1 ? 'a bank' : `${simplefinPending.length} banks`} waiting for review
+            ({simplefinPending.map(p => p.name || p.conn_id).join(', ')}).
+            {simplefinPending.some(p => p.duplicates.length > 0) && ' Some look like accounts that are already linked.'}
+          </span>
+          <Button size="sm" variant="warning" onClick={() => openSimplefinReview(simplefinPending)}>Review</Button>
+        </div>
+      )}
+
       {hasSimplefin && (
         <div style={{ marginTop: -18, marginBottom: 30, fontSize: '0.9em', color: 'var(--text-secondary)' }}>
           SimpleFIN banks sync about every 12 hours.{' '}
@@ -375,7 +456,9 @@ function Settings() {
       {/* Add Institution Modal: pick a provider, then (SimpleFIN) paste a setup token */}
       <Modal show={!!addStep} onHide={() => !simplefinBusy && setAddStep(null)} data-bs-theme="dark" centered>
         <Modal.Header closeButton>
-          <Modal.Title>{addStep === 'simplefin' ? 'Connect SimpleFIN' : 'Add Institution'}</Modal.Title>
+          <Modal.Title>
+            {addStep === 'simplefin' ? 'Connect SimpleFIN' : addStep === 'simplefin-review' ? 'Choose SimpleFIN Banks' : 'Add Institution'}
+          </Modal.Title>
         </Modal.Header>
         {addStep === 'choose' && (
           <Modal.Body>
@@ -409,8 +492,8 @@ function Settings() {
           <Modal.Body>
             <p style={{ fontSize: '0.9em' }}>
               In <a href="https://bridge.simplefin.org" target="_blank" rel="noopener noreferrer">SimpleFIN Bridge</a>, link
-              your banks and create a setup token, then paste it here. Each bank you've linked in Bridge shows up here as
-              its own institution. A setup token works only once.
+              your banks and create a setup token, then paste it here. You'll then choose which of the banks you've linked
+              in Bridge to import; each becomes its own institution. A setup token works only once.
             </p>
             <Form.Group>
               <Form.Label>Setup token</Form.Label>
@@ -437,6 +520,79 @@ function Settings() {
             </div>
           </Modal.Footer>
         </>)}
+        {addStep === 'simplefin-review' && (<>
+          <Modal.Body>
+            <p style={{ fontSize: '0.9em' }}>
+              Choose which banks to import. A bank that's already linked (for example through Plaid) would have every
+              transaction imported twice, so those are unticked. Unticked banks are skipped for good; to add one later,
+              connect SimpleFIN again with a new setup token.
+            </p>
+            {simplefinPending.map(p => {
+              const key = `${p.credential_id}:${p.conn_id}`;
+              return (
+                <div key={key} className="mb-3 p-2" style={{ border: '1px solid var(--border)', borderRadius: 6 }}>
+                  <Form.Check
+                    type="checkbox"
+                    id={`sf-review-${key}`}
+                    checked={!!reviewChoices[key]}
+                    onChange={(e) => setReviewChoices({ ...reviewChoices, [key]: e.target.checked })}
+                    label={<strong>{p.name || p.conn_id}</strong>}
+                  />
+                  <div className="text-muted" style={{ fontSize: '0.85em', marginLeft: 24 }}>
+                    {p.accounts.map(a => a.name).join(', ') || 'No accounts'}
+                  </div>
+                  {p.duplicates.length > 0 && (
+                    <div className="alert alert-warning mt-2 mb-0 py-1 px-2" style={{ fontSize: '0.85em' }}>
+                      Looks already linked:
+                      <ul className="mb-0 ps-3">
+                        {p.duplicates.map(d => (
+                          <li key={d.account.name}>
+                            {d.account.name} &rarr; {d.matches.map(m => `${m.institution_name} ${m.account_name} (${PROVIDER_LOGOS[m.provider]?.label || m.provider}; ${m.reasons.join(', ')})`).join('; ')}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {simplefinMessage && (
+              <div className={`alert alert-${simplefinMessage.variant} mt-3 mb-0`} style={{ fontSize: '0.9em' }}>{simplefinMessage.text}</div>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" className="me-2" disabled={simplefinBusy} onClick={() => setAddStep(null)}>Decide later</Button>
+            <Button variant="primary" disabled={simplefinBusy} onClick={handleReviewSimplefin}>
+              {simplefinBusy ? 'Importing...' : `Import ${Object.values(reviewChoices).filter(Boolean).length} selected`}
+            </Button>
+          </Modal.Footer>
+        </>)}
+      </Modal>
+
+      {/* Plaid Link finished for accounts that look already linked */}
+      <Modal show={!!plaidDuplicates} onHide={() => setPlaidDuplicates(null)} data-bs-theme="dark" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Already Linked?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ fontSize: '0.9em' }}>
+          <p>
+            These accounts from {plaidDuplicates?.metadata.institution?.name || 'this bank'} look like accounts that are
+            already linked. Linking them again would import every transaction twice.
+          </p>
+          <ul>
+            {plaidDuplicates?.duplicates.map(d => (
+              <li key={`${d.account.name}-${d.account.mask}`}>
+                {d.account.name}{d.account.mask ? ` (...${d.account.mask})` : ''} &rarr;{' '}
+                {d.matches.map(m => `${m.institution_name} ${m.account_name} (${PROVIDER_LOGOS[m.provider]?.label || m.provider}; ${m.reasons.join(', ')})`).join('; ')}
+              </li>
+            ))}
+          </ul>
+          <p className="mb-0">Delete the existing institution first if you're moving it to Plaid.</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setPlaidDuplicates(null)}>Cancel</Button>
+          <Button variant="warning" onClick={handleLinkPlaidAnyway}>Link anyway</Button>
+        </Modal.Footer>
       </Modal>
 
       {/* Edit Institution Modal */}
@@ -646,7 +802,7 @@ function Settings() {
           <Form.Select
             value={dateFormat}
             onChange={(e) => setDateFormat(e.target.value)}
-            style={{ maxWidth: 250, background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+            style={{ maxWidth: 250, background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
           >
             <option value="MMM D, YYYY">Jan 5, 2025</option>
             <option value="MMMM D, YYYY">January 5, 2025</option>
@@ -681,7 +837,7 @@ function Settings() {
           <Form.Select
             value={numberFormat}
             onChange={(e) => setNumberFormat(e.target.value)}
-            style={{ maxWidth: 250, background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+            style={{ maxWidth: 250, background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
           >
             <option value="1,000.00">1,000.00</option>
             <option value="1000.00">1000.00</option>
