@@ -129,11 +129,11 @@ Budgett/
 ├── server/              # Express backend
 │   ├── db/              # Database init, migrations (db/migrations) & queries
 │   ├── helpers/         # Notifications, rules, auto-rules, formulas, logging
-│   ├── services/        # Extension loader, external integrations (e.g. SimpleFIN)
+│   ├── connectors/      # Financial data connectors (Plaid; see connectors/index.js for the interface)
+│   ├── services/        # Connector-agnostic sync, institution lifecycle, extension loader
 │   ├── middleware/      # Error handling, basic authentication
 │   ├── routes/          # API routes
-│   ├── scripts/         # One-off/maintenance scripts (transaction import, webhook migration, password hashing)
-│   └── webhookHandlers/ # Plaid webhook processing
+│   └── scripts/         # One-off/maintenance scripts (transaction import, webhook migration, password hashing)
 ├── database/            # SQLite database file (+ pre-migration backups)
 ├── docs/                # Additional docs
 ├── examples/extensions/ # Example extensions (see EXTENSIONS.md)

@@ -8,7 +8,7 @@ import { buildSeed } from './seed';
 import { DEMO_DISABLED_MESSAGE } from './isDemo';
 
 // Bump the version whenever seed.js changes, so returning visitors pick up the new seed
-const STORAGE_KEY = 'budgett-demo-db-v2';
+const STORAGE_KEY = 'budgett-demo-db-v4';
 
 function loadDb() {
   try {
@@ -116,9 +116,9 @@ function createSplit(txnId, categoryId, amount, notes, amountFormula = null) {
   });
 }
 
-const findByPlaidOrPendingId = (plaidId) =>
-  db.transactions.find(t => t.plaid_transaction_id === plaidId)
-  || db.transactions.find(t => t.pending_transaction_id === plaidId)
+const findByExternalOrPendingId = (externalId) =>
+  db.transactions.find(t => t.external_id === externalId)
+  || db.transactions.find(t => t.external_pending_id === externalId)
   || null;
 
 const dayDiff = (a, b) => Math.abs((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / 86400000);
@@ -205,8 +205,8 @@ route('GET', '/transactions/hidden', ({ query }) => {
     .map(withSplits);
 });
 
-route('GET', '/transactions/by-plaid-id/:plaidId', ({ params }) => {
-  const txn = findByPlaidOrPendingId(decodeURIComponent(params.plaidId));
+route('GET', '/transactions/by-external-id/:externalId', ({ params }) => {
+  const txn = findByExternalOrPendingId(decodeURIComponent(params.externalId));
   if (!txn) {
     throw httpError('Transaction not found');
   }
@@ -215,23 +215,23 @@ route('GET', '/transactions/by-plaid-id/:plaidId', ({ params }) => {
 });
 
 route('POST', '/transactions', ({ body }) => {
-  const { date, merchant, amount, account_id, plaid_transaction_id, splits } = body;
+  const { date, merchant, amount, account_id, external_id, splits } = body;
   if (!date || amount === undefined) {
     throw httpError('date and amount required');
   }
 
-  if (plaid_transaction_id) {
-    const existing = findByPlaidOrPendingId(plaid_transaction_id);
+  if (external_id) {
+    const existing = findByExternalOrPendingId(external_id);
     if (existing) {
-      throw httpError(`Transaction with Plaid id ${plaid_transaction_id} already exists (#${existing.id})`);
+      throw httpError(`Transaction with external id ${external_id} already exists (#${existing.id})`);
     }
   }
 
   const txn = insert('transactions', {
-    plaid_transaction_id: plaid_transaction_id || null, pending_transaction_id: null,
+    external_id: external_id || null, external_pending_id: null,
     account_id: account_id ? Number(account_id) : null, group_id: null, date, merchant: merchant || null,
     amount: Number(amount), is_pending: 0, is_removed: 0, is_hidden: 0, is_auth: 0, is_transfer: 0,
-    linked_transaction_id: null, matched_manual_id: null, notes: null, plaid_category: null, plaid_raw_json: null,
+    linked_transaction_id: null, matched_manual_id: null, notes: null, provider_category: null, raw_json: null,
   });
 
   for (const split of splits || []) {
@@ -241,10 +241,10 @@ route('POST', '/transactions', ({ body }) => {
   return { id: txn.id };
 });
 
-route('PUT', '/transactions/merge-and-link-plaid', ({ body }) => {
-  const { transaction_ids, plaid_transaction_id } = body;
-  if (!transaction_ids || transaction_ids.length < 2 || !plaid_transaction_id) {
-    throw httpError('transaction_ids (array, >=2) and plaid_transaction_id required');
+route('PUT', '/transactions/merge-and-link-external', ({ body }) => {
+  const { transaction_ids, external_id } = body;
+  if (!transaction_ids || transaction_ids.length < 2 || !external_id) {
+    throw httpError('transaction_ids (array, >=2) and external_id required');
   }
 
   const [primaryId, ...otherIds] = transaction_ids.map(Number);
@@ -277,7 +277,7 @@ route('PUT', '/transactions/merge-and-link-plaid', ({ body }) => {
   }
 
   if (primary) {
-    touch(primary, { amount: totalAmount, plaid_transaction_id });
+    touch(primary, { amount: totalAmount, external_id });
   }
 
   return { success: true, primary_id: primaryId };
@@ -297,16 +297,16 @@ route('PUT', '/transactions/:id/splits', ({ params, body }) => {
   return { splits: fullSplitsFor(id), auto_rules_created: [] };
 });
 
-route('GET', '/transactions/:id/plaid-candidates', disabled);
+route('GET', '/transactions/:id/external-candidates', disabled);
 
-route('PUT', '/transactions/:id/link-plaid', ({ params, body }) => {
-  if (!body.plaid_transaction_id) {
-    throw httpError('plaid_transaction_id required');
+route('PUT', '/transactions/:id/link-external', ({ params, body }) => {
+  if (!body.external_id) {
+    throw httpError('external_id required');
   }
 
   const txn = findById('transactions', params.id);
   if (txn) {
-    touch(txn, { plaid_transaction_id: body.plaid_transaction_id });
+    touch(txn, { external_id: body.external_id });
   }
 
   return { success: true };
@@ -426,8 +426,8 @@ route('DELETE', '/transactions/:id', ({ params }) => {
     throw httpError('Transaction not found');
   }
 
-  if (txn.plaid_transaction_id) {
-    throw httpError('Cannot delete a transaction linked to Plaid');
+  if (txn.external_id) {
+    throw httpError('Cannot delete a transaction linked to a bank');
   }
 
   db.transaction_splits = db.transaction_splits.filter(s => s.transaction_id !== id);
@@ -548,17 +548,17 @@ route('POST', '/categories/:id/disassociate', ({ params }) => {
   return { success: true };
 });
 
-// Items / Accounts (linking new institutions needs Plaid, so only local edits work)
-route('GET', '/items', () => db.items.map(item => ({
-  ...item,
-  accounts: db.accounts.filter(a => a.item_id === item.id && !a.is_deleted),
+// Institutions / Accounts (linking new institutions needs Plaid, so only local edits work)
+route('GET', '/institutions', () => db.institutions.map(institution => ({
+  ...institution,
+  accounts: db.accounts.filter(a => a.institution_id === institution.id && !a.is_deleted),
 })));
 
-route('POST', '/items', disabled);
-route('GET', '/items/:id/account-diff', disabled);
+route('POST', '/connectors/plaid/institutions', disabled);
+route('GET', '/institutions/:id/account-diff', disabled);
 
-route('PATCH', '/items/:id', ({ params, body }) => {
-  const item = findById('items', params.id);
+route('PATCH', '/institutions/:id', ({ params, body }) => {
+  const institution = findById('institutions', params.id);
   const updates = {};
   for (const key of ['display_name', 'display_icon_url', 'display_color']) {
     if (body[key] !== undefined) {
@@ -570,14 +570,14 @@ route('PATCH', '/items/:id', ({ params, body }) => {
     updates.status = body.status;
   }
 
-  if (item && Object.keys(updates).length > 0) {
-    touch(item, updates);
+  if (institution && Object.keys(updates).length > 0) {
+    touch(institution, updates);
   }
 
   return { success: true };
 });
 
-route('POST', '/items/:id/remove-accounts', ({ body }) => {
+route('POST', '/institutions/:id/remove-accounts', ({ body }) => {
   const accountIds = (body.account_ids || []).map(Number);
   if (body.delete_transactions) {
     deleteTransactionsForAccounts(accountIds);
@@ -590,9 +590,9 @@ route('POST', '/items/:id/remove-accounts', ({ body }) => {
   return { success: true };
 });
 
-route('DELETE', '/items/:id', ({ params, query }) => {
-  const itemId = Number(params.id);
-  const accountIds = db.accounts.filter(a => a.item_id === itemId).map(a => a.id);
+route('DELETE', '/institutions/:id', ({ params, query }) => {
+  const institutionId = Number(params.id);
+  const accountIds = db.accounts.filter(a => a.institution_id === institutionId).map(a => a.id);
   if (query.delete_transactions === 'true') {
     deleteTransactionsForAccounts(accountIds);
   }
@@ -600,8 +600,8 @@ route('DELETE', '/items/:id', ({ params, query }) => {
     db.transactions.filter(t => accountIds.includes(t.account_id)).forEach(t => touch(t, { account_id: null }));
   }
 
-  db.accounts = db.accounts.filter(a => a.item_id !== itemId);
-  db.items = db.items.filter(i => i.id !== itemId);
+  db.accounts = db.accounts.filter(a => a.institution_id !== institutionId);
+  db.institutions = db.institutions.filter(i => i.id !== institutionId);
   return { success: true };
 });
 
@@ -625,7 +625,7 @@ route('PATCH', '/accounts/:id', ({ params, body }) => {
   return { success: true };
 });
 
-route('GET', '/link/token', disabled);
+route('GET', '/connectors/plaid/link-token', disabled);
 
 // Rules
 route('GET', '/rules', () => [...db.rules]
@@ -700,14 +700,14 @@ route('GET', '/admin/incomplete-transactions', () => db.transactions
       split_category_id: shown?.category_id ?? null,
       category_name: categoryName(shown?.category_id),
       notes: shown?.notes ?? null,
-      missing_plaid_id: t.plaid_transaction_id ? 0 : 1,
+      missing_external_id: t.external_id ? 0 : 1,
       missing_merchant: t.merchant ? 0 : 1,
       missing_account: t.account_id ? 0 : 1,
       missing_category: splits.length === 0 || splits.some(s => s.category_id == null) ? 1 : 0,
     };
   })
-  .filter(t => (t.missing_plaid_id || t.missing_merchant || t.missing_account || t.missing_category)
-    && (!t.plaid_transaction_id || !isAccountHidden(t.account_id)))
+  .filter(t => (t.missing_external_id || t.missing_merchant || t.missing_account || t.missing_category)
+    && (!t.external_id || !isAccountHidden(t.account_id)))
   .sort(byDateDesc));
 
 route('GET', '/admin/money-movement', ({ query }) => {
@@ -718,13 +718,13 @@ route('GET', '/admin/money-movement', ({ query }) => {
 
   const side = (accountId) => {
     const acct = findById('accounts', accountId);
-    const item = acct ? findById('items', acct.item_id) : null;
+    const institution = acct ? findById('institutions', acct.institution_id) : null;
     return {
       name: acct ? (acct.display_name || acct.name) : null,
       mask: acct?.mask || null,
-      icon_url: item?.display_icon_url || null,
-      logo: item?.institution_logo || null,
-      color: item?.institution_color || null,
+      icon_url: institution?.display_icon_url || null,
+      logo: institution?.logo || null,
+      color: institution?.color || null,
     };
   };
 

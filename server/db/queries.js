@@ -59,24 +59,28 @@ function initQueries() {
 
 // --- Query functions ---
 
-// Items
-const createItem = (plaidItemId, accessToken, instName, instId) =>
-  run('INSERT INTO items (plaid_item_id, plaid_access_token, institution_name, institution_id) VALUES (?, ?, ?, ?)',
-    [plaidItemId, accessToken, instName, instId]);
-const getAllItems = () =>
-  all('SELECT * FROM items');
-const getItemByPlaidId = (plaidItemId) =>
-  get('SELECT * FROM items WHERE plaid_item_id = ?', [plaidItemId]);
-const updateItemCursor = (cursor, itemId) => {
-  run("UPDATE items SET transaction_cursor = ?, updated_at = datetime('now') WHERE id = ?", [cursor, itemId]);
+// Institutions (one bank as Budgett sees it; for Plaid, one per item)
+const createInstitution = (provider, externalId, credentialsJson, instName, instId) =>
+  run('INSERT INTO institutions (provider, external_id, credentials_json, name, provider_institution_id) VALUES (?, ?, ?, ?, ?)',
+    [provider, externalId, credentialsJson, instName, instId]);
+const getAllInstitutions = () =>
+  all('SELECT * FROM institutions');
+const getInstitutionsByProvider = (provider) =>
+  all('SELECT * FROM institutions WHERE provider = ?', [provider]);
+const getInstitutionById = (id) =>
+  get('SELECT * FROM institutions WHERE id = ?', [id]);
+const getInstitutionByExternalId = (provider, externalId) =>
+  get('SELECT * FROM institutions WHERE provider = ? AND external_id = ?', [provider, externalId]);
+const updateInstitutionSyncState = (syncStateJson, institutionId) => {
+  run("UPDATE institutions SET sync_state_json = ?, updated_at = datetime('now') WHERE id = ?", [syncStateJson, institutionId]);
 };
 
-const updateItemStatus = (status, itemId) => {
-  run("UPDATE items SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, itemId]);
+const updateInstitutionStatus = (status, institutionId) => {
+  run("UPDATE institutions SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, institutionId]);
 };
 
-const deleteItem = (itemId, deleteTransactions) => {
-  const accounts = all('SELECT id FROM accounts WHERE item_id = ?', [itemId]);
+const deleteInstitution = (institutionId, deleteTransactions) => {
+  const accounts = all('SELECT id FROM accounts WHERE institution_id = ?', [institutionId]);
   const accountIds = accounts.map(a => a.id);
 
   if (accountIds.length > 0) {
@@ -93,31 +97,33 @@ const deleteItem = (itemId, deleteTransactions) => {
     }
 
     // Delete accounts
-    run(`DELETE FROM accounts WHERE item_id = ?`, [itemId]);
+    run(`DELETE FROM accounts WHERE institution_id = ?`, [institutionId]);
   }
 
-  // Delete the item
-  run('DELETE FROM items WHERE id = ?', [itemId]);
+  // Delete the institution
+  run('DELETE FROM institutions WHERE id = ?', [institutionId]);
 };
 
 // Accounts
-const createAccount = (itemId, plaidAcctId, name, officialName, type, subtype, mask, currentBal, availBal) =>
-  run('INSERT INTO accounts (item_id, plaid_account_id, name, official_name, type, subtype, mask, current_balance, available_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [itemId, plaidAcctId, name, officialName, type, subtype, mask, currentBal, availBal]);
-const getAccountsByItem = (itemId) =>
-  all('SELECT * FROM accounts WHERE item_id = ? AND is_deleted = 0', [itemId]);
+// `acct` is a connector NormalizedAccount (see connectors/index.js)
+const createAccount = (institutionId, acct) =>
+  run('INSERT INTO accounts (institution_id, external_id, name, official_name, type, subtype, mask, current_balance, available_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [institutionId, acct.externalId, acct.name, acct.officialName ?? null, acct.type ?? null, acct.subtype ?? null,
+      acct.mask ?? null, acct.currentBalance ?? null, acct.availableBalance ?? null]);
+const getAccountsByInstitution = (institutionId) =>
+  all('SELECT * FROM accounts WHERE institution_id = ? AND is_deleted = 0', [institutionId]);
 const getAllAccounts = () =>
   all('SELECT * FROM accounts WHERE is_deleted = 0');
-const getAccountByPlaidId = (plaidAccountId) =>
-  get('SELECT * FROM accounts WHERE plaid_account_id = ?', [plaidAccountId]);
+const getAccountByExternalId = (institutionId, externalAccountId) =>
+  get('SELECT * FROM accounts WHERE institution_id = ? AND external_id = ?', [institutionId, externalAccountId]);
 const updateAccountBalance = (currentBal, availBal, id) => {
   run("UPDATE accounts SET current_balance = ?, available_balance = ?, updated_at = datetime('now') WHERE id = ?", [currentBal, availBal, id]);
 };
 const getAccountTransactionCount = (accountId) =>
   get('SELECT COUNT(*) as count FROM transactions WHERE account_id = ? AND is_removed = 0', [accountId]).count;
 
-// Called when an account is deselected via Plaid Link update mode (account is no longer
-// accessible, so there's nothing to re-sync — only local cleanup is needed).
+// Called when an account is no longer provided by its institution (e.g. deselected via Plaid
+// Link update mode) — there's nothing to re-sync, only local cleanup is needed.
 const removeAccounts = (accountIds, deleteTransactions) => {
   if (accountIds.length === 0) {
     return;
@@ -136,13 +142,13 @@ const removeAccounts = (accountIds, deleteTransactions) => {
 };
 
 // Transactions
-const createTransaction = (plaidTxnId, pendingTxnId, accountId, date, merchant, amount, isPending, plaidCategory, rawJson) =>
-  run('INSERT INTO transactions (plaid_transaction_id, pending_transaction_id, account_id, date, merchant, amount, is_pending, plaid_category, plaid_raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [plaidTxnId, pendingTxnId, accountId, date, merchant, amount, isPending, plaidCategory, rawJson]);
-const getTransactionByPlaidId = (plaidTxnId) =>
-  get('SELECT * FROM transactions WHERE plaid_transaction_id = ?', [plaidTxnId]);
-const getTransactionByPendingId = (pendingId) =>
-  get('SELECT * FROM transactions WHERE pending_transaction_id = ?', [pendingId]);
+const createTransaction = (externalId, externalPendingId, accountId, date, merchant, amount, isPending, providerCategory, rawJson) =>
+  run('INSERT INTO transactions (external_id, external_pending_id, account_id, date, merchant, amount, is_pending, provider_category, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [externalId, externalPendingId, accountId, date, merchant, amount, isPending, providerCategory, rawJson]);
+const getTransactionByExternalId = (externalId) =>
+  get('SELECT * FROM transactions WHERE external_id = ?', [externalId]);
+const getTransactionByExternalPendingId = (externalPendingId) =>
+  get('SELECT * FROM transactions WHERE external_pending_id = ?', [externalPendingId]);
 const getTransactionsByDateRange = (startDate, endDate) =>
   all(`SELECT t.*, COALESCE(a.display_name, a.name) as account_name, ts.category_id, ts.notes as split_notes, ts.amount as split_amount, ts.amount_formula as split_amount_formula, c.name as category_name
        FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
@@ -165,12 +171,12 @@ const getHiddenTransactionsByDateRange = (startDate, endDate) =>
        WHERE t.date >= ? AND t.date <= ? AND t.is_removed = 0
        AND (t.is_hidden = 1 OR a.hide_from_transactions = 1)
        ORDER BY t.date ASC`, [startDate, endDate]);
-const softRemoveTransaction = (plaidTxnId) => {
-  return run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
+const softRemoveTransaction = (externalId) => {
+  return run("UPDATE transactions SET is_removed = 1, updated_at = datetime('now') WHERE external_id = ?", [externalId]);
 };
 
-const restoreTransaction = (plaidTxnId) => {
-  run("UPDATE transactions SET is_removed = 0, updated_at = datetime('now') WHERE plaid_transaction_id = ?", [plaidTxnId]);
+const restoreTransaction = (externalId) => {
+  run("UPDATE transactions SET is_removed = 0, updated_at = datetime('now') WHERE external_id = ?", [externalId]);
 };
 
 // A transaction counts as missing a category if it has no splits at all, or if any of its
@@ -185,7 +191,7 @@ const getIncompleteTransactions = () =>
           WHERE ts2.transaction_id = t.id ORDER BY (ts2.category_id IS NULL) DESC LIMIT 1) as category_name,
        (SELECT ts2.notes FROM transaction_splits ts2 WHERE ts2.transaction_id = t.id
           ORDER BY (ts2.category_id IS NULL) DESC LIMIT 1) as notes,
-       CASE WHEN t.plaid_transaction_id IS NULL THEN 1 ELSE 0 END as missing_plaid_id,
+       CASE WHEN t.external_id IS NULL THEN 1 ELSE 0 END as missing_external_id,
        CASE WHEN t.merchant IS NULL OR t.merchant = '' THEN 1 ELSE 0 END as missing_merchant,
        CASE WHEN t.account_id IS NULL THEN 1 ELSE 0 END as missing_account,
        CASE WHEN NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)
@@ -193,14 +199,14 @@ const getIncompleteTransactions = () =>
             THEN 1 ELSE 0 END as missing_category
      FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
      WHERE t.is_removed = 0 AND t.is_hidden = 0 AND (
-       t.plaid_transaction_id IS NULL
+       t.external_id IS NULL
        OR t.merchant IS NULL OR t.merchant = ''
        OR t.account_id IS NULL
        OR NOT EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id)
        OR EXISTS (SELECT 1 FROM transaction_splits ts WHERE ts.transaction_id = t.id AND ts.category_id IS NULL)
      )
      AND (
-       t.plaid_transaction_id IS NULL
+       t.external_id IS NULL
        OR a.hide_from_transactions IS NULL
        OR a.hide_from_transactions = 0
      )
@@ -215,36 +221,36 @@ const getMoneyMovement = (days = 30) =>
   all(`SELECT
       t.id, t.date, t.amount,
       COALESCE(fa.display_name, fa.name) as from_name, fa.mask as from_mask,
-      fi.display_icon_url as from_icon_url, fi.institution_logo as from_logo, fi.institution_color as from_color,
+      fi.display_icon_url as from_icon_url, fi.logo as from_logo, fi.color as from_color,
       lt.id as to_id,
       COALESCE(ta.display_name, ta.name) as to_name, ta.mask as to_mask,
-      ti.display_icon_url as to_icon_url, ti.institution_logo as to_logo, ti.institution_color as to_color
+      ti.display_icon_url as to_icon_url, ti.logo as to_logo, ti.color as to_color
     FROM transactions t
     JOIN transactions lt ON t.linked_transaction_id = lt.id
     LEFT JOIN accounts fa ON t.account_id = fa.id
-    LEFT JOIN items fi ON fa.item_id = fi.id
+    LEFT JOIN institutions fi ON fa.institution_id = fi.id
     LEFT JOIN accounts ta ON lt.account_id = ta.id
-    LEFT JOIN items ti ON ta.item_id = ti.id
+    LEFT JOIN institutions ti ON ta.institution_id = ti.id
     WHERE t.is_transfer = 1 AND t.amount < 0 AND t.is_removed = 0 AND lt.is_removed = 0
       AND t.date >= date('now', ?)
     ORDER BY t.date DESC`, [`-${days} days`]);
 
-// The pre-post ("pending") plaid id is recorded in pending_transaction_id when the row is
+// The pre-post ("pending") external id is recorded in external_pending_id when the row is
 // promoted, for two reasons: a delayed "remove" webhook for the old id can still be
-// reconciled via getTransactionByPendingId (see processRemovedTransaction), and downstream
+// reconciled via getTransactionByExternalPendingId (see processRemovedTransaction), and downstream
 // consumers that keyed off the old id can still find the row.
-const updateTransactionFromPending = (plaidTxnId, amount, id, previousPlaidTxnId) => {
-  run(`UPDATE transactions SET plaid_transaction_id = ?, pending_transaction_id = ?, is_pending = 0,
+const updateTransactionFromPending = (externalId, amount, id, previousExternalId) => {
+  run(`UPDATE transactions SET external_id = ?, external_pending_id = ?, is_pending = 0,
        amount = ?, updated_at = datetime('now') WHERE id = ?`,
-  [plaidTxnId, previousPlaidTxnId, amount, id]);
+  [externalId, previousExternalId, amount, id]);
 };
 
-const updateTransactionPlaidData = (amount, merchant, plaidCategory, rawJson, plaidTxnId) => {
-  run(`UPDATE transactions SET amount = ?, merchant = ?, plaid_category = ?, plaid_raw_json = ?, updated_at = datetime('now')
-       WHERE plaid_transaction_id = ?`, [amount, merchant, plaidCategory, rawJson, plaidTxnId]);
+const updateTransactionProviderData = (amount, merchant, providerCategory, rawJson, externalId) => {
+  run(`UPDATE transactions SET amount = ?, merchant = ?, provider_category = ?, raw_json = ?, updated_at = datetime('now')
+       WHERE external_id = ?`, [amount, merchant, providerCategory, rawJson, externalId]);
 };
 
-// Find incomplete transactions (no plaid_id) matching the given amount, within a
+// Find incomplete transactions (no external_id) matching the given amount, within a
 // generous window anchored to the incoming transaction's own date — NOT "now", since
 // during a backlogged catch-up sync "now" can be days removed from every transaction
 // in the batch, not just delayed ones. Loosely cross-checks merchant name (an
@@ -263,7 +269,7 @@ const updateTransactionPlaidData = (amount, merchant, plaidCategory, rawJson, pl
 // silently guess.
 const findIncompleteMatches = (amount, date, merchantName, accountId) =>
   all(`SELECT * FROM transactions
-       WHERE plaid_transaction_id IS NULL AND is_removed = 0
+       WHERE external_id IS NULL AND is_removed = 0
        AND date >= date(?, '-45 days') AND date <= date(?, '+5 days')
        AND ABS(amount - ?) < 0.005
        AND (
@@ -274,13 +280,13 @@ const findIncompleteMatches = (amount, date, merchantName, accountId) =>
        )
        ORDER BY date DESC`, [date, date, amount, accountId, merchantName, merchantName]);
 
-// Link an incomplete transaction to the incoming plaid transaction. Also restores
-// is_pending from the incoming transaction — a prior unlink (see unlinkPlaidId) always
+// Link an incomplete transaction to the incoming provider transaction. Also restores
+// is_pending from the incoming transaction — a prior unlink (see unlinkExternalId) always
 // zeroes it, so without this a re-linked transaction would stay permanently invisible
-// to findFuzzyPendingMatch even when Plaid still considers it pending.
-const linkIncompleteTransaction = (plaidTxnId, isPending, id) =>
-  run(`UPDATE transactions SET plaid_transaction_id = ?, is_pending = ?, updated_at = datetime('now') WHERE id = ?`,
-    [plaidTxnId, isPending, id]);
+// to findFuzzyPendingMatch even when the provider still considers it pending.
+const linkIncompleteTransaction = (externalId, isPending, id) =>
+  run(`UPDATE transactions SET external_id = ?, is_pending = ?, updated_at = datetime('now') WHERE id = ?`,
+    [externalId, isPending, id]);
 
 // Find a pending transaction that likely matches a posted one
 // Matches on: same account, recent date, AND (exact amount OR similar merchant name)
@@ -292,17 +298,17 @@ const findFuzzyPendingMatch = (accountId, amount, date, merchantName) =>
        ORDER BY ABS(amount - ?) ASC LIMIT 1`,
   [accountId, date, date, amount, merchantName, merchantName, amount]);
 
-// Promote a pending transaction to posted: swap in the posted plaid id, update amount, mark
-// not pending, and stash the old plaid id in pending_transaction_id (see note on
+// Promote a pending transaction to posted: swap in the posted external id, update amount, mark
+// not pending, and stash the old external id in external_pending_id (see note on
 // updateTransactionFromPending above).
-const promotePendingToPosted = (newPlaidTxnId, amount, id, previousPlaidTxnId) =>
-  run(`UPDATE transactions SET plaid_transaction_id = ?, pending_transaction_id = ?, amount = ?, is_pending = 0,
+const promotePendingToPosted = (newExternalId, amount, id, previousExternalId) =>
+  run(`UPDATE transactions SET external_id = ?, external_pending_id = ?, amount = ?, is_pending = 0,
        updated_at = datetime('now') WHERE id = ?`,
-  [newPlaidTxnId, previousPlaidTxnId, amount, id]);
+  [newExternalId, previousExternalId, amount, id]);
 
-// Strip plaid_id from a transaction (demotes to incomplete, preserves user data)
-const unlinkPlaidId = (id) =>
-  run(`UPDATE transactions SET plaid_transaction_id = NULL, pending_transaction_id = NULL,
+// Strip external_id from a transaction (demotes to incomplete, preserves user data)
+const unlinkExternalId = (id) =>
+  run(`UPDATE transactions SET external_id = NULL, external_pending_id = NULL,
        is_pending = 0, updated_at = datetime('now') WHERE id = ?`, [id]);
 
 // Transaction Splits
@@ -604,18 +610,19 @@ const setSetting = (key, value) =>
 
 module.exports = {
   initQueries, run, get, all,
-  // Items
-  createItem, getAllItems, getItemByPlaidId, updateItemCursor, updateItemStatus, deleteItem,
+  // Institutions
+  createInstitution, getAllInstitutions, getInstitutionsByProvider, getInstitutionById, getInstitutionByExternalId,
+  updateInstitutionSyncState, updateInstitutionStatus, deleteInstitution,
   // Accounts
-  createAccount, getAccountsByItem, getAllAccounts, getAccountByPlaidId, updateAccountBalance,
+  createAccount, getAccountsByInstitution, getAllAccounts, getAccountByExternalId, updateAccountBalance,
   getAccountTransactionCount, removeAccounts,
   // Transactions
-  createTransaction, getTransactionByPlaidId, getTransactionByPendingId,
+  createTransaction, getTransactionByExternalId, getTransactionByExternalPendingId,
   getTransactionsByDateRange, getHiddenTransactionsByDateRange, getTransactionRowsById,
   softRemoveTransaction, restoreTransaction,
-  getIncompleteTransactions, getMoneyMovement, updateTransactionFromPending, updateTransactionPlaidData,
+  getIncompleteTransactions, getMoneyMovement, updateTransactionFromPending, updateTransactionProviderData,
   findIncompleteMatches, linkIncompleteTransaction,
-  findFuzzyPendingMatch, promotePendingToPosted, unlinkPlaidId,
+  findFuzzyPendingMatch, promotePendingToPosted, unlinkExternalId,
   // Splits
   createSplit, getSplitsByTransaction, deleteSplitsByTransaction, deleteTransaction,
   // Categories

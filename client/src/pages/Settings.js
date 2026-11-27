@@ -2,13 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Form, Modal } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
-import { getLinkToken, exchangeToken, getItems, getSettings, updateSettings, updateItem, updateAccount, deleteItem, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
+import { getPlaidLinkToken, exchangePlaidToken, getInstitutions, getSettings, updateSettings, updateInstitution, updateAccount, deleteInstitution, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
 import { IS_DEMO } from '../demo/isDemo';
 
 function Settings() {
-  const [items, setItems] = useState([]);
+  const [institutions, setInstitutions] = useState([]);
   const [linkToken, setLinkToken] = useState(null);
-  const [reauthItemId, setReauthItemId] = useState(null);
+  const [reauthInstitutionId, setReauthInstitutionId] = useState(null);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [plaidEnv, setPlaidEnv] = useState('sandbox');
@@ -18,7 +18,7 @@ function Settings() {
   const [rescanning, setRescanning] = useState(false);
 
   // Edit institution modal
-  const [editItem, setEditItem] = useState(null);
+  const [editInstitution, setEditInstitution] = useState(null);
   const [editForm, setEditForm] = useState({});
 
   // Delete institution flow
@@ -28,11 +28,11 @@ function Settings() {
 
   // Accounts deselected during a reconnect (Link update mode)
   const [removedAccounts, setRemovedAccounts] = useState([]);
-  const [removeAccountsItemId, setRemoveAccountsItemId] = useState(null);
+  const [removeAccountsInstitutionId, setRemoveAccountsInstitutionId] = useState(null);
   const [removeAccountsTxnAction, setRemoveAccountsTxnAction] = useState('keep');
 
   useEffect(() => {
-    loadItems();
+    loadInstitutions();
     getSettings().then(s => {
       if (s.date_format) {
         setDateFormat(s.date_format);
@@ -60,20 +60,20 @@ function Settings() {
     });
   }, []);
 
-  const loadItems = async () => {
-    const data = await getItems();
-    setItems(data);
+  const loadInstitutions = async () => {
+    const data = await getInstitutions();
+    setInstitutions(data);
   };
 
-  const handleGetLinkToken = async (itemId) => {
+  const handleGetLinkToken = async (institutionId) => {
     if (IS_DEMO) {
       alert('Linking bank accounts through Plaid is not available in the demo.');
       return;
     }
 
     try {
-      setReauthItemId(itemId || null);
-      const { link_token } = await getLinkToken(itemId);
+      setReauthInstitutionId(institutionId || null);
+      const { link_token } = await getPlaidLinkToken(institutionId);
       setLinkToken(link_token);
     }
     catch (err) {
@@ -82,16 +82,16 @@ function Settings() {
   };
 
   const onSuccess = useCallback(async (publicToken, metadata) => {
-    if (reauthItemId) {
-      await updateItem(reauthItemId, { status: 'ok' });
+    if (reauthInstitutionId) {
+      await updateInstitution(reauthInstitutionId, { status: 'ok' });
 
       // Account selection may have changed during update mode — check whether any
       // previously-linked accounts were deselected so we can ask what to do with them.
       try {
-        const diff = await getAccountDiff(reauthItemId);
+        const diff = await getAccountDiff(reauthInstitutionId);
         if (diff.removed && diff.removed.length > 0) {
           setRemovedAccounts(diff.removed);
-          setRemoveAccountsItemId(reauthItemId);
+          setRemoveAccountsInstitutionId(reauthInstitutionId);
         }
       }
       catch (err) {
@@ -99,24 +99,24 @@ function Settings() {
       }
     }
     else {
-      await exchangeToken(publicToken, metadata.institution);
+      await exchangePlaidToken(publicToken, metadata.institution);
     }
 
     setLinkToken(null);
-    setReauthItemId(null);
-    loadItems();
-  }, [reauthItemId]);
+    setReauthInstitutionId(null);
+    loadInstitutions();
+  }, [reauthInstitutionId]);
 
   const handleResolveRemovedAccounts = async () => {
     await removeAccountsApi(
-      removeAccountsItemId,
+      removeAccountsInstitutionId,
       removedAccounts.map(a => a.id),
       removeAccountsTxnAction === 'delete'
     );
     setRemovedAccounts([]);
-    setRemoveAccountsItemId(null);
+    setRemoveAccountsInstitutionId(null);
     setRemoveAccountsTxnAction('keep');
-    loadItems();
+    loadInstitutions();
   };
 
   const { open, ready } = usePlaidLink({
@@ -139,13 +139,13 @@ function Settings() {
     return '$' + Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const openEditItem = (item) => {
-    setEditItem(item);
+  const openEditInstitution = (institution) => {
+    setEditInstitution(institution);
     setEditForm({
-      display_name: item.display_name || '',
-      display_icon_url: item.display_icon_url || '',
-      display_color: item.display_color || '',
-      accounts: (item.accounts || []).map(a => ({
+      display_name: institution.display_name || '',
+      display_icon_url: institution.display_icon_url || '',
+      display_color: institution.display_color || '',
+      accounts: (institution.accounts || []).map(a => ({
         id: a.id,
         name: a.name,
         mask: a.mask,
@@ -156,7 +156,7 @@ function Settings() {
   };
 
   const handleEditSave = async () => {
-    await updateItem(editItem.id, {
+    await updateInstitution(editInstitution.id, {
       display_name: editForm.display_name,
       display_icon_url: editForm.display_icon_url,
       display_color: editForm.display_color,
@@ -168,8 +168,8 @@ function Settings() {
       });
     }
 
-    setEditItem(null);
-    loadItems();
+    setEditInstitution(null);
+    loadInstitutions();
   };
 
   const handleRescanExtensions = async () => {
@@ -185,7 +185,7 @@ function Settings() {
     }
   };
 
-  const getItemDisplayName = (item) => item.display_name || item.institution_name || 'Institution';
+  const getInstitutionDisplayName = (institution) => institution.display_name || institution.name || 'Institution';
 
   const getAccountDisplayName = (acct) => acct.display_name || acct.name;
 
@@ -195,11 +195,11 @@ function Settings() {
 
       {/* Linked Accounts */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 30 }}>
-        {items.map((item) => (
-          <Card key={item.id} className="institution-card" style={{ width: 320, maxWidth: '100%', background: '#212529', border: 'none', borderRadius: 10 }}>
+        {institutions.map((institution) => (
+          <Card key={institution.id} className="institution-card" style={{ width: 320, maxWidth: '100%', background: '#212529', border: 'none', borderRadius: 10 }}>
             <Card.Header
               style={{
-                background: item.display_color || item.institution_color || '#1a73e8',
+                background: institution.display_color || institution.color || '#1a73e8',
                 borderRadius: '10px 10px 0 0',
                 display: 'flex',
                 alignItems: 'center',
@@ -208,23 +208,23 @@ function Settings() {
                 position: 'relative',
               }}
             >
-              {item.display_icon_url ? (
+              {institution.display_icon_url ? (
                 <img
-                  src={item.display_icon_url}
+                  src={institution.display_icon_url}
                   alt=""
                   style={{ width: 40, height: 40, marginRight: 10, borderRadius: 4, objectFit: 'contain' }}
                 />
-              ) : item.institution_logo ? (
+              ) : institution.logo ? (
                 <img
-                  src={`data:image/png;base64,${item.institution_logo}`}
+                  src={`data:image/png;base64,${institution.logo}`}
                   alt=""
                   style={{ width: 40, height: 40, marginRight: 10, borderRadius: 4 }}
                 />
               ) : null}
-              <h6 style={{ margin: 0, color: '#fff', fontWeight: 'bold', flex: 1 }}>{getItemDisplayName(item)}</h6>
+              <h6 style={{ margin: 0, color: '#fff', fontWeight: 'bold', flex: 1 }}>{getInstitutionDisplayName(institution)}</h6>
               <button
                 className="institution-edit-btn"
-                onClick={() => openEditItem(item)}
+                onClick={() => openEditInstitution(institution)}
                 title="Edit institution"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
@@ -233,7 +233,7 @@ function Settings() {
               </button>
             </Card.Header>
             <Card.Body style={{ padding: 0 }}>
-              {item.status !== 'ok' ? (
+              {institution.status !== 'ok' ? (
                 <div style={{ padding: 16, textAlign: 'center' }}>
                   <div style={{ color: '#dc3545', marginBottom: 8 }}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
@@ -241,12 +241,12 @@ function Settings() {
                     </svg>
                   </div>
                   <p style={{ margin: 0, fontSize: '0.9em' }}>You need to login again</p>
-                  <Button size="sm" variant="warning" className="mt-2" onClick={() => handleGetLinkToken(item.id)}>Re-authenticate</Button>
+                  <Button size="sm" variant="warning" className="mt-2" onClick={() => handleGetLinkToken(institution.id)}>Re-authenticate</Button>
                 </div>
               ) : (
                 <table style={{ width: '100%', fontSize: '0.9em' }}>
                   <tbody>
-                    {(item.accounts || []).map((acct, i, arr) => (
+                    {(institution.accounts || []).map((acct, i, arr) => (
                       <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid #3a3a4f' : 'none', opacity: acct.hide_from_transactions ? 0.5 : 1 }}>
                         <td style={{ padding: '10px 12px' }}>
                           {getAccountDisplayName(acct)}
@@ -277,24 +277,24 @@ function Settings() {
       </div>
 
       {/* Edit Institution Modal */}
-      <Modal show={!!editItem} onHide={() => {
-        setEditItem(null); setConfirmDelete(false); setDeleteOptions(false); setDeleteTxnAction('keep'); 
+      <Modal show={!!editInstitution} onHide={() => {
+        setEditInstitution(null); setConfirmDelete(false); setDeleteOptions(false); setDeleteTxnAction('keep'); 
       }} data-bs-theme="dark">
         <Modal.Header closeButton>
           <Modal.Title>Edit Institution</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {editItem && (
+          {editInstitution && (
             <>
               <Form.Group className="mb-3">
                 <Form.Label>Display Name</Form.Label>
                 <Form.Control
                   value={editForm.display_name}
                   onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
-                  placeholder={editItem.institution_name || 'Institution name'}
+                  placeholder={editInstitution.name || 'Institution name'}
                 />
                 <Form.Text style={{ color: 'var(--text-secondary)' }}>
-                  Leave blank to use "{editItem.institution_name}"
+                  Leave blank to use "{editInstitution.name}"
                 </Form.Text>
               </Form.Group>
               <Form.Group className="mb-4">
@@ -305,7 +305,7 @@ function Settings() {
                   placeholder="https://example.com/icon.png"
                 />
                 <Form.Text style={{ color: 'var(--text-secondary)' }}>
-                  Leave blank to use Plaid's logo
+                  Leave blank to use the institution's default logo
                 </Form.Text>
               </Form.Group>
               <Form.Group className="mb-4">
@@ -314,7 +314,7 @@ function Settings() {
                   <Form.Control
                     type="color"
                     style={{ width: 48, padding: 2 }}
-                    value={editForm.display_color || editItem.institution_color || '#1a73e8'}
+                    value={editForm.display_color || editInstitution.color || '#1a73e8'}
                     onChange={(e) => setEditForm({ ...editForm, display_color: e.target.value })}
                   />
                   {editForm.display_color && (
@@ -324,7 +324,7 @@ function Settings() {
                   )}
                 </div>
                 <Form.Text style={{ color: 'var(--text-secondary)' }}>
-                  Leave blank to use Plaid's institution color
+                  Leave blank to use the institution's default color
                 </Form.Text>
               </Form.Group>
               <hr style={{ borderColor: '#3a3a4f' }} />
@@ -368,16 +368,16 @@ function Settings() {
             <Button
               variant="outline-warning"
               onClick={() => {
-                const itemId = editItem.id;
-                setEditItem(null);
-                handleGetLinkToken(itemId);
+                const institutionId = editInstitution.id;
+                setEditInstitution(null);
+                handleGetLinkToken(institutionId);
               }}
             >
               Reconnect
             </Button>
           </div>
           <div>
-            <Button variant="secondary" className="me-2" onClick={() => setEditItem(null)}>Cancel</Button>
+            <Button variant="secondary" className="me-2" onClick={() => setEditInstitution(null)}>Cancel</Button>
             <Button variant="primary" onClick={handleEditSave}>Save</Button>
           </div>
         </Modal.Footer>
@@ -389,7 +389,7 @@ function Settings() {
           <Modal.Title>Delete Institution</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to delete <strong>{editItem?.display_name || editItem?.institution_name}</strong> and all its accounts?
+          Are you sure you want to delete <strong>{editInstitution?.display_name || editInstitution?.name}</strong> and all its accounts?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</Button>
@@ -419,17 +419,17 @@ function Settings() {
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setDeleteOptions(false)}>Cancel</Button>
           <Button variant="danger" onClick={async () => {
-            await deleteItem(editItem.id, deleteTxnAction === 'delete');
+            await deleteInstitution(editInstitution.id, deleteTxnAction === 'delete');
             setDeleteOptions(false);
-            setEditItem(null);
-            loadItems();
+            setEditInstitution(null);
+            loadInstitutions();
           }}>Continue</Button>
         </Modal.Footer>
       </Modal>
 
       {/* Removed Accounts Modal */}
       <Modal show={removedAccounts.length > 0} onHide={() => {
-        setRemovedAccounts([]); setRemoveAccountsItemId(null); setRemoveAccountsTxnAction('keep');
+        setRemovedAccounts([]); setRemoveAccountsInstitutionId(null); setRemoveAccountsTxnAction('keep');
       }} data-bs-theme="dark" centered>
         <Modal.Header closeButton>
           <Modal.Title>Accounts Removed</Modal.Title>
@@ -458,7 +458,7 @@ function Settings() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => {
-            setRemovedAccounts([]); setRemoveAccountsItemId(null); setRemoveAccountsTxnAction('keep');
+            setRemovedAccounts([]); setRemoveAccountsInstitutionId(null); setRemoveAccountsTxnAction('keep');
           }}>Decide Later</Button>
           <Button variant="danger" onClick={handleResolveRemovedAccounts}>Continue</Button>
         </Modal.Footer>

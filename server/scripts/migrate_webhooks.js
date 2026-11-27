@@ -9,8 +9,8 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
-const { getAllItems } = require('../db/queries');
-const { plaidClient } = require('../routes/link');
+const { getInstitutionsByProvider } = require('../db/queries');
+const { plaidClient, accessTokenOf } = require('../connectors/plaid');
 
 async function main() {
   const args = process.argv.slice(2);
@@ -23,9 +23,9 @@ async function main() {
     process.exit(1);
   }
 
-  const items = getAllItems();
+  const items = getInstitutionsByProvider('plaid');
   if (items.length === 0) {
-    console.log('No items found in the database.');
+    console.log('No Plaid institutions found in the database.');
     return;
   }
 
@@ -35,7 +35,7 @@ async function main() {
   let failed = 0;
 
   for (const item of items) {
-    const label = item.institution_name || item.plaid_item_id;
+    const label = item.name || item.external_id;
     if (dryRun) {
       console.log(`  [dry run] would update ${label} with webhook: ${webhookUrl}`);
       continue;
@@ -43,7 +43,7 @@ async function main() {
 
     try {
       await plaidClient.itemWebhookUpdate({
-        access_token: item.plaid_access_token,
+        access_token: accessTokenOf(item),
         webhook: webhookUrl,
       });
       console.log(`  ok: ${label}`);

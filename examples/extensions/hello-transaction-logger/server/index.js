@@ -1,5 +1,5 @@
 // Example Budgett extension server hook. Exported function names must match the event
-// vocabulary used in server/webhookHandlers/transactionSync.js (same names as the Discord
+// vocabulary used in server/services/sync.js (same names as the Discord
 // notification events): transaction_found, sync_complete, sync_details, sync_update, rule_matched.
 module.exports = {
   async transaction_found(api, vars) {

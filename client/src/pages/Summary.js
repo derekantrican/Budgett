@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Spinner } from 'react-bootstrap';
 import {
-  getCategories, getAccounts, getItems, getPlanningViews, getIncome, getExtensions, getSettings,
+  getCategories, getAccounts, getInstitutions, getPlanningViews, getIncome, getExtensions, getSettings,
   getDashboardTiles, createDashboardTile, updateDashboardTile, deleteDashboardTile,
 } from '../services/api';
 import DashboardGrid from '../components/dashboard/DashboardGrid';
@@ -19,11 +19,11 @@ function Summary() {
 
   useEffect(() => {
     loadTiles();
-    Promise.all([getCategories(), getAccounts(), getItems(), getPlanningViews(), getIncome(), getExtensions(), getSettings()])
-      .then(([categories, accounts, items, planningViews, incomeSources, extensions, settings]) => {
+    Promise.all([getCategories(), getAccounts(), getInstitutions(), getPlanningViews(), getIncome(), getExtensions(), getSettings()])
+      .then(([categories, accounts, institutions, planningViews, incomeSources, extensions, settings]) => {
         setCtx({
           categories,
-          accounts: withInstitutionColors(accounts, items),
+          accounts: withInstitutionColors(accounts, institutions),
           planningViews,
           incomeSources,
           extensions,

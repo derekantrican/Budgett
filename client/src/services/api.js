@@ -49,9 +49,9 @@ export const deleteTransaction = (id) =>
   request(`/transactions/${id}`, { method: 'DELETE' });
 export const updateSplits = (txnId, splits) =>
   request(`/transactions/${txnId}/splits`, { method: 'PUT', body: JSON.stringify({ splits }) });
-export const getTransactionByPlaidId = (plaidId) =>
-  request(`/transactions/by-plaid-id/${encodeURIComponent(plaidId)}`);
-export const getPlaidCandidates = (txnId, amountOverride, startDate, endDate) => {
+export const getTransactionByExternalId = (externalId) =>
+  request(`/transactions/by-external-id/${encodeURIComponent(externalId)}`);
+export const getExternalCandidates = (txnId, amountOverride, startDate, endDate) => {
   const params = new URLSearchParams();
   if (amountOverride !== undefined) {
     params.set('amount_override', amountOverride);
@@ -66,13 +66,13 @@ export const getPlaidCandidates = (txnId, amountOverride, startDate, endDate) =>
   }
 
   const qs = params.toString() ? `?${params.toString()}` : '';
-  return request(`/transactions/${txnId}/plaid-candidates${qs}`);
+  return request(`/transactions/${txnId}/external-candidates${qs}`);
 };
 
-export const linkPlaidId = (txnId, plaidTransactionId) =>
-  request(`/transactions/${txnId}/link-plaid`, { method: 'PUT', body: JSON.stringify({ plaid_transaction_id: plaidTransactionId }) });
-export const mergeAndLinkPlaid = (transactionIds, plaidTransactionId) =>
-  request('/transactions/merge-and-link-plaid', { method: 'PUT', body: JSON.stringify({ transaction_ids: transactionIds, plaid_transaction_id: plaidTransactionId }) });
+export const linkExternalId = (txnId, externalId) =>
+  request(`/transactions/${txnId}/link-external`, { method: 'PUT', body: JSON.stringify({ external_id: externalId }) });
+export const mergeAndLinkExternal = (transactionIds, externalId) =>
+  request('/transactions/merge-and-link-external', { method: 'PUT', body: JSON.stringify({ transaction_ids: transactionIds, external_id: externalId }) });
 export const getHiddenTransactions = (startDate, endDate) =>
   request(`/transactions/hidden?start_date=${startDate}&end_date=${endDate}`);
 export const getCounterpartCandidates = (txnId) =>
@@ -101,24 +101,24 @@ export const mergeCategoryApi = (id, targetId) =>
 export const disassociateCategoryApi = (id) =>
   request(`/categories/${id}/disassociate`, { method: 'POST' });
 
-// Items / Accounts
-export const getItems = () => request('/items');
-export const updateItem = (id, data) =>
-  request(`/items/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
-export const deleteItem = (id, deleteTransactions) =>
-  request(`/items/${id}?delete_transactions=${deleteTransactions}`, { method: 'DELETE' });
-export const exchangeToken = (publicToken, institution) =>
-  request('/items', { method: 'POST', body: JSON.stringify({ public_token: publicToken, institution }) });
-export const getAccountDiff = (itemId) => request(`/items/${itemId}/account-diff`);
-export const removeAccountsApi = (itemId, accountIds, deleteTransactions) =>
-  request(`/items/${itemId}/remove-accounts`, { method: 'POST', body: JSON.stringify({ account_ids: accountIds, delete_transactions: deleteTransactions }) });
+// Institutions / Accounts
+export const getInstitutions = () => request('/institutions');
+export const updateInstitution = (id, data) =>
+  request(`/institutions/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+export const deleteInstitution = (id, deleteTransactions) =>
+  request(`/institutions/${id}?delete_transactions=${deleteTransactions}`, { method: 'DELETE' });
+export const getAccountDiff = (institutionId) => request(`/institutions/${institutionId}/account-diff`);
+export const removeAccountsApi = (institutionId, accountIds, deleteTransactions) =>
+  request(`/institutions/${institutionId}/remove-accounts`, { method: 'POST', body: JSON.stringify({ account_ids: accountIds, delete_transactions: deleteTransactions }) });
 export const getAccounts = () => request('/accounts');
 export const updateAccount = (id, data) =>
   request(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
-// Link
-export const getLinkToken = (itemId) =>
-  request(itemId ? `/link/token?item_id=${encodeURIComponent(itemId)}` : '/link/token');
+// Plaid connector (Link flow)
+export const getPlaidLinkToken = (institutionId) =>
+  request(institutionId ? `/connectors/plaid/link-token?institution_id=${encodeURIComponent(institutionId)}` : '/connectors/plaid/link-token');
+export const exchangePlaidToken = (publicToken, linkInstitution) =>
+  request('/connectors/plaid/institutions', { method: 'POST', body: JSON.stringify({ public_token: publicToken, link_institution: linkInstitution }) });
 
 // Rules
 export const getRules = () => request('/rules');

@@ -370,10 +370,15 @@ A few things worth knowing that this walkthrough didn't need but the platform su
   last-selected category between visits.
 - **Server-side event hooks.** If your `manifest.json` has a `server.entry`, that file is
   `require()`'d by Node and can export functions named after events Budgett fires during a
-  Plaid sync: `transaction_found`, `sync_complete`, `sync_details`, `sync_update`,
+  bank sync: `transaction_found`, `sync_complete`, `sync_details`, `sync_update`,
   `rule_matched` (the same event names used by the built-in Discord notification integration).
   See `examples/extensions/hello-transaction-logger/server/index.js` for a working example that
-  logs every transaction as it's found.
+  logs every transaction as it's found. `transaction_found` also carries `provider` (the
+  connector that found it, e.g. `plaid`) and `provider_category` / `provider_category_detailed`
+  (that provider's own categorization).
+- **Institutions and accounts.** `GET /api/institutions` returns each linked bank (`name`,
+  `color`, `logo`, plus the user's `display_*` overrides) with its `accounts`; each row of
+  `GET /api/accounts` points back at its bank via `institution_id`.
 - **Rescanning** re-reads every extension folder's manifest, re-registers each one in the
   database, and re-loads any server hooks. An extension whose server hook throws on load is
   still shown in the extensions list (with an error status) — only its backend hook is disabled,

@@ -9,7 +9,7 @@
  * 
  * Options:
  *   --dry-run              Show what would be imported without writing to DB
- *   --skip-dupes           Skip rows whose plaid_transaction_id already exists (default: true)
+ *   --skip-dupes           Skip rows whose external_id already exists (default: true)
  *   --sheet <name>         Import only a specific sheet (xlsx only). Omit to import all monthly sheets.
  *   --snap-to-sheet-month  Snap transaction dates that fall after the end of their sheet's month
  *                          (e.g. a 5/4 transaction on the "Apr" sheet) to the last day of that month,
@@ -21,7 +21,7 @@
  *   Data rows start at row 6.
  * 
  * Expected CSV format:
- *   Header row with columns: plaid_transaction_id, date, merchant, notes, category, amount, payment_method
+ *   Header row with columns: external_id (or plaid_transaction_id), date, merchant, notes, category, amount, payment_method
  */
 
 const path = require('path');
@@ -189,7 +189,7 @@ function parseXlsx(filePath) {
       }
       
       sheetTransactions.push({
-        plaid_transaction_id: plaidId || null,
+        external_id: plaidId || null,
         date,
         merchant,
         notes: notes || null,
@@ -228,7 +228,7 @@ function parseCsv(filePath) {
   
   // Map common header variations
   const colMap = {
-    plaid_transaction_id: headers.findIndex(h => h.includes('plaid') || h.includes('transaction_id')),
+    external_id: headers.findIndex(h => h.includes('plaid') || h.includes('transaction_id') || h.includes('external_id')),
     date: headers.findIndex(h => h === 'date'),
     merchant: headers.findIndex(h => h.includes('merchant') || h.includes('where')),
     notes: headers.findIndex(h => h.includes('notes') || h.includes('memo')),
@@ -247,7 +247,7 @@ function parseCsv(filePath) {
     if (!date || amount === null) continue;
     
     transactions.push({
-      plaid_transaction_id: colMap.plaid_transaction_id >= 0 ? parts[colMap.plaid_transaction_id]?.trim() || null : null,
+      external_id: colMap.external_id >= 0 ? parts[colMap.external_id]?.trim() || null : null,
       date,
       merchant: colMap.merchant >= 0 ? parts[colMap.merchant]?.trim() || null : null,
       notes: colMap.notes >= 0 ? parts[colMap.notes]?.trim() || null : null,
@@ -320,9 +320,9 @@ async function importToDb(transactions) {
     }
   }
   
-  // Check existing plaid_transaction_ids to skip duplicates
+  // Check existing external_ids to skip duplicates
   const existingIds = new Set();
-  const existingRows = db.exec('SELECT plaid_transaction_id FROM transactions WHERE plaid_transaction_id IS NOT NULL');
+  const existingRows = db.exec('SELECT external_id FROM transactions WHERE external_id IS NOT NULL');
   if (existingRows.length > 0) {
     for (const row of existingRows[0].values) {
       existingIds.add(row[0]);
@@ -335,17 +335,17 @@ async function importToDb(transactions) {
   let unmatchedCategories = new Set();
   let unmatchedAccounts = new Set();
   
-  // Group rows by plaid_transaction_id to detect splits
+  // Group rows by external_id to detect splits
   // Rows with the same Plaid ID = one transaction with multiple category splits
   const grouped = new Map(); // plaid_id → [rows]
   const noIdRows = []; // rows without a plaid ID (imported individually)
   
   for (const txn of transactions) {
-    if (txn.plaid_transaction_id) {
-      if (!grouped.has(txn.plaid_transaction_id)) {
-        grouped.set(txn.plaid_transaction_id, []);
+    if (txn.external_id) {
+      if (!grouped.has(txn.external_id)) {
+        grouped.set(txn.external_id, []);
       }
-      grouped.get(txn.plaid_transaction_id).push(txn);
+      grouped.get(txn.external_id).push(txn);
     } else {
       noIdRows.push(txn);
     }
@@ -383,7 +383,7 @@ async function importToDb(transactions) {
     
     // Insert the single transaction
     db.run(
-      `INSERT INTO transactions (plaid_transaction_id, account_id, date, merchant, notes, amount, is_pending, is_removed)
+      `INSERT INTO transactions (external_id, account_id, date, merchant, notes, amount, is_pending, is_removed)
        VALUES (?, ?, ?, ?, ?, ?, 0, 0)`,
       [plaidId, accountId, first.date, first.merchant, combinedNotes, totalAmount]
     );
@@ -419,7 +419,7 @@ async function importToDb(transactions) {
     }
     
     db.run(
-      `INSERT INTO transactions (plaid_transaction_id, account_id, date, merchant, notes, amount, is_pending, is_removed)
+      `INSERT INTO transactions (external_id, account_id, date, merchant, notes, amount, is_pending, is_removed)
        VALUES (?, ?, ?, ?, ?, ?, 0, 0)`,
       [null, accountId, txn.date, txn.merchant, txn.notes, txn.amount]
     );

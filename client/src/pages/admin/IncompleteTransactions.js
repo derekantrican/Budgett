@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Badge, Button, Form, Modal, Spinner } from 'react-bootstrap';
-import { getIncompleteTransactions, getCategories, getAccounts, updateTransaction, deleteTransaction, getPlaidCandidates, linkPlaidId, mergeAndLinkPlaid } from '../../services/api';
+import { getIncompleteTransactions, getCategories, getAccounts, updateTransaction, deleteTransaction, getExternalCandidates, linkExternalId, mergeAndLinkExternal } from '../../services/api';
 import { formatCurrency } from '../../utils/currency';
 import { renderNotes } from '../../utils/notes';
 
@@ -15,7 +15,7 @@ function IncompleteTransactions() {
   const [checked, setChecked] = useState(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Plaid candidate matching state
+  // Bank (connector) candidate matching state
   const [matchTxns, setMatchTxns] = useState([]); // transactions being matched
   const [matchAmount, setMatchAmount] = useState(0);
   const [candidates, setCandidates] = useState([]);
@@ -108,7 +108,7 @@ function IncompleteTransactions() {
 
     try {
       const amountOverride = selectedTxns.length > 1 ? combinedAmount : undefined;
-      const data = await getPlaidCandidates(txn.id, amountOverride, customStartDate, customEndDate);
+      const data = await getExternalCandidates(txn.id, amountOverride, customStartDate, customEndDate);
       setCandidates(data.candidates);
     }
     catch (err) {
@@ -119,13 +119,13 @@ function IncompleteTransactions() {
     }
   };
 
-  const handleLinkPlaid = async (plaidId) => {
+  const handleLinkExternal = async (externalId) => {
     if (matchTxns.length > 1) {
       // Merge multiple transactions and link
-      await mergeAndLinkPlaid(matchTxns.map(t => t.id), plaidId);
+      await mergeAndLinkExternal(matchTxns.map(t => t.id), externalId);
     }
     else {
-      await linkPlaidId(matchTxns[0].id, plaidId);
+      await linkExternalId(matchTxns[0].id, externalId);
     }
 
     setMatchTxns([]);
@@ -153,8 +153,8 @@ function IncompleteTransactions() {
       badges.push(<Badge key="acc" bg="info" className="me-1">No account</Badge>);
     }
 
-    if (txn.missing_plaid_id) {
-      badges.push(<Badge key="pid" bg="secondary" className="me-1">No Plaid ID</Badge>);
+    if (txn.missing_external_id) {
+      badges.push(<Badge key="pid" bg="secondary" className="me-1">Not linked to bank</Badge>);
     }
 
     return badges;
@@ -203,7 +203,7 @@ function IncompleteTransactions() {
               <td onClick={(e) => e.stopPropagation()}>
                 <div className="d-flex gap-1">
                   <Button size="sm" variant="outline-light" onClick={() => handleEdit(txn)}>Fix</Button>
-                  {txn.missing_plaid_id ? (
+                  {txn.missing_external_id ? (
                     <Button size="sm" variant="outline-primary" onClick={() => handleFindMatch(txn)}>Find Match</Button>
                   ) : null}
                 </div>
@@ -226,7 +226,7 @@ function IncompleteTransactions() {
             <>
               <div className="mb-3" style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>
                 {editTxn.date} &bull; {fmt(editTxn.amount)}
-                {editTxn.plaid_transaction_id && <> &bull; <code>{editTxn.plaid_transaction_id.substring(0, 20)}...</code></>}
+                {editTxn.external_id && <> &bull; <code>{editTxn.external_id.substring(0, 20)}...</code></>}
               </div>
               <Form.Group className="mb-3">
                 <Form.Label>Merchant</Form.Label>
@@ -272,7 +272,7 @@ function IncompleteTransactions() {
           )}
         </Modal.Body>
         <Modal.Footer>
-          {editTxn && !editTxn.plaid_transaction_id && (
+          {editTxn && !editTxn.external_id && (
             confirmDelete ? (
               <div className="me-auto d-flex align-items-center gap-2">
                 <span style={{ color: '#ff4444', fontSize: '0.9em' }}>Are you sure?</span>
@@ -288,10 +288,10 @@ function IncompleteTransactions() {
         </Modal.Footer>
       </Modal>
 
-      {/* Plaid Match Modal */}
+      {/* Bank Match Modal */}
       <Modal show={matchTxns.length > 0} onHide={closeMatchModal} size="lg" data-bs-theme="dark">
         <Modal.Header closeButton>
-          <Modal.Title>Find Plaid Match</Modal.Title>
+          <Modal.Title>Find Bank Match</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {matchTxns.length > 0 && (
@@ -335,7 +335,7 @@ function IncompleteTransactions() {
           {loadingCandidates && (
             <div className="text-center py-4">
               <Spinner animation="border" variant="light" />
-              <p style={{ color: 'var(--text-secondary)', marginTop: 8 }}>Querying Plaid API...</p>
+              <p style={{ color: 'var(--text-secondary)', marginTop: 8 }}>Searching bank transactions...</p>
             </div>
           )}
           {candidateError && (
@@ -355,7 +355,7 @@ function IncompleteTransactions() {
               </thead>
               <tbody>
                 {candidates.map((c) => (
-                  <tr key={c.plaid_transaction_id} style={{ opacity: c.is_claimed ? 0.5 : 1 }}>
+                  <tr key={c.external_id} style={{ opacity: c.is_claimed ? 0.5 : 1 }}>
                     <td>
                       <Badge bg={c.score >= 100 ? 'success' : c.score >= 50 ? 'warning' : 'secondary'}>
                         {c.score}
@@ -376,7 +376,7 @@ function IncompleteTransactions() {
                       <Button
                         size="sm"
                         variant={c.is_claimed ? 'outline-secondary' : 'outline-primary'}
-                        onClick={() => handleLinkPlaid(c.plaid_transaction_id)}
+                        onClick={() => handleLinkExternal(c.external_id)}
                         disabled={c.is_claimed}
                       >
                         Link

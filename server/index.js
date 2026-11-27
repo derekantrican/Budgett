@@ -31,13 +31,12 @@ app.use((req, res, next) => {
 });
 
 // Routes
-const itemsRoutes = require('./routes/items');
+const institutionsRoutes = require('./routes/institutions');
 const accountsRoutes = require('./routes/accounts');
 const transactionsRoutes = require('./routes/transactions');
 const categoriesRoutes = require('./routes/categories');
 const rulesRoutes = require('./routes/rules');
-const webhookRoutes = require('./routes/webhook');
-const linkRoutes = require('./routes/link');
+const { router: plaidRoutes, webhookRouter: plaidWebhookRoutes } = require('./connectors/plaid/routes');
 const adminRoutes = require('./routes/admin');
 const settingsRoutes = require('./routes/settings');
 const templatesRoutes = require('./routes/templates');
@@ -47,13 +46,13 @@ const incomeRoutes = require('./routes/income');
 const extensionsRoutes = require('./routes/extensions');
 
 app.use('/api/auth', authRouter);
-app.use('/api/webhook', webhookRoutes);
-app.use('/api/items', itemsRoutes);
+app.use('/api/webhook', plaidWebhookRoutes); // Plaid's registered webhook URL — keep this path stable
+app.use('/api/institutions', institutionsRoutes);
+app.use('/api/connectors/plaid', plaidRoutes);
 app.use('/api/accounts', accountsRoutes);
 app.use('/api/transactions', transactionsRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/rules', rulesRoutes);
-app.use('/api/link', linkRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/templates', templatesRoutes);

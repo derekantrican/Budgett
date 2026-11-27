@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Form, Spinner } from 'react-bootstrap';
-import { getPlanningViews, createPlanningView, getAccounts, getItems, getCategories, getIncome, getSettings } from '../services/api';
+import { getPlanningViews, createPlanningView, getAccounts, getInstitutions, getCategories, getIncome, getSettings } from '../services/api';
 import AddViewModal from '../components/planning/AddViewModal';
 import { getViewType, getViewSlugs, findViewBySlug } from '../components/planning/viewTypes';
 import { withInstitutionColors } from '../helpers/accounts';
@@ -57,11 +57,11 @@ function Planning() {
   }, [slug, views]);
 
   const loadData = async (selectId) => {
-    const [viewList, accountList, itemList, categoryList, incomeList] = await Promise.all([
-      getPlanningViews(), getAccounts(), getItems(), getCategories(), getIncome(),
+    const [viewList, accountList, institutionList, categoryList, incomeList] = await Promise.all([
+      getPlanningViews(), getAccounts(), getInstitutions(), getCategories(), getIncome(),
     ]);
     setViews(viewList);
-    setAccounts(withInstitutionColors(accountList, itemList));
+    setAccounts(withInstitutionColors(accountList, institutionList));
     setCategories(categoryList);
     setIncomeSources(incomeList);
 

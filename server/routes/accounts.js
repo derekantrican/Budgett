@@ -1,11 +1,10 @@
 const router = require('express').Router();
-const { getAllAccounts, getAllItems, getAccountsByItem, updateAccountBalance, updateItemStatus, run } = require('../db/queries');
-const { plaidClient } = require('./link');
+const { getAllAccounts, getAllInstitutions, getAccountsByInstitution, updateAccountBalance, updateInstitutionStatus, run } = require('../db/queries');
+const { getConnectorFor } = require('../connectors');
 
 // GET /api/accounts
 router.get('/', (req, res) => {
-  const accounts = getAllAccounts();
-  res.json(accounts);
+  res.json(getAllAccounts());
 });
 
 // PATCH /api/accounts/:id
@@ -33,45 +32,47 @@ router.patch('/:id', (req, res) => {
 
 // GET /api/accounts/refresh-balances
 router.get('/refresh-balances', async (req, res) => {
-  const items = getAllItems();
+  const institutions = getAllInstitutions();
   const results = [];
 
-  for (const item of items) {
-    try {
-      const balanceResponse = await plaidClient.accountsBalanceGet({
-        access_token: item.plaid_access_token,
-      });
+  for (const institution of institutions) {
+    const connector = getConnectorFor(institution);
+    const institutionIds = {
+      provider: institution.provider,
+      institution_external_id: institution.external_id,
+    };
 
-      for (const acct of balanceResponse.data.accounts) {
-        const accounts = getAccountsByItem(item.id);
-        const dbAccount = accounts.find(a => a.plaid_account_id === acct.account_id);
+    try {
+      const accounts = getAccountsByInstitution(institution.id);
+      for (const acct of await connector.fetchAccounts(institution, { live: true })) {
+        const dbAccount = accounts.find(a => a.external_id === acct.externalId);
         if (dbAccount) {
           const oldCurrent = dbAccount.current_balance;
           const oldAvailable = dbAccount.available_balance;
-          updateAccountBalance(acct.balances.current, acct.balances.available, dbAccount.id);
+          updateAccountBalance(acct.currentBalance, acct.availableBalance, dbAccount.id);
           results.push({
-            institution: item.display_name || item.institution_name,
-            institution_plaid_id: item.plaid_item_id,
+            institution: institution.display_name || institution.name,
+            ...institutionIds,
             account: dbAccount.display_name || dbAccount.name,
-            account_plaid_id: dbAccount.plaid_account_id,
+            account_external_id: dbAccount.external_id,
             old_current: oldCurrent,
-            new_current: acct.balances.current,
+            new_current: acct.currentBalance,
             old_available: oldAvailable,
-            new_available: acct.balances.available,
+            new_available: acct.availableBalance,
           });
         }
       }
     }
     catch (e) {
-      const plaidError = e.response?.data?.error_code;
-      if (plaidError === 'ITEM_LOGIN_REQUIRED') {
-        updateItemStatus('login_required', item.id);
+      const { loginRequired, code, message } = connector.classifyError(e);
+      if (loginRequired) {
+        updateInstitutionStatus('login_required', institution.id);
       }
 
       results.push({
-        institution: item.display_name || item.institution_name,
-        institution_plaid_id: item.plaid_item_id,
-        error: plaidError || e.message,
+        institution: institution.display_name || institution.name,
+        ...institutionIds,
+        error: code || message,
       });
     }
   }

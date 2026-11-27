@@ -1,6 +1,6 @@
 const router = require('express').Router();
-const { getTransactionsByDateRange, createTransaction, getTransactionByPlaidId,
-  getTransactionByPendingId, createSplit, getSplitsByTransaction, deleteSplitsByTransaction,
+const { getTransactionsByDateRange, createTransaction, getTransactionByExternalId,
+  getTransactionByExternalPendingId, createSplit, getSplitsByTransaction, deleteSplitsByTransaction,
   getIncompleteTransactions } = require('../db/queries');
 
 // GET /api/transactions?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
@@ -116,17 +116,17 @@ router.get('/hidden', (req, res) => {
   res.json(Array.from(transactionsMap.values()));
 });
 
-// Resolve a Plaid id to its transaction, including a pending id that has since been
-// promoted to posted (the row's plaid_transaction_id now holds the posted id, and the
-// original pending id lives on in pending_transaction_id). Record links sent for a
-// pending transaction carry the pending id, so they must still resolve after promotion.
-function findByPlaidOrPendingId(plaidId) {
-  return getTransactionByPlaidId(plaidId) || getTransactionByPendingId(plaidId);
+// Resolve an external (provider) id to its transaction, including a pending id that has since
+// been promoted to posted (the row's external_id now holds the posted id, and the original
+// pending id lives on in external_pending_id). Record links sent for a pending transaction
+// carry the pending id, so they must still resolve after promotion.
+function findByExternalOrPendingId(externalId) {
+  return getTransactionByExternalId(externalId) || getTransactionByExternalPendingId(externalId);
 }
 
-// GET /api/transactions/by-plaid-id/:plaidId
-router.get('/by-plaid-id/:plaidId', (req, res) => {
-  const txn = findByPlaidOrPendingId(req.params.plaidId);
+// GET /api/transactions/by-external-id/:externalId
+router.get('/by-external-id/:externalId', (req, res) => {
+  const txn = findByExternalOrPendingId(req.params.externalId);
   if (!txn) {
     return res.status(404).json({ error: 'Transaction not found' });
   }
@@ -161,21 +161,21 @@ router.get('/:id', (req, res) => {
 
 // POST /api/transactions (manual transaction entry)
 router.post('/', (req, res) => {
-  const { date, merchant, amount, account_id, plaid_transaction_id, splits } = req.body;
+  const { date, merchant, amount, account_id, external_id, splits } = req.body;
 
   if (!date || amount === undefined) {
     return res.status(400).json({ error: 'date and amount required' });
   }
 
-  if (plaid_transaction_id) {
-    const existing = findByPlaidOrPendingId(plaid_transaction_id);
+  if (external_id) {
+    const existing = findByExternalOrPendingId(external_id);
     if (existing) {
-      return res.status(409).json({ error: `Transaction with Plaid id ${plaid_transaction_id} already exists (#${existing.id})` });
+      return res.status(409).json({ error: `Transaction with external id ${external_id} already exists (#${existing.id})` });
     }
   }
 
   const result = createTransaction(
-    plaid_transaction_id || null, null, account_id || null, date, merchant || null, amount, 0, null, null
+    external_id || null, null, account_id || null, date, merchant || null, amount, 0, null, null
   );
 
   const txnId = result.lastInsertRowid;
@@ -189,12 +189,12 @@ router.post('/', (req, res) => {
   res.status(201).json({ id: txnId });
 });
 
-// PUT /api/transactions/merge-and-link-plaid
-// Merges multiple sibling transactions into one, preserving splits, and links a Plaid ID
-router.put('/merge-and-link-plaid', (req, res) => {
-  const { transaction_ids, plaid_transaction_id } = req.body;
-  if (!transaction_ids || transaction_ids.length < 2 || !plaid_transaction_id) {
-    return res.status(400).json({ error: 'transaction_ids (array, >=2) and plaid_transaction_id required' });
+// PUT /api/transactions/merge-and-link-external
+// Merges multiple sibling transactions into one, preserving splits, and links an external (provider) id
+router.put('/merge-and-link-external', (req, res) => {
+  const { transaction_ids, external_id } = req.body;
+  if (!transaction_ids || transaction_ids.length < 2 || !external_id) {
+    return res.status(400).json({ error: 'transaction_ids (array, >=2) and external_id required' });
   }
 
   const { run, get: getOne, all: allFn } = require('../db/queries');
@@ -205,7 +205,8 @@ router.put('/merge-and-link-plaid', (req, res) => {
 
   // Calculate total amount
   const txns = transaction_ids.map(tid => getOne('SELECT * FROM transactions WHERE id = ?', [tid])).filter(Boolean);
-  const totalAmount = txns.reduce((sum, t) => sum + t.amount, 0);
+  // Round to cents - summing floats leaves artifacts like -22.740000000000002
+  const totalAmount = Math.round(txns.reduce((sum, t) => sum + t.amount, 0) * 100) / 100;
 
   // Move splits from other transactions to the primary
   for (const otherId of otherIds) {
@@ -236,10 +237,10 @@ router.put('/merge-and-link-plaid', (req, res) => {
     }
   }
 
-  // Update primary with total amount and plaid ID
+  // Update primary with total amount and external id
   run(
-    "UPDATE transactions SET amount = ?, plaid_transaction_id = ?, updated_at = datetime('now') WHERE id = ?",
-    [totalAmount, plaid_transaction_id, primaryId]
+    "UPDATE transactions SET amount = ?, external_id = ?, updated_at = datetime('now') WHERE id = ?",
+    [totalAmount, external_id, primaryId]
   );
 
   res.json({ success: true, primary_id: primaryId });
@@ -366,26 +367,31 @@ router.put('/:id', (req, res) => {
   res.json({ success: true, auto_rules_created: autoRulesCreated });
 });
 
-// GET /api/transactions/:id/plaid-candidates
-// Query Plaid API for transactions near the date of an incomplete transaction
-router.get('/:id/plaid-candidates', async (req, res) => {
+// GET /api/transactions/:id/external-candidates
+// Ask the account's connector for transactions near the date of an incomplete transaction
+router.get('/:id/external-candidates', async (req, res) => {
   const { id } = req.params;
   const { amount_override, start_date, end_date } = req.query;
-  const { get: getOne, all: allFn } = require('../db/queries');
+  const { get: getOne, all: allFn, getInstitutionById } = require('../db/queries');
+  const { getConnectorFor } = require('../connectors');
 
-  const txn = getOne('SELECT t.*, a.plaid_account_id, a.item_id FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id WHERE t.id = ?', [id]);
+  const txn = getOne('SELECT t.*, a.external_id as account_external_id, a.institution_id FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id WHERE t.id = ?', [id]);
   if (!txn) {
     return res.status(404).json({ error: 'Transaction not found' });
   }
 
-  if (!txn.plaid_account_id) {
-    return res.status(400).json({ error: 'Transaction has no linked account with a Plaid account ID' });
+  if (!txn.account_external_id) {
+    return res.status(400).json({ error: 'Transaction has no linked bank account' });
   }
 
-  // Get the item's access token
-  const item = getOne('SELECT plaid_access_token FROM items WHERE id = ?', [txn.item_id]);
-  if (!item) {
-    return res.status(400).json({ error: 'No Plaid item found for this account' });
+  const institution = getInstitutionById(txn.institution_id);
+  if (!institution) {
+    return res.status(400).json({ error: 'No institution found for this account' });
+  }
+
+  const connector = getConnectorFor(institution);
+  if (!connector.capabilities.candidateSearch) {
+    return res.status(400).json({ error: `${connector.displayName} doesn't support searching for matches` });
   }
 
   // Use provided date range or default +-7 day window
@@ -404,35 +410,23 @@ router.get('/:id/plaid-candidates', async (req, res) => {
   }
 
   try {
-    const { plaidClient } = require('./link');
-    const response = await plaidClient.transactionsGet({
-      access_token: item.plaid_access_token,
-      start_date: startDateStr,
-      end_date: endDateStr,
-      options: {
-        account_ids: [txn.plaid_account_id],
-        count: 100,
-      },
-    });
+    const remoteTxns = await connector.searchTransactions(institution, txn.account_external_id, startDateStr, endDateStr);
 
-    const plaidTxns = response.data.transactions;
-
-    // Check which plaid IDs are already claimed in our DB
+    // Check which external ids are already claimed in our DB
     const claimedIds = new Set(
-      allFn('SELECT plaid_transaction_id FROM transactions WHERE plaid_transaction_id IS NOT NULL')
-        .map(r => r.plaid_transaction_id)
+      allFn('SELECT external_id FROM transactions WHERE external_id IS NOT NULL')
+        .map(r => r.external_id)
     );
 
-    // Score candidates
+    // Score candidates (amounts are already in Budgett's sign convention)
     const matchAmount = amount_override !== undefined ? parseFloat(amount_override) : txn.amount;
     const txnDate = new Date(txn.date + 'T12:00:00');
-    const candidates = plaidTxns.map(pt => {
+    const candidates = remoteTxns.map(pt => {
       let score = 0;
-      // Amount match (Plaid uses positive for debits, we use negative)
-      if (Math.abs((-pt.amount) - matchAmount) < 0.01) {
+      if (Math.abs(pt.amount - matchAmount) < 0.01) {
         score += 100;
       }
-      else if (Math.abs((-pt.amount) - matchAmount) < 1.00) {
+      else if (Math.abs(pt.amount - matchAmount) < 1.00) {
         score += 50;
       }
 
@@ -451,9 +445,9 @@ router.get('/:id/plaid-candidates', async (req, res) => {
       }
 
       // Fuzzy merchant match
-      if (txn.merchant && pt.name) {
+      if (txn.merchant && pt.description) {
         const a = txn.merchant.toLowerCase();
-        const b = pt.name.toLowerCase();
+        const b = pt.description.toLowerCase();
         if (a === b) {
           score += 40;
         }
@@ -470,13 +464,13 @@ router.get('/:id/plaid-candidates', async (req, res) => {
       }
 
       return {
-        plaid_transaction_id: pt.transaction_id,
-        name: pt.name,
-        merchant_name: pt.merchant_name,
-        amount: -pt.amount,
+        external_id: pt.externalId,
+        name: pt.description,
+        merchant_name: pt.merchantName,
+        amount: pt.amount,
         date: pt.date,
-        category: pt.personal_finance_category?.primary || null,
-        is_claimed: claimedIds.has(pt.transaction_id),
+        category: pt.providerCategory,
+        is_claimed: claimedIds.has(pt.externalId),
         score,
       };
     });
@@ -494,36 +488,36 @@ router.get('/:id/plaid-candidates', async (req, res) => {
   }
   catch (err) {
     const logger = require('../helpers/logger');
-    logger.error('plaid_candidates_failed', err.response?.data?.error_message || err.message);
-    res.status(500).json({ error: 'Failed to fetch Plaid transactions' });
+    logger.error('external_candidates_failed', connector.classifyError(err).message);
+    res.status(500).json({ error: `Failed to fetch ${connector.displayName} transactions` });
   }
 });
 
-// PUT /api/transactions/:id/link-plaid
-router.put('/:id/link-plaid', (req, res) => {
+// PUT /api/transactions/:id/link-external
+router.put('/:id/link-external', (req, res) => {
   const { id } = req.params;
-  const { plaid_transaction_id } = req.body;
-  if (!plaid_transaction_id) {
-    return res.status(400).json({ error: 'plaid_transaction_id required' });
+  const { external_id } = req.body;
+  if (!external_id) {
+    return res.status(400).json({ error: 'external_id required' });
   }
 
   const { run } = require('../db/queries');
-  run("UPDATE transactions SET plaid_transaction_id = ?, updated_at = datetime('now') WHERE id = ?", [plaid_transaction_id, id]);
+  run("UPDATE transactions SET external_id = ?, updated_at = datetime('now') WHERE id = ?", [external_id, id]);
   res.json({ success: true });
 });
 
-// DELETE /api/transactions/:id - only allowed for transactions without a plaid_id
+// DELETE /api/transactions/:id - only allowed for transactions not linked to a bank
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
   const { get, deleteTransaction } = require('../db/queries');
-  const txn = get('SELECT plaid_transaction_id FROM transactions WHERE id = ?', [id]);
+  const txn = get('SELECT external_id FROM transactions WHERE id = ?', [id]);
 
   if (!txn) {
     return res.status(404).json({ error: 'Transaction not found' });
   }
 
-  if (txn.plaid_transaction_id) {
-    return res.status(400).json({ error: 'Cannot delete a transaction linked to Plaid' });
+  if (txn.external_id) {
+    return res.status(400).json({ error: 'Cannot delete a transaction linked to a bank' });
   }
 
   deleteTransaction(id);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal } from 'react-bootstrap';
-import { getTemplates, createTemplateApi, updateTemplateApi, deleteTemplateApi, getCategories, getItems } from '../../services/api';
+import { getTemplates, createTemplateApi, updateTemplateApi, deleteTemplateApi, getCategories, getInstitutions } from '../../services/api';
 import CategorySelect from '../../components/CategorySelect';
 import { renderNotes } from '../../utils/notes';
 
@@ -17,10 +17,10 @@ function Templates() {
   }, []);
 
   const loadData = async () => {
-    const [t, c, items] = await Promise.all([getTemplates(), getCategories(), getItems()]);
+    const [t, c, institutions] = await Promise.all([getTemplates(), getCategories(), getInstitutions()]);
     setTemplates(t);
     setCategories(c);
-    const accts = items.flatMap(item => (item.accounts || []).map(a => ({ id: a.id, name: a.name || a.official_name })));
+    const accts = institutions.flatMap(institution => (institution.accounts || []).map(a => ({ id: a.id, name: a.name || a.official_name })));
     setAccounts(accts);
   };
 

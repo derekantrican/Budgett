@@ -31,14 +31,14 @@ export function buildSeed() {
   const nowStamp = now.toISOString().replace('T', ' ').slice(0, 19);
   const stamp = { created_at: nowStamp, updated_at: nowStamp };
 
-  const items = [
-    { id: 1, plaid_item_id: 'demo-item-1', institution_name: 'Evergreen Community Bank', institution_id: 'demo_ins_1', institution_color: '#2e7d32', institution_logo: null, display_name: null, display_icon_url: null, display_color: null, online_banking_url: null, transaction_cursor: null, status: 'ok', ...stamp },
-    { id: 2, plaid_item_id: 'demo-item-2', institution_name: 'Summit Card Services', institution_id: 'demo_ins_2', institution_color: '#6a1b9a', institution_logo: null, display_name: null, display_icon_url: null, display_color: null, online_banking_url: null, transaction_cursor: null, status: 'ok', ...stamp },
-    { id: 3, plaid_item_id: 'demo-item-3', institution_name: 'Harbor Investments', institution_id: 'demo_ins_3', institution_color: '#1565c0', institution_logo: null, display_name: null, display_icon_url: null, display_color: null, online_banking_url: null, transaction_cursor: null, status: 'ok', ...stamp },
+  const institutions = [
+    { id: 1, provider: 'plaid', external_id: 'demo-item-1', name: 'Evergreen Community Bank', provider_institution_id: 'demo_ins_1', color: '#2e7d32', logo: null, display_name: null, display_icon_url: null, display_color: null, online_banking_url: null, sync_state_json: null, status: 'ok', ...stamp },
+    { id: 2, provider: 'plaid', external_id: 'demo-item-2', name: 'Summit Card Services', provider_institution_id: 'demo_ins_2', color: '#6a1b9a', logo: null, display_name: null, display_icon_url: null, display_color: null, online_banking_url: null, sync_state_json: null, status: 'ok', ...stamp },
+    { id: 3, provider: 'plaid', external_id: 'demo-item-3', name: 'Harbor Investments', provider_institution_id: 'demo_ins_3', color: '#1565c0', logo: null, display_name: null, display_icon_url: null, display_color: null, online_banking_url: null, sync_state_json: null, status: 'ok', ...stamp },
   ];
 
-  const account = (id, itemId, name, type, subtype, mask, current, available, hide = 0) => ({
-    id, item_id: itemId, plaid_account_id: `demo-acct-${id}`, name, official_name: name, display_name: null,
+  const account = (id, institutionId, name, type, subtype, mask, current, available, hide = 0) => ({
+    id, institution_id: institutionId, external_id: `demo-acct-${id}`, name, official_name: name, display_name: null,
     type, subtype, mask, current_balance: current, available_balance: available, online_banking_url: null,
     hide_from_transactions: hide, is_deleted: 0, ...stamp,
   });
@@ -76,13 +76,13 @@ export function buildSeed() {
   let txnId = 1;
   let splitId = 1;
 
-  function addTxn({ date, merchant, amount, accountId, category, notes = null, pending = false, plaid = true, hidden = false, extra = {} }) {
+  function addTxn({ date, merchant, amount, accountId, category, notes = null, pending = false, linked = true, hidden = false, extra = {} }) {
     const id = txnId++;
     transactions.push({
-      id, plaid_transaction_id: plaid ? `demo-txn-${id}` : null, pending_transaction_id: null,
+      id, external_id: linked ? `demo-txn-${id}` : null, external_pending_id: null,
       account_id: accountId, group_id: null, date, merchant, amount: round2(amount),
       is_pending: pending ? 1 : 0, is_removed: 0, is_hidden: hidden ? 1 : 0, is_auth: 0, is_transfer: 0,
-      linked_transaction_id: null, matched_manual_id: null, notes: null, plaid_category: null, plaid_raw_json: null,
+      linked_transaction_id: null, matched_manual_id: null, notes: null, provider_category: null, raw_json: null,
       ...stamp, ...extra,
     });
     if (category !== undefined) {
@@ -224,7 +224,7 @@ export function buildSeed() {
   addTxn({ date: daysAgo(1), merchant: 'Bean There Coffee', amount: -6.75, accountId: CARD, category: cat['Dining Out'], pending: true });
   addTxn({ date: daysAgo(0), merchant: 'QuickFuel #212', amount: -41.18, accountId: CARD, category: cat.Gas, pending: true });
   addTxn({ date: daysAgo(2), merchant: 'SQ *FARMERS MKT STAND', amount: -18.5, accountId: CHECKING });
-  addTxn({ date: daysAgo(3), merchant: 'Sakura Sushi', amount: -42, accountId: CARD, category: cat['Dining Out'], plaid: false, notes: 'Birthday dinner - recorded by hand, waiting for the card charge to post' });
+  addTxn({ date: daysAgo(3), merchant: 'Sakura Sushi', amount: -42, accountId: CARD, category: cat['Dining Out'], linked: false, notes: 'Birthday dinner - recorded by hand, waiting for the card charge to post' });
 
   const incomeSources = [
     {
@@ -304,7 +304,7 @@ export function buildSeed() {
   ];
 
   return {
-    items,
+    institutions,
     accounts,
     categories,
     transactions,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCategories, getAccounts, createTransaction, updateTransaction, updateSplits, getTemplates, createTemplateApi, getTransactionByPlaidId } from '../services/api';
+import { getCategories, getAccounts, createTransaction, updateTransaction, updateSplits, getTemplates, createTemplateApi, getTransactionByExternalId } from '../services/api';
 import CategorySelect from '../components/CategorySelect';
 
 const styles = {
@@ -114,7 +114,7 @@ function RecordTransaction() {
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [templates, setTemplates] = useState([]);
-  const [form, setForm] = useState({ date: today(), merchant: '', notes: '', category_id: '', account_id: '', amount: '', plaidid: '' });
+  const [form, setForm] = useState({ date: today(), merchant: '', notes: '', category_id: '', account_id: '', amount: '', externalId: '' });
   const [existingTxnId, setExistingTxnId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [recorded, setRecorded] = useState('');
@@ -149,8 +149,11 @@ function RecordTransaction() {
       prefill.amount = params.get('amount');
     }
 
-    if (params.get('plaidid')) {
-      prefill.plaidid = params.get('plaidid');
+    // `plaidid` is the pre-connector name of this param — record links already sent in past
+    // notifications still use it, so keep accepting it.
+    const externalIdParam = params.get('externalid') || params.get('plaidid');
+    if (externalIdParam) {
+      prefill.externalId = externalIdParam;
     }
 
     if (params.get('category')) {
@@ -175,9 +178,9 @@ function RecordTransaction() {
       setForm(f => ({ ...f, ...prefill }));
     }
 
-    if (params.get('plaidid')) {
+    if (externalIdParam) {
       try {
-        const txn = await getTransactionByPlaidId(params.get('plaidid'));
+        const txn = await getTransactionByExternalId(externalIdParam);
         setExistingTxnId(txn.id);
         if (!params.get('category') && txn.splits && txn.splits.length > 0) {
           setForm(f => ({ ...f, category_id: txn.splits[0].category_id || '' }));
@@ -229,7 +232,7 @@ function RecordTransaction() {
           merchant: form.merchant || null,
           amount,
           account_id: form.account_id ? Number(form.account_id) : null,
-          plaid_transaction_id: form.plaidid || null,
+          external_id: form.externalId || null,
           splits,
         });
       }
@@ -249,7 +252,7 @@ function RecordTransaction() {
       }
 
       setRecorded(existingTxnId ? 'Updated!' : 'Recorded!');
-      setForm({ date: today(), merchant: '', notes: '', category_id: '', account_id: '', amount: '', plaidid: '' });
+      setForm({ date: today(), merchant: '', notes: '', category_id: '', account_id: '', amount: '', externalId: '' });
       setExistingTxnId(null);
       setTimeout(() => setRecorded(''), 2500);
     }

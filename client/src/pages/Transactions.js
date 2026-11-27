@@ -539,7 +539,7 @@ function Transactions() {
                 {transactions.map((txn) => {
                   const hasSplits = txn.splits?.length > 1;
                   if (!hasSplits) {
-                    const isIncomplete = !txn.plaid_transaction_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
+                    const isIncomplete = !txn.external_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
                     return (
                       <tr
                         key={txn.id}
@@ -560,7 +560,7 @@ function Transactions() {
                   }
 
                   // Multi-split: render one row per split
-                  const splitIncomplete = !txn.plaid_transaction_id || !txn.merchant || txn.splits.some(s => !s.category_name);
+                  const splitIncomplete = !txn.external_id || !txn.merchant || txn.splits.some(s => !s.category_name);
                   return txn.splits.map((split, idx) => (
                     <tr
                       key={`${txn.id}-${idx}`}
@@ -589,7 +589,7 @@ function Transactions() {
           <div className="d-md-none">
             {transactions.map((txn) => {
               const hasSplits = txn.splits?.length > 1;
-              const isIncomplete = !txn.plaid_transaction_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
+              const isIncomplete = !txn.external_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
               const cardClass = `transaction-card${txn.is_removed ? ' transaction-removed' : ''}${hasSplits ? ' transaction-split' : ''}${isIncomplete ? ' transaction-incomplete' : ''}`;
               return (
                 <div key={txn.id} className={cardClass} onClick={() => openEdit(txn)}>
@@ -814,11 +814,11 @@ function Transactions() {
               </div>
             ))}
 
-            {(editTxn.account_name || editTxn.plaid_transaction_id) && (
+            {(editTxn.account_name || editTxn.external_id) && (
               <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: 8 }}>
                 {editTxn.account_name && <>Account: {editTxn.account_name}</>}
-                {editTxn.account_name && editTxn.plaid_transaction_id && ' · '}
-                {editTxn.plaid_transaction_id && <>Plaid ID: {editTxn.plaid_transaction_id}</>}
+                {editTxn.account_name && editTxn.external_id && ' · '}
+                {editTxn.external_id && <>External ID: {editTxn.external_id}</>}
               </small>
             )}
 
@@ -826,7 +826,7 @@ function Transactions() {
         )}
         <Modal.Footer>
           <div className="me-auto d-flex align-items-center gap-2">
-            {!isNewTxn && editTxn && !editTxn.plaid_transaction_id && (
+            {!isNewTxn && editTxn && !editTxn.external_id && (
               confirmDelete ? (
                 <>
                   <span style={{ color: '#ff4444', fontSize: '0.9em' }}>Are you sure?</span>
