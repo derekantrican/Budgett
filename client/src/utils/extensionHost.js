@@ -75,6 +75,11 @@ if (!window.__BUDGETT_EXTENSION_ERRORS_HOOKED__) {
         if (!response.ok) {
           reportExtensionError(slug, `${method} ${url} failed: ${response.status} ${response.statusText}`.trim());
         }
+        else if (/^\/api\//.test(new URL(url, window.location.href).pathname)
+          && (response.headers.get('content-type') || '').includes('text/html')) {
+          // An API call answered with a web page: almost always an endpoint that doesn't exist
+          reportExtensionError(slug, `${method} ${url} returned a web page instead of data; that API endpoint probably doesn't exist`);
+        }
 
         return response;
       },

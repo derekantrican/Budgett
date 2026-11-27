@@ -67,6 +67,11 @@ app.use('/api/extensions', extensionsRoutes);
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+// Unknown API paths get a JSON 404 rather than falling through to the client's index.html below,
+// which would answer 200 with a web page (so e.g. an extension calling a removed endpoint would
+// fail confusingly at JSON-parsing time instead of seeing a 404)
+app.use('/api', (req, res) => res.status(404).json({ error: `No such API endpoint: ${req.method} ${req.originalUrl}` }));
+
 // Serve React client in production
 const clientBuildPath = path.resolve(__dirname, '../client/build');
 if (process.env.NODE_ENV === 'production' || !process.env.NODE_ENV) {
