@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal } from 'react-bootstrap';
 import { getTemplates, createTemplateApi, updateTemplateApi, deleteTemplateApi, getCategories, getInstitutions } from '../../services/api';
+import { useLiveUpdates } from '../../services/liveUpdates';
 import CategorySelect from '../../components/CategorySelect';
 import { renderNotes } from '../../utils/notes';
 
@@ -23,6 +24,9 @@ function Templates() {
     const accts = institutions.flatMap(institution => (institution.accounts || []).map(a => ({ id: a.id, name: a.name || a.official_name })));
     setAccounts(accts);
   };
+
+  // Pick up changes from other browsers
+  useLiveUpdates(['templates', 'categories', 'institutions', 'accounts'], loadData);
 
   const openNew = () => {
     setEditId(null);

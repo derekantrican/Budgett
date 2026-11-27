@@ -11,6 +11,7 @@ const { initQueries } = require('./db/queries');
 const { errorHandler } = require('./middleware/errorHandler');
 const { scanExtensions } = require('./services/extensionLoader');
 const { initAuth, requireApiAuth, requireSocketAuth, authRouter } = require('./middleware/auth');
+const { liveUpdatesMiddleware } = require('./helpers/liveUpdates');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,6 +30,9 @@ app.use((req, res, next) => {
   req.io = io;
   next();
 });
+
+// Tell other open tabs when a write changes data, so they refetch (see helpers/liveUpdates.js)
+app.use(liveUpdatesMiddleware(io));
 
 // Routes
 const institutionsRoutes = require('./routes/institutions');

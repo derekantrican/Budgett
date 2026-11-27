@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Form, Spinner } from 'react-bootstrap';
 import { getPlanningViews, createPlanningView, getAccounts, getInstitutions, getCategories, getIncome, getSettings } from '../services/api';
+import { useLiveUpdates } from '../services/liveUpdates';
 import AddViewModal from '../components/planning/AddViewModal';
 import { getViewType, getViewSlugs, findViewBySlug } from '../components/planning/viewTypes';
 import { withInstitutionColors } from '../helpers/accounts';
@@ -72,6 +73,10 @@ function Planning() {
     // above) update - covers a newly-created view, a rename that changes its slug, and a
     // deletion falling back to whatever view is now first.
   };
+
+  // Pick up changes from syncs and other browsers (views keep their local edits - they only
+  // reset those when switching to a different view)
+  useLiveUpdates(['planning-views', 'accounts', 'institutions', 'categories', 'income'], () => loadData());
 
   const handleChooseType = async (viewType) => {
     const result = await createPlanningView({

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Accordion, Badge, Tabs, Tab } from 'react-bootstrap';
 import { getWebhooks } from '../../services/api';
+import { useLiveUpdates } from '../../services/liveUpdates';
 
 function Webhooks() {
   const [payloads, setPayloads] = useState([]);
@@ -8,6 +9,9 @@ function Webhooks() {
   useEffect(() => {
     getWebhooks(200).then(setPayloads);
   }, []);
+
+  // Refresh when a new webhook payload arrives
+  useLiveUpdates(['webhooks'], () => getWebhooks(200).then(setPayloads));
 
   const incoming = payloads.filter(p => !p.direction || p.direction === 'incoming');
   const outgoing = payloads.filter(p => p.direction === 'outgoing');

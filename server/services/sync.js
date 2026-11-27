@@ -18,6 +18,7 @@ const { planSnapshotWindow, diffSnapshot } = require('./snapshot');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications, escapeDiscordMarkdown } = require('../helpers/notifications');
 const { dispatchExtensionEvent } = require('./extensionLoader');
+const { broadcastChange } = require('../helpers/liveUpdates');
 const { formatAmount } = require('../helpers/format');
 const { evaluateMathExpression } = require('../helpers/mathExpression');
 
@@ -104,6 +105,7 @@ function finishSync(institution, io) {
   markInstitutionSynced(institution.id);
   if (io) {
     io.emit('SYNC_COMPLETE', { institution_id: institution.id });
+    broadcastChange(io, ['transactions', 'accounts', 'institutions']);
   }
 }
 

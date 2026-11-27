@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from 'react-bootstrap';
 import { getTransactions } from '../../../services/api';
+import { useLiveUpdates } from '../../../services/liveUpdates';
 import { evaluateCategoryBudget, categorySpent } from '../../../helpers/categoryBudget';
 import { formatCurrency } from '../../../utils/currency';
 import TileLoading from '../TileLoading';
@@ -17,6 +18,12 @@ function CategoriesTableTile({ ctx, config }) {
     getTransactions(startDate, endDate).then(setTransactions);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now.getFullYear(), now.getMonth()]);
+
+  useLiveUpdates(['transactions'], () => {
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    getTransactions(startDate, endDate).then(setTransactions);
+  });
 
   const categoryIds = config.categoryIds || [];
   const categories = (ctx.categories || []).filter(c => categoryIds.includes(c.id));

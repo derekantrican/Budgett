@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
 import { getPlaidLinkToken, exchangePlaidToken, connectSimplefin, syncSimplefin, getSimplefinPending, reviewSimplefinPending,
   checkPossibleDuplicates, getInstitutions, getSettings, updateSettings, updateInstitution, updateAccount, deleteInstitution, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
+import { useLiveUpdates } from '../services/liveUpdates';
 import { IS_DEMO } from '../demo/isDemo';
 
 // Provider logos (client/public/connectors/*): the provider's icon plus its name. Plaid's ink is
@@ -100,6 +101,9 @@ function Settings() {
     setInstitutions(data);
     getSimplefinPending().then(setSimplefinPending).catch(() => setSimplefinPending([]));
   };
+
+  // Pick up sync status / balances / account changes from syncs and other browsers
+  useLiveUpdates(['institutions', 'accounts'], loadInstitutions);
 
   const handleGetLinkToken = async (institutionId) => {
     if (IS_DEMO) {

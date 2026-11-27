@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getCategories, getAccounts, createTransaction, updateTransaction, updateSplits, getTemplates, createTemplateApi, getTransactionByExternalId } from '../services/api';
+import { useLiveUpdates } from '../services/liveUpdates';
 import CategorySelect from '../components/CategorySelect';
 
 const styles = {
@@ -195,6 +196,15 @@ function RecordTransaction() {
   useEffect(() => {
     loadData(); 
   }, [loadData]);
+
+  // Refresh the pickers when categories/accounts/templates change elsewhere. Not loadData(), which
+  // would re-apply the URL prefill over whatever's been typed into the form.
+  useLiveUpdates(['categories', 'accounts', 'templates'], async () => {
+    const [cats, accts, tmpls] = await Promise.all([getCategories(), getAccounts(), getTemplates()]);
+    setCategories(cats.filter(c => !c.is_hidden));
+    setAccounts(accts);
+    setTemplates(tmpls);
+  });
 
   const applyTemplate = (e) => {
     const t = templates.find(tpl => tpl.id === Number(e.target.value));

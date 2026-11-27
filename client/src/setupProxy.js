@@ -8,4 +8,14 @@ module.exports = function (app) {
       changeOrigin: true,
     })
   );
+
+  // socket.io (live updates) - ws: true also proxies the websocket upgrade
+  app.use(
+    '/socket.io',
+    createProxyMiddleware({
+      target: 'http://localhost:5000',
+      changeOrigin: true,
+      ws: true,
+    })
+  );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Form, Modal, Badge } from 'react-bootstrap';
 import { getRules, createRule, updateRule, deleteRule, toggleRuleDisabled, getCategories, getSettings, updateSettings } from '../../services/api';
+import { useLiveUpdates } from '../../services/liveUpdates';
 import CategorySelect from '../../components/CategorySelect';
 import { renderNotes } from '../../utils/notes';
 
@@ -25,6 +26,9 @@ function Rules() {
     setCategories(c);
     setAutoRuleCreationEnabled(s.auto_rule_creation_enabled !== '0');
   };
+
+  // Pick up changes from other browsers (and rules auto-created during a sync)
+  useLiveUpdates(['rules', 'categories', 'transactions'], loadData);
 
   const handleToggleAutoRuleCreation = async (enabled) => {
     setAutoRuleCreationEnabled(enabled);

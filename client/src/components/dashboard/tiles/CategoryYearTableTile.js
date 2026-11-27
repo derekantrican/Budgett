@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from 'react-bootstrap';
 import { getTransactions } from '../../../services/api';
+import { useLiveUpdates } from '../../../services/liveUpdates';
 import { buildCategoryMonthlyTotals, filterCategoriesForTile } from '../../../helpers/categorySpend';
 import { formatCurrency } from '../../../utils/currency';
 import TileLoading from '../TileLoading';
@@ -18,6 +19,8 @@ function CategoryYearTableTile({ ctx, config }) {
     getTransactions(`${year}-01-01`, `${year}-12-31`).then(setTransactions);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year]);
+
+  useLiveUpdates(['transactions'], () => getTransactions(`${year}-01-01`, `${year}-12-31`).then(setTransactions));
 
   if (!transactions) {
     return <TileLoading />;

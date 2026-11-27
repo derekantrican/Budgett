@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import { Table, Form, Button, Badge, Modal, Spinner, OverlayTrigger, Tooltip, CloseButton, Overlay, Popover } from 'react-bootstrap';
 import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart, getTransaction } from '../services/api';
+import { useLiveUpdates } from '../services/liveUpdates';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 import CategorySelect from '../components/CategorySelect';
 import { renderNotes } from '../utils/notes';
@@ -259,6 +260,13 @@ function Transactions() {
   const refreshTransactions = useCallback(() => {
     return search.trim() ? searchTransactions(search).then(setTransactions) : loadTransactions();
   }, [search, startDate, endDate]);
+
+  // Pick up changes from syncs and other browsers (keeps the active search and any open modal)
+  useLiveUpdates(['transactions', 'categories', 'accounts'], () => {
+    refreshTransactions();
+    getCategories().then(setCategories);
+    getAccounts().then(setAccounts);
+  });
 
   // Fetch a summary of the linked transaction (for the tooltip) whenever the edited transaction's link changes
   useEffect(() => {

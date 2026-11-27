@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Spinner } from 'react-bootstrap';
 import { getMoneyMovement, getSettings } from '../../services/api';
+import { useLiveUpdates } from '../../services/liveUpdates';
 import { formatCurrency } from '../../utils/currency';
 import { formatDate } from '../../utils/date';
 
@@ -80,6 +81,9 @@ function MoneyMovement() {
       }
     });
   }, []);
+
+  // Pick up changes from syncs and other browsers
+  useLiveUpdates(['transactions', 'accounts'], () => getMoneyMovement(30).then(setMovements));
 
   if (!movements) {
     return (

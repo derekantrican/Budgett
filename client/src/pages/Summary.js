@@ -4,6 +4,7 @@ import {
   getCategories, getAccounts, getInstitutions, getPlanningViews, getIncome, getExtensions, getSettings,
   getDashboardTiles, createDashboardTile, updateDashboardTile, deleteDashboardTile,
 } from '../services/api';
+import { useLiveUpdates } from '../services/liveUpdates';
 import DashboardGrid from '../components/dashboard/DashboardGrid';
 import AddTileModal from '../components/dashboard/AddTileModal';
 import ConfigureTileModal from '../components/dashboard/ConfigureTileModal';
@@ -17,8 +18,7 @@ function Summary() {
 
   const loadTiles = () => getDashboardTiles().then(setTiles);
 
-  useEffect(() => {
-    loadTiles();
+  const loadCtx = () =>
     Promise.all([getCategories(), getAccounts(), getInstitutions(), getPlanningViews(), getIncome(), getExtensions(), getSettings()])
       .then(([categories, accounts, institutions, planningViews, incomeSources, extensions, settings]) => {
         setCtx({
@@ -30,7 +30,16 @@ function Summary() {
           dateFormat: settings.date_format || 'MMM D, YYYY',
         });
       });
+
+  useEffect(() => {
+    loadTiles();
+    loadCtx();
   }, []);
+
+  // Pick up changes from syncs and other browsers. Tiles that fetch their own transactions
+  // subscribe to those themselves.
+  useLiveUpdates(['dashboard-tiles'], loadTiles);
+  useLiveUpdates(['categories', 'accounts', 'institutions', 'planning-views', 'income', 'settings'], loadCtx);
 
   if (!tiles || !ctx) {
     return (

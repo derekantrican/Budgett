@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Legend, Sector, ResponsiveContainer } from 'recharts';
 import { getTransactions } from '../../../services/api';
+import { useLiveUpdates } from '../../../services/liveUpdates';
 import { buildCategoryPieData, filterCategoriesForTile } from '../../../helpers/categorySpend';
 import TileLoading from '../TileLoading';
 
@@ -26,6 +27,11 @@ function CategoryPieTile({ ctx, config, mode }) {
     setTransactions(null);
     getTransactions(startDate, endDate).then(setTransactions);
   }, [mode]);
+
+  useLiveUpdates(['transactions'], () => {
+    const [startDate, endDate] = mode === 'year' ? yearRange(new Date()) : monthRange(new Date());
+    getTransactions(startDate, endDate).then(setTransactions);
+  });
 
   if (!transactions) {
     return <TileLoading />;

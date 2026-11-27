@@ -5,6 +5,7 @@ import {
   getCategories, getTransactions, createCategory, updateCategoryApi, toggleCategoryHidden, reorderCategory,
   getCategoryUsage, deleteCategoryApi, mergeCategoryApi, disassociateCategoryApi, getIncome,
 } from '../services/api';
+import { useLiveUpdates } from '../services/liveUpdates';
 import { evaluateBudgetExpression, randomVibrantColor } from '../helpers/budgetFormula';
 import { incomeVariablesFor, evaluateCategoryBudget, categorySpent } from '../helpers/categoryBudget';
 import { formatCurrency } from '../utils/currency';
@@ -56,6 +57,9 @@ function Categories() {
     setTransactions(txns);
     setIncomeSources(income);
   };
+
+  // Pick up changes from syncs and other browsers
+  useLiveUpdates(['categories', 'transactions', 'income'], loadData);
 
   const handleSave = async () => {
     const color = form.color || randomVibrantColor();

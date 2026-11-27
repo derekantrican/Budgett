@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Badge, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { getIncompleteTransactions, getCategories, getAccounts, updateTransaction, deleteTransaction, getExternalCandidates, linkExternalId, mergeAndLinkExternal } from '../../services/api';
+import { useLiveUpdates } from '../../services/liveUpdates';
 import { formatCurrency } from '../../utils/currency';
 import { renderNotes } from '../../utils/notes';
 
@@ -33,6 +34,9 @@ function IncompleteTransactions() {
   useEffect(() => {
     loadData(); 
   }, []);
+
+  // Pick up changes from syncs and other browsers
+  useLiveUpdates(['transactions', 'categories', 'accounts'], loadData);
 
   const toggleCheck = (id) => {
     setChecked(prev => {

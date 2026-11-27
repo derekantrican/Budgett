@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getLogs } from '../../services/api';
+import { useLiveUpdates } from '../../services/liveUpdates';
 
 const levelColor = { error: '#ff6b6b', warn: '#ffd43b', info: '#868e96' };
 
@@ -9,6 +10,9 @@ function Logs() {
   useEffect(() => {
     getLogs(200).then(setLogs);
   }, []);
+
+  // Almost anything can write a log entry, so refresh on any change
+  useLiveUpdates(['*'], () => getLogs(200).then(setLogs));
 
   return (
     <div>

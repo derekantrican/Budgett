@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Form, Modal, Spinner, Badge } from 'react-bootstrap';
 import { getIncome, createIncomeApi, updateIncomeApi, toggleIncomeArchived, deleteIncomeApi, getSettings } from '../services/api';
+import { useLiveUpdates } from '../services/liveUpdates';
 import IncomeSourceCard from '../components/income/IncomeSourceCard';
 import CurrencyInput from '../components/CurrencyInput';
 import {
@@ -38,6 +39,9 @@ function Income() {
     const income = await getIncome();
     setIncomeList(income);
   };
+
+  // Pick up changes from other browsers
+  useLiveUpdates(['income'], loadData);
 
   const openAdd = () => {
     setForm(emptyForm);

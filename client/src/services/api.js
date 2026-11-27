@@ -1,3 +1,5 @@
+import { getSocketId } from './liveUpdates';
+
 const API_BASE = '/api';
 
 // Only bundled into the demo build - process.env.REACT_APP_DEMO is inlined at build time, so
@@ -12,8 +14,10 @@ async function request(path, options = {}) {
     return demoApi.handleDemoRequest(path, options);
   }
 
+  // Lets the server skip echoing this request's changes back to this tab (see liveUpdates.js)
+  const socketId = getSocketId();
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...(socketId && { 'X-Socket-Id': socketId }), ...options.headers },
     ...options,
   });
 
