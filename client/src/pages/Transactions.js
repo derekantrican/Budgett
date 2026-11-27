@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Table, Form, Button, Badge, Modal, Spinner, OverlayTrigger, Tooltip, CloseButton } from 'react-bootstrap';
-import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart, getTransaction } from '../services/api';
+import { Table, Form, Button, Badge, Modal, Spinner, OverlayTrigger, Tooltip, CloseButton, Overlay, Popover } from 'react-bootstrap';
+import { getTransactions, searchTransactions, getCategories, getAccounts, getSettings, updateSettings, updateTransaction, updateSplits, createTransaction, deleteTransaction, getHiddenTransactions, getCounterpartCandidates, linkCounterpart, unlinkCounterpart, getTransaction } from '../services/api';
 import { formatCurrency, setCurrencySettings } from '../utils/currency';
 import CategorySelect from '../components/CategorySelect';
 import { renderNotes } from '../utils/notes';
@@ -65,6 +65,81 @@ function SearchIcon({ size = 16 }) {
       <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
     </svg>
   );
+}
+
+// Three side-by-side columns, for the "reorder columns" button
+function ColumnsIcon({ size = 16 }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 16 16">
+      <rect x="1" y="1.5" width="14" height="13" rx="1.5" />
+      <path d="M5.67 1.5v13M10.33 1.5v13" />
+    </svg>
+  );
+}
+
+const DASH = <span style={{ color: 'var(--text-secondary)' }}>—</span>;
+
+// Desktop transactions table columns. `render` gets the transaction, the split shown on this
+// row (the only split for a single-split transaction), whether this is the transaction's first
+// row, and whether the transaction has multiple splits (one row per split).
+const TRANSACTION_COLUMNS = {
+  date: {
+    label: 'Date',
+    width: 125,
+    className: 'fit-width',
+    render: (txn, split, isFirst, ctx) => (isFirst ? formatDate(txn.date, ctx.dateFormat) : ''),
+  },
+  merchant: {
+    label: 'Where',
+    width: 300,
+    align: 'left',
+    render: (txn, split, isFirst) => (
+      <>
+        {isFirst ? txn.merchant : ''}
+        {isFirst && txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
+      </>
+    ),
+  },
+  notes: {
+    label: 'Notes',
+    align: 'left',
+    style: { color: 'var(--text-secondary)' },
+    render: (txn, split) => renderNotes(split?.notes),
+  },
+  category: {
+    label: 'Category',
+    width: 200,
+    render: (txn, split) => split?.category_name || DASH,
+  },
+  amount: {
+    label: 'Amount',
+    width: 125,
+    className: 'fit-width',
+    render: (txn, split, isFirst, ctx) => fmt(ctx.isMulti ? split.amount : txn.amount),
+  },
+  account: {
+    label: 'Account',
+    width: 200,
+    render: (txn) => txn.account_name || '',
+  },
+};
+
+const DEFAULT_COLUMN_ORDER = ['date', 'merchant', 'notes', 'category', 'amount', 'account'];
+const COLUMN_ORDER_SETTING = 'transaction_column_order';
+
+// Parse the saved column order, dropping unknown keys and appending any columns missing from
+// it (e.g. a column added after the order was saved) so every column is always shown once.
+function parseColumnOrder(raw) {
+  let saved = [];
+  try {
+    saved = raw ? JSON.parse(raw) : [];
+  }
+  catch {
+    saved = [];
+  }
+
+  const valid = Array.isArray(saved) ? saved.filter((k, i) => TRANSACTION_COLUMNS[k] && saved.indexOf(k) === i) : [];
+  return [...valid, ...DEFAULT_COLUMN_ORDER.filter(k => !valid.includes(k))];
 }
 
 // Month calendar with a red "back" arrow across the bottom, for the "snap to end of previous month" action
@@ -146,6 +221,13 @@ function Transactions() {
   const [hideCounterpart, setHideCounterpart] = useState(true);
   const [linkedTxnSummary, setLinkedTxnSummary] = useState(null);
   const [dateFormat, setDateFormat] = useState('MMM D, YYYY');
+  const [columnOrder, setColumnOrder] = useState(DEFAULT_COLUMN_ORDER);
+  // Column order popover: draft order being edited, and the index currently being dragged
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const [draftColumnOrder, setDraftColumnOrder] = useState(DEFAULT_COLUMN_ORDER);
+  const [dragColumnIdx, setDragColumnIdx] = useState(null);
+  const [savingColumns, setSavingColumns] = useState(false);
+  const columnButtonRef = useRef(null);
   // The displayed month lives in the URL (?month=10&year=2026); no params = current month
   const { year: viewYear, month: viewMonth } = monthFromParams(searchParams);
   const startDate = `${viewYear}-${pad2(viewMonth)}-01`;
@@ -160,7 +242,8 @@ function Transactions() {
         setDateFormat(s.date_format);
       }
 
-      setCurrencySettings(s); 
+      setColumnOrder(parseColumnOrder(s[COLUMN_ORDER_SETTING]));
+      setCurrencySettings(s);
     });
   }, [startDate, endDate]);
 
@@ -455,6 +538,40 @@ function Transactions() {
   const splitTabIndex = (idx, fieldOffset) => SPLIT_TAB_BASE + idx * SPLIT_TAB_FIELDS + fieldOffset;
   const afterSplitsTabIndex = SPLIT_TAB_BASE + editSplits.length * SPLIT_TAB_FIELDS;
 
+  const toggleColumnMenu = () => {
+    if (!showColumnMenu) {
+      setDraftColumnOrder(columnOrder);
+    }
+
+    setShowColumnMenu(!showColumnMenu);
+  };
+
+  // Move the draft column at `from` to position `to`
+  const moveDraftColumn = (from, to) => {
+    if (to < 0 || to >= draftColumnOrder.length || from === to) {
+      return;
+    }
+
+    setDraftColumnOrder(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  const saveColumnOrder = async () => {
+    setSavingColumns(true);
+    try {
+      await updateSettings({ [COLUMN_ORDER_SETTING]: JSON.stringify(draftColumnOrder) });
+      setColumnOrder(draftColumnOrder);
+      setShowColumnMenu(false);
+    }
+    finally {
+      setSavingColumns(false);
+    }
+  };
+
   if (!transactions) {
     return (
       <div className="loading-container">
@@ -481,6 +598,61 @@ function Transactions() {
           >
             <SearchIcon />
           </Button>
+          <Button
+            ref={columnButtonRef}
+            className="d-none d-md-inline-block"
+            variant={showColumnMenu ? 'primary' : 'outline-primary'}
+            size="sm"
+            onClick={toggleColumnMenu}
+            title="Reorder columns"
+          >
+            <ColumnsIcon />
+          </Button>
+          <Overlay
+            target={columnButtonRef.current}
+            show={showColumnMenu}
+            placement="bottom-end"
+            rootClose
+            onHide={() => setShowColumnMenu(false)}
+          >
+            <Popover data-bs-theme="dark" style={{ minWidth: 220 }}>
+              <Popover.Header>Column order</Popover.Header>
+              <Popover.Body>
+                <small className="d-block mb-2" style={{ color: 'var(--text-secondary)' }}>Drag to reorder, or use the arrows.</small>
+                {draftColumnOrder.map((key, idx) => (
+                  <div
+                    key={key}
+                    className={`column-order-item${dragColumnIdx === idx ? ' dragging' : ''}`}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragColumnIdx(idx);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragColumnIdx !== null && dragColumnIdx !== idx) {
+                        moveDraftColumn(dragColumnIdx, idx);
+                        setDragColumnIdx(idx);
+                      }
+                    }}
+                    onDrop={(e) => e.preventDefault()}
+                    onDragEnd={() => setDragColumnIdx(null)}
+                  >
+                    <span style={{ color: 'var(--text-secondary)' }}>⠿</span>
+                    <span style={{ flex: 1 }}>{TRANSACTION_COLUMNS[key].label}</span>
+                    <Button variant="link" size="sm" className="p-0 px-1" disabled={idx === 0} onClick={() => moveDraftColumn(idx, idx - 1)} title="Move up">▲</Button>
+                    <Button variant="link" size="sm" className="p-0 px-1" disabled={idx === draftColumnOrder.length - 1} onClick={() => moveDraftColumn(idx, idx + 1)} title="Move down">▼</Button>
+                  </div>
+                ))}
+                <div className="d-flex justify-content-between mt-2 gap-2">
+                  <Button variant="outline-secondary" size="sm" onClick={() => setDraftColumnOrder(DEFAULT_COLUMN_ORDER)}>Reset</Button>
+                  <Button variant="primary" size="sm" onClick={saveColumnOrder} disabled={savingColumns}>
+                    {savingColumns ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+              </Popover.Body>
+            </Popover>
+          </Overlay>
           <Button
             className="d-none d-md-inline-block"
             variant={showSummary ? 'primary' : 'outline-primary'}
@@ -524,21 +696,28 @@ function Transactions() {
 
           {/* Desktop table */}
           <div className="d-none d-md-block">
-            <Table striped hover responsive variant="dark" className="transaction-table" style={{ tableLayout: 'fixed' }}>
+            <Table striped hover variant="dark" className="transaction-table" style={{ tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ width: 125 }}>Date</th>
-                  <th style={{ width: 300, textAlign: 'left' }}>Where</th>
-                  <th style={{ textAlign: 'left' }}>Notes</th>
-                  <th style={{ width: 200 }}>Category</th>
-                  <th style={{ width: 125 }}>Amount</th>
-                  <th style={{ width: 200 }}>Account</th>
+                  {columnOrder.map(key => {
+                    const col = TRANSACTION_COLUMNS[key];
+                    return <th key={key} style={{ width: col.width, textAlign: col.align }}>{col.label}</th>;
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {transactions.map((txn) => {
-                  const hasSplits = txn.splits?.length > 1;
-                  if (!hasSplits) {
+                  const isMulti = txn.splits?.length > 1;
+                  const renderCells = (split, isFirst) => columnOrder.map(key => {
+                    const col = TRANSACTION_COLUMNS[key];
+                    return (
+                      <td key={key} className={col.className} style={{ textAlign: col.align, ...col.style }}>
+                        {col.render(txn, split, isFirst, { isMulti, dateFormat })}
+                      </td>
+                    );
+                  });
+
+                  if (!isMulti) {
                     const isIncomplete = !txn.external_id || !txn.merchant || !txn.splits?.length || !txn.splits[0]?.category_name;
                     return (
                       <tr
@@ -546,15 +725,7 @@ function Transactions() {
                         className={`transaction-row ${txn.is_removed ? 'transaction-removed' : ''} ${isIncomplete ? 'transaction-incomplete' : ''}`}
                         onClick={() => openEdit(txn)}
                       >
-                        <td className="fit-width">{formatDate(txn.date, dateFormat)}</td>
-                        <td style={{ textAlign: 'left' }}>
-                          {txn.merchant}
-                          {txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
-                        </td>
-                        <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{renderNotes(txn.splits?.[0]?.notes)}</td>
-                        <td>{txn.splits?.[0]?.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
-                        <td className="fit-width">{fmt(txn.amount)}</td>
-                        <td>{txn.account_name || ''}</td>
+                        {renderCells(txn.splits?.[0], true)}
                       </tr>
                     );
                   }
@@ -567,17 +738,7 @@ function Transactions() {
                       className={`transaction-row split-row ${idx > 0 ? 'split-continuation' : 'split-start'} ${txn.is_removed ? 'transaction-removed' : ''} ${splitIncomplete && idx === 0 ? 'transaction-incomplete' : ''}`}
                       onClick={() => openEdit(txn)}
                     >
-                      <td className="fit-width">
-                        {idx === 0 ? formatDate(txn.date, dateFormat) : ''}
-                      </td>
-                      <td style={{ textAlign: 'left' }}>
-                        {idx === 0 ? txn.merchant : ''}
-                        {idx === 0 && txn.is_pending ? <Badge bg="warning" className="ms-2">Pending</Badge> : null}
-                      </td>
-                      <td style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>{renderNotes(split.notes)}</td>
-                      <td>{split.category_name || <span style={{ color: 'var(--text-secondary)' }}>—</span>}</td>
-                      <td className="fit-width">{fmt(split.amount)}</td>
-                      <td>{txn.account_name || ''}</td>
+                      {renderCells(split, idx === 0)}
                     </tr>
                   ));
                 })}
