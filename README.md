@@ -38,7 +38,7 @@ Budgett pulls in your real transactions, helps you categorize them (automaticall
 
 | | Budgett | Actual Budget |
 |---|---|---|
-| **Bank syncing** | Plaid-native: Plaid is the main way transactions arrive, synced by webhook in the background (SimpleFIN & BankSync.io coming soon!) | Built around manual entry and file imports; bank sync is optional, through providers such as GoCardless and SimpleFIN. Plaid isn't supported natively and needs a third-party integration |
+| **Bank syncing** | Plaid (synced by webhook in the background) or SimpleFIN (polled about every 12 hours); BankSync.io coming soon! | Built around manual entry and file imports; bank sync is optional, through providers such as GoCardless and SimpleFIN. Plaid isn't supported natively and needs a third-party integration |
 | **Budgeting model** | A monthly target per category, compared with what you actually spent. Targets can be formulas that scale with the month (number of Sundays, your income, etc.) | Envelope / zero-based budgeting in the style of YNAB, where every dollar is assigned and balances carry over (it also has a simpler tracking mode) |
 | **UI** | Deliberately simple: a transaction list, categories, and a customizable Summary dashboard | A fuller accounting-style app with accounts, a budget grid, scheduled transactions, and reports |
 | **Beyond budgeting** | Built-in income modeling (pay schedules, deductions, 3-paycheck months) and planning tools (mortgage amortization, retirement projections, emergency-fund sizing) | Focused on budgeting and reports |
@@ -129,7 +129,7 @@ Budgett/
 ├── server/              # Express backend
 │   ├── db/              # Database init, migrations (db/migrations) & queries
 │   ├── helpers/         # Notifications, rules, auto-rules, formulas, logging
-│   ├── connectors/      # Financial data connectors (Plaid; see connectors/index.js for the interface)
+│   ├── connectors/      # Financial data connectors (Plaid, SimpleFIN; see connectors/index.js for the interface)
 │   ├── services/        # Connector-agnostic sync, institution lifecycle, extension loader
 │   ├── middleware/      # Error handling, basic authentication
 │   ├── routes/          # API routes
@@ -147,7 +147,6 @@ Budgett/
 
 Things that are planned but not built yet:
 
-- **SimpleFIN support** as an alternative/complement to Plaid for institutions that support it (a bridge client already exists at `server/services/simplefin.js`, not yet wired into syncing)
 - **Universal variables** (e.g. `$CAT(Groceries)`) usable across budget formulas and dashboard tiles
 - **Per-category time-scoping** — categories that can expire or roll over instead of persisting forever
 - **Multi-user auth & roles** (admin, user, read-only), building on the current single-password [basic authentication](#basic-authentication)

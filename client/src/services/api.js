@@ -120,6 +120,11 @@ export const getPlaidLinkToken = (institutionId) =>
 export const exchangePlaidToken = (publicToken, linkInstitution) =>
   request('/connectors/plaid/institutions', { method: 'POST', body: JSON.stringify({ public_token: publicToken, link_institution: linkInstitution }) });
 
+// SimpleFIN connector
+export const connectSimplefin = (setupToken) =>
+  request('/connectors/simplefin/connections', { method: 'POST', body: JSON.stringify({ setup_token: setupToken }) });
+export const syncSimplefin = () => request('/connectors/simplefin/sync', { method: 'POST' });
+
 // Rules
 export const getRules = () => request('/rules');
 export const createRule = (data) =>

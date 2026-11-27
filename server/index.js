@@ -37,6 +37,8 @@ const transactionsRoutes = require('./routes/transactions');
 const categoriesRoutes = require('./routes/categories');
 const rulesRoutes = require('./routes/rules');
 const { router: plaidRoutes, webhookRouter: plaidWebhookRoutes } = require('./connectors/plaid/routes');
+const { router: simplefinRoutes } = require('./connectors/simplefin/routes');
+const { startScheduler: startSimplefinScheduler } = require('./connectors/simplefin/sync');
 const adminRoutes = require('./routes/admin');
 const settingsRoutes = require('./routes/settings');
 const templatesRoutes = require('./routes/templates');
@@ -49,6 +51,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/webhook', plaidWebhookRoutes); // Plaid's registered webhook URL — keep this path stable
 app.use('/api/institutions', institutionsRoutes);
 app.use('/api/connectors/plaid', plaidRoutes);
+app.use('/api/connectors/simplefin', simplefinRoutes);
 app.use('/api/accounts', accountsRoutes);
 app.use('/api/transactions', transactionsRoutes);
 app.use('/api/categories', categoriesRoutes);
@@ -90,6 +93,7 @@ function start() {
   initDb();
   initQueries();
   startPeriodicCheckpoint();
+  startSimplefinScheduler(io);
   scanExtensions();
 
   const PORT = process.env.PORT || 5000;

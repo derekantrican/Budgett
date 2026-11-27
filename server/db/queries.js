@@ -60,9 +60,37 @@ function initQueries() {
 // --- Query functions ---
 
 // Institutions (one bank as Budgett sees it; for Plaid, one per item)
-const createInstitution = (provider, externalId, credentialsJson, instName, instId) =>
-  run('INSERT INTO institutions (provider, external_id, credentials_json, name, provider_institution_id) VALUES (?, ?, ?, ?, ?)',
-    [provider, externalId, credentialsJson, instName, instId]);
+// `connectorCredentialId`: set when the institution is fed by a connector-level credential
+// (SimpleFIN), whose secret then lives in connector_credentials rather than credentialsJson.
+const createInstitution = (provider, externalId, credentialsJson, instName, instId, connectorCredentialId = null) =>
+  run('INSERT INTO institutions (provider, external_id, credentials_json, name, provider_institution_id, connector_credential_id) VALUES (?, ?, ?, ?, ?, ?)',
+    [provider, externalId, credentialsJson, instName, instId, connectorCredentialId]);
+const getInstitutionsByConnectorCredential = (connectorCredentialId) =>
+  all('SELECT * FROM institutions WHERE connector_credential_id = ?', [connectorCredentialId]);
+
+// Connector credentials (one login feeding several institutions, e.g. a SimpleFIN access URL)
+const createConnectorCredential = (provider, credentialsJson) =>
+  run('INSERT INTO connector_credentials (provider, credentials_json) VALUES (?, ?)', [provider, credentialsJson]);
+const getConnectorCredentialById = (id) =>
+  get('SELECT * FROM connector_credentials WHERE id = ?', [id]);
+const getConnectorCredentialsByProvider = (provider) =>
+  all('SELECT * FROM connector_credentials WHERE provider = ?', [provider]);
+const updateConnectorCredentialSyncState = (syncStateJson, id) => {
+  run("UPDATE connector_credentials SET sync_state_json = ?, updated_at = datetime('now') WHERE id = ?", [syncStateJson, id]);
+};
+
+const updateConnectorCredentialStatus = (status, lastError, id) => {
+  run("UPDATE connector_credentials SET status = ?, last_error = ?, updated_at = datetime('now') WHERE id = ?", [status, lastError, id]);
+};
+
+const markConnectorCredentialSynced = (id) => {
+  run("UPDATE connector_credentials SET last_synced_at = datetime('now'), updated_at = datetime('now') WHERE id = ?", [id]);
+};
+
+const deleteConnectorCredential = (id) => {
+  run('UPDATE institutions SET connector_credential_id = NULL WHERE connector_credential_id = ?', [id]);
+  run('DELETE FROM connector_credentials WHERE id = ?', [id]);
+};
 const getAllInstitutions = () =>
   all('SELECT * FROM institutions');
 const getInstitutionsByProvider = (provider) =>
@@ -120,8 +148,12 @@ const getAllAccounts = () =>
   all('SELECT * FROM accounts WHERE is_deleted = 0');
 const getAccountByExternalId = (institutionId, externalAccountId) =>
   get('SELECT * FROM accounts WHERE institution_id = ? AND external_id = ?', [institutionId, externalAccountId]);
-const updateAccountBalance = (currentBal, availBal, id) => {
-  run("UPDATE accounts SET current_balance = ?, available_balance = ?, updated_at = datetime('now') WHERE id = ?", [currentBal, availBal, id]);
+// `acct` is a connector NormalizedAccount. Also fills in type/subtype if they were never stored
+// (accounts linked before Budgett recorded them).
+const updateAccountBalance = (id, acct) => {
+  run(`UPDATE accounts SET current_balance = ?, available_balance = ?, type = COALESCE(type, ?), subtype = COALESCE(subtype, ?),
+       updated_at = datetime('now') WHERE id = ?`,
+  [acct.currentBalance ?? null, acct.availableBalance ?? null, acct.type ?? null, acct.subtype ?? null, id]);
 };
 const getAccountTransactionCount = (accountId) =>
   get('SELECT COUNT(*) as count FROM transactions WHERE account_id = ? AND is_removed = 0', [accountId]).count;
@@ -645,6 +677,11 @@ module.exports = {
   // Institutions
   createInstitution, getAllInstitutions, getInstitutionsByProvider, getInstitutionById, getInstitutionByExternalId,
   updateInstitutionSyncState, markInstitutionSynced, updateInstitutionStatus, deleteInstitution,
+  getInstitutionsByConnectorCredential,
+  // Connector credentials
+  createConnectorCredential, getConnectorCredentialById, getConnectorCredentialsByProvider,
+  updateConnectorCredentialSyncState, updateConnectorCredentialStatus, markConnectorCredentialSynced,
+  deleteConnectorCredential,
   // Accounts
   createAccount, getAccountsByInstitution, getAllAccounts, getAccountByExternalId, updateAccountBalance,
   getAccountTransactionCount, removeAccounts,

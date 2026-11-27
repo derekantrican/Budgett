@@ -555,6 +555,8 @@ route('GET', '/institutions', () => db.institutions.map(institution => ({
 })));
 
 route('POST', '/connectors/plaid/institutions', disabled);
+route('POST', '/connectors/simplefin/connections', disabled);
+route('POST', '/connectors/simplefin/sync', disabled);
 route('GET', '/institutions/:id/account-diff', disabled);
 
 route('PATCH', '/institutions/:id', ({ params, body }) => {

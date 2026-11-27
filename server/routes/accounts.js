@@ -49,7 +49,7 @@ router.get('/refresh-balances', async (req, res) => {
         if (dbAccount) {
           const oldCurrent = dbAccount.current_balance;
           const oldAvailable = dbAccount.available_balance;
-          updateAccountBalance(acct.currentBalance, acct.availableBalance, dbAccount.id);
+          updateAccountBalance(dbAccount.id, acct);
           results.push({
             institution: institution.display_name || institution.name,
             ...institutionIds,

@@ -112,7 +112,12 @@ router.delete('/:id', (req, res) => {
   const deleteTransactions = req.query.delete_transactions === 'true';
 
   try {
+    const institution = getInstitutionById(id);
     deleteInstitution(id, deleteTransactions);
+    if (institution) {
+      getConnectorFor(institution).afterInstitutionDeleted?.(institution);
+    }
+
     logger.info('institution_deleted', `Deleted institution ${id} (transactions ${deleteTransactions ? 'deleted' : 'kept'})`);
     res.json({ success: true });
   }

@@ -378,7 +378,10 @@ A few things worth knowing that this walkthrough didn't need but the platform su
   (that provider's own categorization).
 - **Institutions and accounts.** `GET /api/institutions` returns each linked bank (`name`,
   `color`, `logo`, plus the user's `display_*` overrides) with its `accounts`; each row of
-  `GET /api/accounts` points back at its bank via `institution_id`.
+  `GET /api/accounts` points back at its bank via `institution_id`. Transaction amounts use one
+  sign convention for every connector: money going out is negative, money coming in is positive.
+  Account balances are stored as each connector reports them (Plaid reports a credit card or
+  loan balance as a positive amount owed).
 - **Rescanning** re-reads every extension folder's manifest, re-registers each one in the
   database, and re-loads any server hooks. An extension whose server hook throws on load is
   still shown in the extensions list (with an error status) — only its backend hook is disabled,

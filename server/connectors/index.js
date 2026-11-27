@@ -43,9 +43,13 @@
 //                        description (raw), merchantName (cleaned, may be null),
 //                        merchant (best display name), amount (Budgett sign: negative = expense),
 //                        pending, providerCategory, providerCategoryDetailed, raw }
+//   afterInstitutionDeleted(institution) -> void   (optional)
+//       Called after DELETE /api/institutions/:id with the deleted row, for connectors that
+//       would otherwise bring the institution back on their next sync.
 const plaid = require('./plaid');
+const simplefin = require('./simplefin');
 
-const connectors = new Map([plaid].map(c => [c.id, c]));
+const connectors = new Map([plaid, simplefin].map(c => [c.id, c]));
 
 function getConnector(id) {
   const connector = connectors.get(id);
@@ -63,18 +67,7 @@ const listConnectors = () => [...connectors.values()];
 // Built-in connectors are registered above; this is for tests (fake connectors)
 const registerConnector = (connector) => connectors.set(connector.id, connector);
 
-function parseJson(value, fallback = null) {
-  if (!value) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(value);
-  }
-  catch {
-    return fallback;
-  }
-}
+const { parseJson } = require('./parseJson');
 
 // Strip connector-owned secrets/state before an institution row goes anywhere near the client.
 // eslint-disable-next-line no-unused-vars

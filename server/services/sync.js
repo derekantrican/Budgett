@@ -60,7 +60,7 @@ async function ingestSnapshot(institution, snapshot, io) {
   for (const acct of snapshot.accounts || []) {
     const dbAccount = getAccountByExternalId(institution.id, acct.externalId);
     if (dbAccount) {
-      updateAccountBalance(acct.currentBalance, acct.availableBalance, dbAccount.id);
+      updateAccountBalance(dbAccount.id, acct);
     }
     else {
       createAccount(institution.id, acct);
@@ -84,7 +84,7 @@ async function refreshBalances(institution, connector) {
     for (const acct of await connector.fetchAccounts(institution)) {
       const dbAccount = getAccountByExternalId(institution.id, acct.externalId);
       if (dbAccount) {
-        updateAccountBalance(acct.currentBalance, acct.availableBalance, dbAccount.id);
+        updateAccountBalance(dbAccount.id, acct);
       }
     }
 

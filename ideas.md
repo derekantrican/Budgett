@@ -1,12 +1,7 @@
 # Budgett — Future Ideas
 
-## Support for other financial sources (eg SimpleFIN, banksync.io, etc)
-These can work very differently than Plaid (eg SimpleFIN works on a "GET only, call once per day" model). We might want to create an "interface" or "plugin standard" similar to our extensions framework that has things like:
-- whether or not the app should expect to receive webhooks (eg Plaid)
-- refresh transactions function (eg Plaid, SimpleFIN)
-- refresh frequency
-- rules for reconciling transactions (like how Plaid has removed, modified, created, etc)
-- etc
+## Support for more financial sources (eg banksync.io, etc)
+Budgett now has a generic connector framework (see `server/connectors/`) with Plaid and SimpleFIN built on it. Consider adding connectors for other financial sources beyond those two.
 
 A statement importer (where you can export a bank statement and import it into Budgett) may also be helpful here to do it manually. Though, of course it would be annoying for users.
 

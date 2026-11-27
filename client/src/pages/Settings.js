@@ -2,8 +2,29 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Form, Modal } from 'react-bootstrap';
 import { NavLink } from 'react-router-dom';
 import { usePlaidLink } from 'react-plaid-link';
-import { getPlaidLinkToken, exchangePlaidToken, getInstitutions, getSettings, updateSettings, updateInstitution, updateAccount, deleteInstitution, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
+import { getPlaidLinkToken, exchangePlaidToken, connectSimplefin, syncSimplefin, getInstitutions, getSettings, updateSettings, updateInstitution, updateAccount, deleteInstitution, getAccountDiff, removeAccountsApi, rescanExtensions } from '../services/api';
 import { IS_DEMO } from '../demo/isDemo';
+
+// Provider logos (client/public/connectors/*): the provider's icon plus its name. Plaid's ink is
+// navy, which disappears on the dark theme, so it's drawn white (as Plaid's own dark-background
+// logo is). Falls back to the provider's name if the image is missing.
+const PROVIDER_LOGOS = {
+  plaid: { label: 'Plaid', file: 'plaid.png', style: { filter: 'brightness(0) invert(1)' } },
+  simplefin: { label: 'SimpleFIN', file: 'simplefin.png' },
+};
+
+function ProviderLogo({ provider, height }) {
+  const [failed, setFailed] = useState(false);
+  const logo = PROVIDER_LOGOS[provider] || { label: provider };
+  if (failed || !logo.file) {
+    return <span style={{ fontWeight: 'bold', color: 'var(--text-secondary)' }}>{logo.label}</span>;
+  }
+
+  return (
+    <img src={`${process.env.PUBLIC_URL}/connectors/${logo.file}`} alt={logo.label} onError={() => setFailed(true)}
+      style={{ height, maxWidth: '100%', objectFit: 'contain', ...logo.style }} />
+  );
+}
 
 function Settings() {
   const [institutions, setInstitutions] = useState([]);
@@ -30,6 +51,12 @@ function Settings() {
   const [removedAccounts, setRemovedAccounts] = useState([]);
   const [removeAccountsInstitutionId, setRemoveAccountsInstitutionId] = useState(null);
   const [removeAccountsTxnAction, setRemoveAccountsTxnAction] = useState('keep');
+
+  // Add Institution dialog: null (closed) | 'choose' (pick a provider) | 'simplefin' (setup token)
+  const [addStep, setAddStep] = useState(null);
+  const [simplefinToken, setSimplefinToken] = useState('');
+  const [simplefinBusy, setSimplefinBusy] = useState(false);
+  const [simplefinMessage, setSimplefinMessage] = useState(null); // { variant, text }
 
   useEffect(() => {
     loadInstitutions();
@@ -185,6 +212,49 @@ function Settings() {
     }
   };
 
+  const handleConnectSimplefin = async () => {
+    setSimplefinBusy(true);
+    setSimplefinMessage(null);
+    try {
+      const result = await connectSimplefin(simplefinToken.trim());
+      setSimplefinToken('');
+      loadInstitutions();
+      if (result.warning) {
+        setSimplefinMessage({ variant: 'warning', text: result.warning });
+      }
+      else {
+        setAddStep(null);
+      }
+    }
+    catch (err) {
+      setSimplefinMessage({ variant: 'danger', text: err.message });
+    }
+    finally {
+      setSimplefinBusy(false);
+    }
+  };
+
+  const handleSyncSimplefin = async () => {
+    if (IS_DEMO) {
+      alert('SimpleFIN is not available in the demo.');
+      return;
+    }
+
+    setSimplefinBusy(true);
+    try {
+      await syncSimplefin();
+      loadInstitutions();
+    }
+    catch (err) {
+      alert(err.message);
+    }
+    finally {
+      setSimplefinBusy(false);
+    }
+  };
+
+  const hasSimplefin = institutions.some(i => i.provider === 'simplefin');
+
   const getInstitutionDisplayName = (institution) => institution.display_name || institution.name || 'Institution';
 
   const getAccountDisplayName = (acct) => acct.display_name || acct.name;
@@ -240,8 +310,17 @@ function Settings() {
                       <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
                     </svg>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.9em' }}>You need to login again</p>
-                  <Button size="sm" variant="warning" className="mt-2" onClick={() => handleGetLinkToken(institution.id)}>Re-authenticate</Button>
+                  {institution.provider === 'simplefin' ? (
+                    <>
+                      <p style={{ margin: 0, fontSize: '0.9em' }}>SimpleFIN can't reach this bank. Fix the connection in SimpleFIN Bridge.</p>
+                      <Button size="sm" variant="warning" className="mt-2" href="https://bridge.simplefin.org" target="_blank" rel="noopener noreferrer">Open SimpleFIN Bridge</Button>
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ margin: 0, fontSize: '0.9em' }}>You need to login again</p>
+                      <Button size="sm" variant="warning" className="mt-2" onClick={() => handleGetLinkToken(institution.id)}>Re-authenticate</Button>
+                    </>
+                  )}
                 </div>
               ) : (
                 <table style={{ width: '100%', fontSize: '0.9em' }}>
@@ -264,17 +343,101 @@ function Settings() {
           </Card>
         ))}
 
-        {/* Add account card */}
+        {/* Add institution card */}
         <Card
           style={{ width: 320, maxWidth: '100%', border: '2px dashed #3a3a4f', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 150, borderRadius: 10 }}
-          onClick={() => handleGetLinkToken()}
+          onClick={() => {
+            if (IS_DEMO) {
+              alert('Linking bank accounts is not available in the demo.');
+              return;
+            }
+
+            setSimplefinMessage(null);
+            setAddStep('choose');
+          }}
         >
-          <Card.Body className="text-center" style={{ color: 'var(--text-secondary)' }}>
+          <Card.Body className="text-center d-flex flex-column justify-content-center" style={{ color: 'var(--text-secondary)' }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>+</div>
-            <div>Link New Account</div>
+            <div>Add Institution</div>
           </Card.Body>
         </Card>
       </div>
+
+      {hasSimplefin && (
+        <div style={{ marginTop: -18, marginBottom: 30, fontSize: '0.9em', color: 'var(--text-secondary)' }}>
+          SimpleFIN banks sync about every 12 hours.{' '}
+          <Button size="sm" variant="outline-secondary" disabled={simplefinBusy} onClick={handleSyncSimplefin}>
+            {simplefinBusy ? 'Syncing...' : 'Sync now'}
+          </Button>
+        </div>
+      )}
+
+      {/* Add Institution Modal: pick a provider, then (SimpleFIN) paste a setup token */}
+      <Modal show={!!addStep} onHide={() => !simplefinBusy && setAddStep(null)} data-bs-theme="dark" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>{addStep === 'simplefin' ? 'Connect SimpleFIN' : 'Add Institution'}</Modal.Title>
+        </Modal.Header>
+        {addStep === 'choose' && (
+          <Modal.Body>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
+              {[
+                {
+                  id: 'plaid', label: 'Plaid',
+                  description: 'Sign in to your bank through Plaid. Transactions sync automatically as they happen.',
+                  onChoose: () => {
+                    setAddStep(null);
+                    handleGetLinkToken();
+                  },
+                },
+                {
+                  id: 'simplefin', label: 'SimpleFIN',
+                  description: "Use the banks you've linked in SimpleFIN Bridge. Syncs about every 12 hours.",
+                  onChoose: () => setAddStep('simplefin'),
+                },
+              ].map(provider => (
+                <div key={provider.id} className="view-type-card" onClick={provider.onChoose} title={`Connect with ${provider.label}`}>
+                  <div className="view-type-thumbnail" style={{ backgroundColor: 'transparent' }}>
+                    <ProviderLogo provider={provider.id} height={40} />
+                  </div>
+                  <div className="text-muted" style={{ fontSize: '0.8em', marginTop: 4 }}>{provider.description}</div>
+                </div>
+              ))}
+            </div>
+          </Modal.Body>
+        )}
+        {addStep === 'simplefin' && (<>
+          <Modal.Body>
+            <p style={{ fontSize: '0.9em' }}>
+              In <a href="https://bridge.simplefin.org" target="_blank" rel="noopener noreferrer">SimpleFIN Bridge</a>, link
+              your banks and create a setup token, then paste it here. Each bank you've linked in Bridge shows up here as
+              its own institution. A setup token works only once.
+            </p>
+            <Form.Group>
+              <Form.Label>Setup token</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                value={simplefinToken}
+                onChange={(e) => setSimplefinToken(e.target.value)}
+                placeholder="aHR0cHM6Ly9icmlkZ2Uuc2ltcGxlZmluLm9yZy9zaW1wbGVmaW4vY2xhaW0v..."
+                style={{ fontFamily: 'monospace', fontSize: '0.85em' }}
+              />
+            </Form.Group>
+            {simplefinMessage && (
+              <div className={`alert alert-${simplefinMessage.variant} mt-3 mb-0`} style={{ fontSize: '0.9em' }}>{simplefinMessage.text}</div>
+            )}
+          </Modal.Body>
+          <Modal.Footer className="d-flex justify-content-between">
+            <Button variant="link" className="px-0" disabled={simplefinBusy} onClick={() => setAddStep('choose')}>&larr; Back</Button>
+            <div>
+              <Button variant="secondary" className="me-2" disabled={simplefinBusy} onClick={() => setAddStep(null)}>Cancel</Button>
+              <Button variant="primary" disabled={simplefinBusy || !simplefinToken.trim()} onClick={handleConnectSimplefin}>
+                {simplefinBusy ? 'Connecting...' : 'Connect'}
+              </Button>
+            </div>
+          </Modal.Footer>
+        </>)}
+      </Modal>
 
       {/* Edit Institution Modal */}
       <Modal show={!!editInstitution} onHide={() => {
@@ -286,6 +449,9 @@ function Settings() {
         <Modal.Body>
           {editInstitution && (
             <>
+              <div className="d-flex align-items-center mb-3 text-muted" style={{ gap: 8 }}>
+                Synced via <ProviderLogo provider={editInstitution.provider} height={20} />
+              </div>
               <Form.Group className="mb-3">
                 <Form.Label>Display Name</Form.Label>
                 <Form.Control
@@ -365,16 +531,18 @@ function Settings() {
         <Modal.Footer className="d-flex justify-content-between">
           <div>
             <Button variant="outline-danger" className="me-2" onClick={() => setConfirmDelete(true)}>Delete</Button>
-            <Button
-              variant="outline-warning"
-              onClick={() => {
-                const institutionId = editInstitution.id;
-                setEditInstitution(null);
-                handleGetLinkToken(institutionId);
-              }}
-            >
-              Reconnect
-            </Button>
+            {editInstitution?.provider === 'plaid' && (
+              <Button
+                variant="outline-warning"
+                onClick={() => {
+                  const institutionId = editInstitution.id;
+                  setEditInstitution(null);
+                  handleGetLinkToken(institutionId);
+                }}
+              >
+                Reconnect
+              </Button>
+            )}
           </div>
           <div>
             <Button variant="secondary" className="me-2" onClick={() => setEditInstitution(null)}>Cancel</Button>
@@ -390,6 +558,12 @@ function Settings() {
         </Modal.Header>
         <Modal.Body>
           Are you sure you want to delete <strong>{editInstitution?.display_name || editInstitution?.name}</strong> and all its accounts?
+          {editInstitution?.provider === 'simplefin' && (
+            <p className="mt-2 mb-0" style={{ fontSize: '0.9em', color: 'var(--text-secondary)' }}>
+              Budgett will stop importing this bank from SimpleFIN. If it's your last SimpleFIN bank, SimpleFIN is
+              disconnected and reconnecting needs a new setup token.
+            </p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>Cancel</Button>
