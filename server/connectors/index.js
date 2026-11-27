@@ -24,6 +24,14 @@
 //   fetchChanges(institution)             -> { added: NormalizedTxn[], modified: NormalizedTxn[],
 //                                            removed: [{ externalId }], syncState }
 //       Only for syncMode 'changes'. `syncState` is persisted as the new sync_state_json.
+//   fetchSnapshot(institution, { startDate, endDate }) -> { accounts: NormalizedAccount[],
+//                                            transactions: NormalizedTxn[],
+//                                            window: { startDate, endDate }, syncState? }
+//       Only for syncMode 'snapshot': every transaction (pending and posted) in the requested
+//       'YYYY-MM-DD' window, plus all accounts with current balances. Core works out what was
+//       added/modified/removed (services/snapshot.js). Return the window the data actually
+//       covers if the provider capped it; pending transactions inside that window that are
+//       missing from the result are treated as gone. `syncState`, if returned, is persisted.
 //   searchTransactions(institution, externalAccountId, startDate, endDate) -> NormalizedTxn[]
 //       Only if capabilities.candidateSearch (used to find a match for an incomplete txn).
 //   classifyError(err)                   -> { loginRequired: boolean, code: string | null, message: string }
@@ -52,6 +60,9 @@ const getConnectorFor = (institution) => getConnector(institution.provider);
 
 const listConnectors = () => [...connectors.values()];
 
+// Built-in connectors are registered above; this is for tests (fake connectors)
+const registerConnector = (connector) => connectors.set(connector.id, connector);
+
 function parseJson(value, fallback = null) {
   if (!value) {
     return fallback;
@@ -69,4 +80,4 @@ function parseJson(value, fallback = null) {
 // eslint-disable-next-line no-unused-vars
 const toPublicInstitution = ({ credentials_json, sync_state_json, ...institution }) => institution;
 
-module.exports = { getConnector, getConnectorFor, listConnectors, parseJson, toPublicInstitution };
+module.exports = { getConnector, getConnectorFor, listConnectors, registerConnector, parseJson, toPublicInstitution };

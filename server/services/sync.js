@@ -1,15 +1,20 @@
-// Connector-agnostic sync: pulls changes for an institution through its connector, then
-// reconciles them into Budgett (pending→posted promotion, incomplete-transaction matching,
-// rules, notifications, extension events). Connectors only fetch and normalize — everything
-// about how Budgett stores and reacts to a transaction lives here.
+// Connector-agnostic sync. Two stages:
+//   1. Fetch, which depends on the connector's syncMode:
+//      - 'changes' (Plaid): the connector returns { added, modified, removed } itself.
+//      - 'snapshot' (no change feed): the connector returns every transaction in a date window,
+//        and services/snapshot.js diffs that against the DB into the same shape.
+//   2. applyChanges: reconcile into Budgett (pending→posted promotion, incomplete-transaction
+//      matching, rules, notifications, extension events). Connectors only fetch and normalize;
+//      everything about how Budgett stores and reacts to a transaction lives here.
 const { getConnectorFor } = require('../connectors');
-const { updateInstitutionSyncState, createTransaction, getTransactionByExternalId,
+const { updateInstitutionSyncState, markInstitutionSynced, createTransaction, getTransactionByExternalId,
   getTransactionByExternalPendingId, softRemoveTransaction, restoreTransaction,
   createLog, createSplit, getAllRules, updateTransactionFromPending,
-  updateTransactionProviderData, getAccountByExternalId, getSetting,
+  updateTransactionProviderData, setTransactionPending, getAccountByExternalId, getSetting,
   findIncompleteMatches, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkExternalId,
-  updateAccountBalance, updateInstitutionStatus } = require('../db/queries');
+  createAccount, updateAccountBalance, updateInstitutionStatus } = require('../db/queries');
+const { planSnapshotWindow, diffSnapshot } = require('./snapshot');
 const { matchRule } = require('../helpers/rules');
 const { sendNotifications, escapeDiscordMarkdown } = require('../helpers/notifications');
 const { dispatchExtensionEvent } = require('./extensionLoader');
@@ -19,15 +24,93 @@ const { evaluateMathExpression } = require('../helpers/mathExpression');
 const institutionLabel = (institution) =>
   `${institution.external_id} (${institution.display_name || institution.name || institution.provider})`;
 
+// Fetch and apply everything new for one institution, whatever its connector's sync mode.
 async function syncInstitution(institution, io) {
   const connector = getConnectorFor(institution);
-  const label = institutionLabel(institution);
 
+  if (connector.capabilities?.syncMode === 'snapshot') {
+    const requestedWindow = planSnapshotWindow(institution);
+    const snapshot = await connector.fetchSnapshot(institution, requestedWindow);
+    // The connector reports the window it actually covered (a provider may cap history)
+    return ingestSnapshot(institution, { window: requestedWindow, ...snapshot }, io);
+  }
+
+  const label = institutionLabel(institution);
   createLog('info', 'sync_started', `Starting sync for institution ${label}`);
 
-  // First pass: fetch everything without sending individual notifications
-  const { added: allAdded, modified: allModified, removed: allRemoved, syncState } = await connector.fetchChanges(institution);
+  const { added, modified, removed, syncState } = await connector.fetchChanges(institution);
   updateInstitutionSyncState(syncState ? JSON.stringify(syncState) : null, institution.id);
+
+  const changes = { added, modified, removed };
+  await applyChanges(institution, changes, io);
+  await refreshBalances(institution, connector);
+  finishSync(institution, io);
+  return changes;
+}
+
+// Apply a snapshot (see services/snapshot.js for its shape) to one institution. Called by
+// syncInstitution for snapshot-mode connectors; also callable directly by a connector whose
+// single fetch covers several institutions, once per institution with its share of the data.
+async function ingestSnapshot(institution, snapshot, io) {
+  const label = institutionLabel(institution);
+  createLog('info', 'sync_started', `Starting snapshot sync for institution ${label} (${snapshot.window?.startDate} to ${snapshot.window?.endDate})`);
+
+  // Accounts first, so the snapshot's transactions resolve to them. A snapshot carries balances
+  // too, so there's no separate balance fetch like the changes path does.
+  for (const acct of snapshot.accounts || []) {
+    const dbAccount = getAccountByExternalId(institution.id, acct.externalId);
+    if (dbAccount) {
+      updateAccountBalance(acct.currentBalance, acct.availableBalance, dbAccount.id);
+    }
+    else {
+      createAccount(institution.id, acct);
+      createLog('info', 'account_added', `New account from ${label}: ${acct.name}`);
+    }
+  }
+
+  const changes = diffSnapshot(institution, snapshot);
+  if (snapshot.syncState !== undefined) {
+    updateInstitutionSyncState(snapshot.syncState ? JSON.stringify(snapshot.syncState) : null, institution.id);
+  }
+
+  await applyChanges(institution, changes, io);
+  finishSync(institution, io);
+  return changes;
+}
+
+async function refreshBalances(institution, connector) {
+  const label = institutionLabel(institution);
+  try {
+    for (const acct of await connector.fetchAccounts(institution)) {
+      const dbAccount = getAccountByExternalId(institution.id, acct.externalId);
+      if (dbAccount) {
+        updateAccountBalance(acct.currentBalance, acct.availableBalance, dbAccount.id);
+      }
+    }
+
+    createLog('info', 'balances_updated', `Updated balances for institution ${label}`);
+  }
+  catch (e) {
+    const { loginRequired, code, message } = connector.classifyError(e);
+    if (loginRequired) {
+      updateInstitutionStatus('login_required', institution.id);
+    }
+
+    createLog('warn', 'balance_update_failed', `Failed to update balances for institution ${label}: ${code || message}`);
+  }
+}
+
+function finishSync(institution, io) {
+  markInstitutionSynced(institution.id);
+  if (io) {
+    io.emit('SYNC_COMPLETE', { institution_id: institution.id });
+  }
+}
+
+// Reconcile one batch of normalized changes into Budgett: summary notifications first, then
+// each transaction (which sends its own notifications).
+async function applyChanges(institution, { added: allAdded = [], modified: allModified = [], removed: allRemoved = [] }, io) {
+  const label = institutionLabel(institution);
 
   // Send sync summary notification FIRST
   if (allAdded.length > 0 || allModified.length > 0 || allRemoved.length > 0) {
@@ -89,30 +172,14 @@ async function syncInstitution(institution, io) {
   }
 
   createLog('info', 'sync_completed', `Sync completed for institution ${label}`);
+}
 
-  // Refresh account balances
-  try {
-    for (const acct of await connector.fetchAccounts(institution)) {
-      const dbAccount = getAccountByExternalId(institution.id, acct.externalId);
-      if (dbAccount) {
-        updateAccountBalance(acct.currentBalance, acct.availableBalance, dbAccount.id);
-      }
-    }
-
-    createLog('info', 'balances_updated', `Updated balances for institution ${label}`);
-  }
-  catch (e) {
-    const { loginRequired, code, message } = connector.classifyError(e);
-    if (loginRequired) {
-      updateInstitutionStatus('login_required', institution.id);
-    }
-
-    createLog('warn', 'balance_update_failed', `Failed to update balances for institution ${label}: ${code || message}`);
-  }
-
-  if (io) {
-    io.emit('SYNC_COMPLETE', { institution_id: institution.id });
-  }
+// The name sync would give this transaction: the provider's merchant, renamed by the first
+// matching enabled rule (disabled rules still exist for display/re-enabling, just don't apply).
+function syncDisplayName(txn) {
+  const rules = getAllRules().filter(r => !r.is_disabled);
+  const matchedRule = matchRule(rules, txn.merchant, txn.amount);
+  return { matchedRule, displayName: matchedRule?.rename_to || txn.merchant };
 }
 
 async function processAddedTransaction(txn, institution, io) {
@@ -137,12 +204,14 @@ async function processAddedTransaction(txn, institution, io) {
   }
 
   if (matchedPending) {
-    // Pending→Posted: only update the external id and amount, preserve user edits
+    // Pending→Posted: update the external id and amount, and the name only if the user hasn't
+    // edited it (see SYNC_MERCHANT in db/queries.js); categories/notes are untouched
     updateTransactionFromPending(
       txn.externalId,
       txn.amount,
       matchedPending.id,
-      matchedPending.external_id
+      matchedPending.external_id,
+      syncDisplayName(txn).displayName
     );
     createLog('info', 'pending_matched', `Pending→Posted: ${txn.merchant} (${formatAmount(txn.amount)})`);
     await sendNotifications('sync_update', { message: `UPDATED (posted matched by pending id): ${escapeDiscordMarkdown(txn.merchant)}` });
@@ -179,7 +248,7 @@ async function processAddedTransaction(txn, institution, io) {
   if (!txn.pending && accountId) {
     const fuzzyMatch = findFuzzyPendingMatch(accountId, txn.amount, txn.date, txn.merchant || '');
     if (fuzzyMatch) {
-      promotePendingToPosted(txn.externalId, txn.amount, fuzzyMatch.id, fuzzyMatch.external_id);
+      promotePendingToPosted(txn.externalId, txn.amount, fuzzyMatch.id, fuzzyMatch.external_id, syncDisplayName(txn).displayName);
       createLog('info', 'fuzzy_pending_matched',
         `Posted txn matched pending #${fuzzyMatch.id} (${fuzzyMatch.merchant}): external id ${fuzzyMatch.external_id} → ${txn.externalId}, amount ${fuzzyMatch.amount} → ${txn.amount}`);
       await sendNotifications('sync_update', { message: `UPDATED (fuzzy matched pending): ${escapeDiscordMarkdown(txn.merchant)} → ${escapeDiscordMarkdown(fuzzyMatch.merchant)}` });
@@ -188,13 +257,11 @@ async function processAddedTransaction(txn, institution, io) {
     }
   }
 
-  // Try to match a rule (disabled rules still exist for display/re-enabling, just don't apply)
-  const rules = getAllRules().filter(r => !r.is_disabled);
   const merchantName = txn.merchant;
-  const matchedRule = matchRule(rules, merchantName, txn.amount);
-  const displayName = (matchedRule && matchedRule.rename_to) ? matchedRule.rename_to : merchantName;
+  const { matchedRule, displayName } = syncDisplayName(txn);
 
-  // Insert new transaction (use renamed merchant if rule specifies)
+  // Insert new transaction (use renamed merchant if rule specifies). Recording the same name as
+  // provider_merchant marks it as sync-owned until the user edits it.
   const result = createTransaction(
     txn.externalId,
     txn.externalPendingId || null,
@@ -204,7 +271,8 @@ async function processAddedTransaction(txn, institution, io) {
     txn.amount,
     txn.pending ? 1 : 0,
     txn.providerCategory || null,
-    JSON.stringify(txn.raw)
+    JSON.stringify(txn.raw),
+    displayName
   );
 
   const txnId = result.lastInsertRowid;
@@ -288,17 +356,30 @@ async function processAddedTransaction(txn, institution, io) {
 async function processModifiedTransaction(txn) {
   const existing = getTransactionByExternalId(txn.externalId);
   if (!existing) {
+    // A pending id whose posted version was just promoted earlier in this same batch
+    if (getTransactionByExternalPendingId(txn.externalId)) {
+      createLog('info', 'modify_already_promoted', `Modify for pending id ${txn.externalId} ignored — already promoted to a posted transaction`);
+      return;
+    }
+
     createLog('warn', 'modify_not_found', `Attempted to modify transaction ${txn.externalId} (${txn.merchant}, ${formatAmount(txn.amount)}), but could not find it`);
     return;
   }
 
+  // Renamed the same way as a new transaction; only applied if the user hasn't edited the name
   updateTransactionProviderData(
     txn.amount,
-    txn.merchant,
+    syncDisplayName(txn).displayName,
     txn.providerCategory || null,
     JSON.stringify(txn.raw),
     txn.externalId
   );
+
+  // Plaid posts under a new id (handled as added + removed), but a snapshot provider may flip
+  // `pending` on the same id
+  if (typeof txn.pending === 'boolean' && txn.pending !== Boolean(existing.is_pending)) {
+    setTransactionPending(txn.pending, txn.externalId);
+  }
 
   createLog('info', 'transaction_modified', `Modified: ${txn.merchant} (${formatAmount(txn.amount)})`);
 }
@@ -344,4 +425,4 @@ async function processRemovedTransaction(txn) {
   createLog('info', 'transaction_removed', `Soft-removed: ${txn.externalId} (${existing.merchant}, ${formatAmount(existing.amount)})`);
 }
 
-module.exports = { syncInstitution };
+module.exports = { syncInstitution, ingestSnapshot, applyChanges };

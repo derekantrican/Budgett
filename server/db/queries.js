@@ -75,6 +75,10 @@ const updateInstitutionSyncState = (syncStateJson, institutionId) => {
   run("UPDATE institutions SET sync_state_json = ?, updated_at = datetime('now') WHERE id = ?", [syncStateJson, institutionId]);
 };
 
+const markInstitutionSynced = (institutionId) => {
+  run("UPDATE institutions SET last_synced_at = datetime('now') WHERE id = ?", [institutionId]);
+};
+
 const updateInstitutionStatus = (status, institutionId) => {
   run("UPDATE institutions SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, institutionId]);
 };
@@ -142,9 +146,19 @@ const removeAccounts = (accountIds, deleteTransactions) => {
 };
 
 // Transactions
-const createTransaction = (externalId, externalPendingId, accountId, date, merchant, amount, isPending, providerCategory, rawJson) =>
-  run('INSERT INTO transactions (external_id, external_pending_id, account_id, date, merchant, amount, is_pending, provider_category, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [externalId, externalPendingId, accountId, date, merchant, amount, isPending, providerCategory, rawJson]);
+// `providerMerchant`: pass the same name as `merchant` when sync creates the row (see
+// SYNC_MERCHANT below); leave null for user-entered transactions.
+const createTransaction = (externalId, externalPendingId, accountId, date, merchant, amount, isPending, providerCategory, rawJson, providerMerchant = null) =>
+  run('INSERT INTO transactions (external_id, external_pending_id, account_id, date, merchant, amount, is_pending, provider_category, raw_json, provider_merchant) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [externalId, externalPendingId, accountId, date, merchant, amount, isPending, providerCategory, rawJson, providerMerchant]);
+
+// Sync-side merchant refresh. `provider_merchant` is the name sync last wrote; while `merchant`
+// still equals it the user hasn't edited the name and sync may replace it (both columns get the
+// new name). Once they differ, the user's name wins and both columns are left as they are.
+// SQLite evaluates every SET expression against the row's old values, so the two CASEs agree.
+// Takes the new name twice as parameters.
+const SYNC_MERCHANT = `merchant = CASE WHEN merchant IS provider_merchant THEN ? ELSE merchant END,
+       provider_merchant = CASE WHEN merchant IS provider_merchant THEN ? ELSE provider_merchant END`;
 const getTransactionByExternalId = (externalId) =>
   get('SELECT * FROM transactions WHERE external_id = ?', [externalId]);
 const getTransactionByExternalPendingId = (externalPendingId) =>
@@ -239,16 +253,34 @@ const getMoneyMovement = (days = 30) =>
 // promoted, for two reasons: a delayed "remove" webhook for the old id can still be
 // reconciled via getTransactionByExternalPendingId (see processRemovedTransaction), and downstream
 // consumers that keyed off the old id can still find the row.
-const updateTransactionFromPending = (externalId, amount, id, previousExternalId) => {
+const updateTransactionFromPending = (externalId, amount, id, previousExternalId, merchant) => {
   run(`UPDATE transactions SET external_id = ?, external_pending_id = ?, is_pending = 0,
-       amount = ?, updated_at = datetime('now') WHERE id = ?`,
-  [externalId, previousExternalId, amount, id]);
+       amount = ?, ${SYNC_MERCHANT}, updated_at = datetime('now') WHERE id = ?`,
+  [externalId, previousExternalId, amount, merchant, merchant, id]);
 };
 
 const updateTransactionProviderData = (amount, merchant, providerCategory, rawJson, externalId) => {
-  run(`UPDATE transactions SET amount = ?, merchant = ?, provider_category = ?, raw_json = ?, updated_at = datetime('now')
-       WHERE external_id = ?`, [amount, merchant, providerCategory, rawJson, externalId]);
+  run(`UPDATE transactions SET amount = ?, ${SYNC_MERCHANT}, provider_category = ?, raw_json = ?, updated_at = datetime('now')
+       WHERE external_id = ?`, [amount, merchant, merchant, providerCategory, rawJson, externalId]);
 };
+
+// For providers that keep the same id when a pending transaction posts (snapshot connectors)
+const setTransactionPending = (isPending, externalId) => {
+  run(`UPDATE transactions SET is_pending = ?, updated_at = datetime('now') WHERE external_id = ?`,
+    [isPending ? 1 : 0, externalId]);
+};
+
+// Snapshot diffing (services/snapshot.js): the bank-linked transactions an institution's
+// accounts already have, so a snapshot can be compared against them.
+const sqlInList = (values) => values.map(() => '?').join(', ');
+const getLinkedTransactionsForAccounts = (accountIds, startDate, endDate) =>
+  accountIds.length === 0 ? [] :
+    all(`SELECT * FROM transactions WHERE external_id IS NOT NULL AND account_id IN (${sqlInList(accountIds)})
+         AND date >= ? AND date <= ?`, [...accountIds, startDate, endDate]);
+const getOldestPendingDate = (accountIds) =>
+  accountIds.length === 0 ? null :
+    get(`SELECT MIN(date) AS date FROM transactions WHERE is_pending = 1 AND is_removed = 0
+         AND external_id IS NOT NULL AND account_id IN (${sqlInList(accountIds)})`, accountIds)?.date || null;
 
 // Find incomplete transactions (no external_id) matching the given amount, within a
 // generous window anchored to the incoming transaction's own date — NOT "now", since
@@ -301,10 +333,10 @@ const findFuzzyPendingMatch = (accountId, amount, date, merchantName) =>
 // Promote a pending transaction to posted: swap in the posted external id, update amount, mark
 // not pending, and stash the old external id in external_pending_id (see note on
 // updateTransactionFromPending above).
-const promotePendingToPosted = (newExternalId, amount, id, previousExternalId) =>
+const promotePendingToPosted = (newExternalId, amount, id, previousExternalId, merchant) =>
   run(`UPDATE transactions SET external_id = ?, external_pending_id = ?, amount = ?, is_pending = 0,
-       updated_at = datetime('now') WHERE id = ?`,
-  [newExternalId, previousExternalId, amount, id]);
+       ${SYNC_MERCHANT}, updated_at = datetime('now') WHERE id = ?`,
+  [newExternalId, previousExternalId, amount, merchant, merchant, id]);
 
 // Strip external_id from a transaction (demotes to incomplete, preserves user data)
 const unlinkExternalId = (id) =>
@@ -612,7 +644,7 @@ module.exports = {
   initQueries, run, get, all,
   // Institutions
   createInstitution, getAllInstitutions, getInstitutionsByProvider, getInstitutionById, getInstitutionByExternalId,
-  updateInstitutionSyncState, updateInstitutionStatus, deleteInstitution,
+  updateInstitutionSyncState, markInstitutionSynced, updateInstitutionStatus, deleteInstitution,
   // Accounts
   createAccount, getAccountsByInstitution, getAllAccounts, getAccountByExternalId, updateAccountBalance,
   getAccountTransactionCount, removeAccounts,
@@ -621,6 +653,7 @@ module.exports = {
   getTransactionsByDateRange, getHiddenTransactionsByDateRange, getTransactionRowsById,
   softRemoveTransaction, restoreTransaction,
   getIncompleteTransactions, getMoneyMovement, updateTransactionFromPending, updateTransactionProviderData,
+  setTransactionPending, getLinkedTransactionsForAccounts, getOldestPendingDate,
   findIncompleteMatches, linkIncompleteTransaction,
   findFuzzyPendingMatch, promotePendingToPosted, unlinkExternalId,
   // Splits
