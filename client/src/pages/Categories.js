@@ -329,7 +329,7 @@ function Categories() {
               <tr>
                 <th style={{ textAlign: 'left' }}>Name</th>
                 <th className="fit-width">Budgeted</th>
-                <th className="fit-width">Spent</th>
+                <th className="fit-width">Actual</th>
                 <th className="fit-width">Surplus/Deficit</th>
               </tr>
             </thead>
